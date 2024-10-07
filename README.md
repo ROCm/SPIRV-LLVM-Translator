@@ -8,6 +8,18 @@ This project currently only supports the OpenCL/compute "flavour" of SPIR-V: it 
 
 The LLVM/SPIR-V Bi-Directional Translator is open source software. You may freely distribute it under the terms of the license agreement found in LICENSE.txt.
 
+## **AMD SPECIFIC**
+
+This repository contains a temporary fork which includes changes that are
+currently necessary for the generation and subsequent consumption of
+[AMDGCN flavoured SPIR-V](https://github.com/llvm/llvm-project/pull/89796).
+These changes will be upstreamed, where feasible, or superseded by generic
+alternatives, and hence should be regarded as ephemeral (please do not form any
+dependencies on anything but superficial semantics).
+
+### Differences vs Upstream
+
+- TBA
 
 ## Directory Structure
 
