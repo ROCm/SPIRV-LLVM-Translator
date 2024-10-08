@@ -1,5 +1,5 @@
 set(LLVM_LINK_COMPONENTS
-  SPIRVLib
+  SPIRVAMDLib
   Analysis
   BitReader
   BitWriter
@@ -23,7 +23,7 @@ add_llvm_tool(amd-llvm-spirv
 setup_host_tool(amd-llvm-spirv LLVM_SPIRV amd-llvm-spirv_exe amd-llvm-spirv_target)
 
 if (LLVM_SPIRV_BUILD_EXTERNAL OR LLVM_LINK_LLVM_DYLIB)
-  target_link_libraries(amd-llvm-spirv PRIVATE LLVMSPIRVLib)
+  target_link_libraries(amd-llvm-spirv PRIVATE LLVMSPIRVAMDLib)
 endif()
 
 target_include_directories(amd-llvm-spirv

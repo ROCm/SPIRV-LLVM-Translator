@@ -5,7 +5,7 @@ llvm_canonicalize_cmake_booleans(LLVM_SPIRV_BUILD_EXTERNAL)
 
 # required by lit.site.cfg.py.in
 get_target_property(LLVM_SPIRV_DIR amd-llvm-spirv BINARY_DIR)
-get_target_property(LLVM_SPIRV_LIB_DIR LLVMSPIRVLib BINARY_DIR)
+get_target_property(LLVM_SPIRV_LIB_DIR LLVMSPIRVAMDLib BINARY_DIR)
 set(LLVM_SPIRV_TEST_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(SPIRV_TOOLS_FOUND AND NOT SPIRV-Tools-tools_FOUND)

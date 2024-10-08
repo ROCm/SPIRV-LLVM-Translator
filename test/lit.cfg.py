@@ -86,7 +86,7 @@ if not config.llvm_spirv_build_external and config.llvm_build_shared_libs:
     config.substitutions.append(
         (
             "%load_spirv_lib",
-            "-load-pass-plugin={}/libLLVMSPIRVLib{}".format(
+            "-load-pass-plugin={}/libLLVMSPIRVAMDLib{}".format(
                 config.llvm_shlib_dir, config.llvm_plugin_ext
             ),
         )

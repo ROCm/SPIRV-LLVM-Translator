@@ -3,10 +3,10 @@ exec_prefix=${prefix}
 libdir=${prefix}/lib@LLVM_LIBDIR_SUFFIX@
 includedir=${prefix}/include
 
-Name: LLVMSPIRVLib
-Description: LLVM/SPIR-V bi-directional translator
+Name: AMDLLVMSPIRVLib
+Description: AMD SPECIFIC LLVM/SPIR-V bi-directional translator
 Version: @LLVM_SPIRV_VERSION@
 URL: https://github.com/KhronosGroup/SPIRV-LLVM-Translator
 
-Libs: -L${libdir} -lLLVMSPIRVLib
+Libs: -L${libdir} -lLLVMSPIRVAMDLib
 Cflags: -I${includedir}

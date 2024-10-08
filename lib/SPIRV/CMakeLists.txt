@@ -40,7 +40,7 @@ set(SRC_LIST
   libSPIRV/SPIRVValue.cpp
   libSPIRV/SPIRVError.cpp
 )
-add_llvm_library(LLVMSPIRVLib
+add_llvm_library(LLVMSPIRVAMDLib
   ${SRC_LIST}
   LINK_COMPONENTS
     Analysis
@@ -58,7 +58,7 @@ add_llvm_library(LLVMSPIRVLib
     intrinsics_gen
   )
 
-target_include_directories(LLVMSPIRVLib
+target_include_directories(LLVMSPIRVAMDLib
   PRIVATE
     ${LLVM_INCLUDE_DIRS}
     ${LLVM_SPIRV_INCLUDE_DIRS}
