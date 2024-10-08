@@ -1,8 +1,8 @@
 ; REQUIRES: spirv-as
 ; RUN: spirv-as --target-env spv1.4 -o %t.spv %s
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -r --spirv-target-env=CL2.0 %t.spv -o - | llvm-dis | FileCheck --check-prefix=CHECK-OCL %s
-; RUN: llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o - | llvm-dis | FileCheck --check-prefix=CHECK-SPV-IR %s
+; RUN: amd-llvm-spirv -r --spirv-target-env=CL2.0 %t.spv -o - | llvm-dis | FileCheck --check-prefix=CHECK-OCL %s
+; RUN: amd-llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o - | llvm-dis | FileCheck --check-prefix=CHECK-SPV-IR %s
 
 ; Ensure that UserSemantic decorations on BuiltIn variables do not prevent successful translation.
 
