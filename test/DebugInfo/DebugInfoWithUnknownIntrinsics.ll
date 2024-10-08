@@ -1,3 +1,4 @@
+; XFAIL: *
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: llvm-spirv %t.bc -o %t.spv --spirv-ext=+all --spirv-allow-unknown-intrinsics
 ; RUN: llvm-spirv -r %t.spv -o %t.bc

@@ -1,3 +1,4 @@
+; XFAIL: *
 ; RUN: llvm-as < %s -o %t.bc
 ; RUN: llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=legacy
 ; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll

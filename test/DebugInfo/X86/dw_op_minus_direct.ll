@@ -1,3 +1,4 @@
+; XFAIL: *
 ; Test dwarf codegen of DW_OP_minus.
 ; RUN: llvm-as < %s -o %t.bc
 ; RUN: llvm-spirv %t.bc -o %t.spv

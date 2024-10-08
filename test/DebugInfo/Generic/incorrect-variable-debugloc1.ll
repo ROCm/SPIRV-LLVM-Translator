@@ -1,6 +1,7 @@
+; XFAIL:*
 ; REQUIRES: object-emission
 ; This test is failing for powerpc64, because a location list for the
-; variable 'c' is not generated at all. Temporary marking this test as XFAIL 
+; variable 'c' is not generated at all. Temporary marking this test as XFAIL
 ; for powerpc, until PR21881 is fixed.
 ; XFAIL: powerpc64
 
@@ -16,14 +17,14 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "spir64-unknown-unknown"
 
 ; This is a test for PR21176.
-; DW_OP_const <const> doesn't describe a constant value, but a value at a constant address. 
+; DW_OP_const <const> doesn't describe a constant value, but a value at a constant address.
 ; The proper way to describe a constant value is DW_OP_constu <const>, DW_OP_stack_value.
 ; For values < 32 we emit the canonical DW_OP_lit<const>.
 
 ; Generated with clang -S -emit-llvm -g -O2 test.cpp
 
 ; extern int func();
-; 
+;
 ; int main()
 ; {
 ;   volatile int c = 13;

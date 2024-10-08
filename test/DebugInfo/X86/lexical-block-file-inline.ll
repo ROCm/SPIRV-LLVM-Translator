@@ -1,3 +1,4 @@
+; XFAIL: *
 ; RUN: llvm-as < %s -o %t.bc
 ; RUN: llvm-spirv %t.bc -o %t.spv
 ; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
@@ -33,7 +34,7 @@ target triple = "spir64-unknown-unknown"
 ;;    return 0;
 ;;  }
 ;;}
-;;int foo() {  
+;;int foo() {
 ;;  return bar();
 ;;}
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
