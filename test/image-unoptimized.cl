@@ -1,6 +1,6 @@
 // RUN: %clang_cc1 %s -triple spir -O0 -emit-llvm-bc -o %t.bc
-// RUN: llvm-spirv %t.bc -o %t.spv
-// RUN: llvm-spirv %t.spv -to-text -o - | FileCheck %s
+// RUN: amd-llvm-spirv %t.bc -o %t.spv
+// RUN: amd-llvm-spirv %t.spv -to-text -o - | FileCheck %s
 // RUN: spirv-val %t.spv
 
 // CHECK: TypeImage [[TypeImage:[0-9]+]]

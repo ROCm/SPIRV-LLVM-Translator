@@ -47,9 +47,9 @@
 
 1 FunctionEnd
 
-; RUN: llvm-spirv %s -to-binary -o %t.spv
+; RUN: amd-llvm-spirv %s -to-binary -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -r %t.spv -spirv-target-env=SPV-IR -o - | llvm-dis | FileCheck %s -check-prefix=CHECK-LLVM
+; RUN: amd-llvm-spirv -r %t.spv -spirv-target-env=SPV-IR -o - | llvm-dis | FileCheck %s -check-prefix=CHECK-LLVM
 
 ; CHECK-LLVM-NOT: __spirv_WorkgroupSize
 ; CHECK-LLVM: __spirv_BuiltInWorkgroupSize

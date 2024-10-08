@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: not llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_bindless_images 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR-1
+; RUN: not amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_bindless_images 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR-1
 ; CHECK-ERROR-1: InvalidInstruction: Can't translate llvm instruction:
 ; CHECK-ERROR-1-NEXT: ConvertHandleToImageINTEL
 ; CHECK-ERROR-1-NEXT: Parameter value must be a 32-bit scalar in case of Physical32 addressing model or a 64-bit scalar in case of Physical64 addressing model

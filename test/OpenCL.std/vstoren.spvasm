@@ -1,10 +1,10 @@
 ; REQUIRES: spirv-as
 ; RUN: spirv-as --target-env spv1.0 -o %t.spv %s
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv %t.spv -r --spirv-target-env=SPV-IR -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.spv -r --spirv-target-env=SPV-IR -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o - | FileCheck %s --check-prefixes=CHECK,CHECK-SPV-IR
-; RUN: llvm-spirv %t.rev.bc -o - -spirv-text | FileCheck %s --check-prefix=CHECK-SPV-BACK
-; RUN: llvm-spirv %t.spv -r --spirv-target-env=CL2.0 -o - | llvm-dis | FileCheck %s --check-prefixes=CHECK,CHECK-CL20
+; RUN: amd-llvm-spirv %t.rev.bc -o - -spirv-text | FileCheck %s --check-prefix=CHECK-SPV-BACK
+; RUN: amd-llvm-spirv %t.spv -r --spirv-target-env=CL2.0 -o - | llvm-dis | FileCheck %s --check-prefixes=CHECK,CHECK-CL20
 
 ; CHECK-SPV-BACK: ExtInstImport [[Set:[0-9]+]] "OpenCL.std"
 ; CHECK-SPV-BACK: TypeVoid [[VoidTy:[0-9]+]]
@@ -204,7 +204,7 @@
 ; CHECK-CL20: call spir_func void @_Z7vstore4Dv4_ljPl(<4 x i64> {{.*}}, i32 0, ptr {{.*}})
 ; CHECK-CL20: call spir_func void @_Z7vstore8Dv8_ljPl(<8 x i64> {{.*}}, i32 0, ptr {{.*}})
 ; CHECK-CL20: call spir_func void @_Z8vstore16Dv16_ljPl(<16 x i64> {{.*}}, i32 0, ptr {{.*}})
- 
+
 ; CHECK-LABEL: spir_kernel void @testHalf
 ; CHECK-SPV-IR: call spir_func void @_Z19__spirv_ocl_vstorenDv2_DhiPU3AS1Dh(<2 x half> {{.*}}, i32 0, ptr addrspace(1) {{.*}})
 ; CHECK-SPV-IR: call spir_func void @_Z19__spirv_ocl_vstorenDv3_DhiPU3AS1Dh(<3 x half> {{.*}}, i32 0, ptr addrspace(1) {{.*}})
@@ -221,7 +221,7 @@
 ; CHECK-SPV-IR: call spir_func void @_Z19__spirv_ocl_vstorenDv4_DhiPDh(<4 x half> {{.*}}, i32 0, ptr {{.*}})
 ; CHECK-SPV-IR: call spir_func void @_Z19__spirv_ocl_vstorenDv8_DhiPDh(<8 x half> {{.*}}, i32 0, ptr {{.*}})
 ; CHECK-SPV-IR: call spir_func void @_Z19__spirv_ocl_vstorenDv16_DhiPDh(<16 x half> {{.*}}, i32 0, ptr {{.*}})
- 
+
 ; CHECK-SPV-BACK ExtInst [[VoidTy]] {{.*}} [[Set]] vstoren
 ; CHECK-SPV-BACK ExtInst [[VoidTy]] {{.*}} [[Set]] vstoren
 ; CHECK-SPV-BACK ExtInst [[VoidTy]] {{.*}} [[Set]] vstoren
@@ -237,7 +237,7 @@
 ; CHECK-SPV-BACK ExtInst [[VoidTy]] {{.*}} [[Set]] vstoren
 ; CHECK-SPV-BACK ExtInst [[VoidTy]] {{.*}} [[Set]] vstoren
 ; CHECK-SPV-BACK ExtInst [[VoidTy]] {{.*}} [[Set]] vstoren
- 
+
 ; CHECK-CL20: call spir_func void @_Z7vstore2Dv2_DhjPU3AS1Dh(<2 x half> {{.*}}, i32 0, ptr addrspace(1) {{.*}})
 ; CHECK-CL20: call spir_func void @_Z7vstore3Dv3_DhjPU3AS1Dh(<3 x half> {{.*}}, i32 0, ptr addrspace(1) {{.*}})
 ; CHECK-CL20: call spir_func void @_Z7vstore4Dv4_DhjPU3AS1Dh(<4 x half> {{.*}}, i32 0, ptr addrspace(1) {{.*}})

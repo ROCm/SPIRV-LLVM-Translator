@@ -1,8 +1,8 @@
 ; RUN: llvm-as < %s > %t.bc
-; RUN: llvm-spirv %t.bc -spirv-text -o %t.txt
+; RUN: amd-llvm-spirv %t.bc -spirv-text -o %t.txt
 ; RUN: FileCheck < %t.txt %s --check-prefix=SPIRV
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=BACK-TO-LLVM
 
 ; ModuleID = 'c:/work/tmp/testLink.c'

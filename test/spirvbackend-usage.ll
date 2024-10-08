@@ -7,12 +7,12 @@
 
 ; RUN: llvm-as %s -o %t.bc
 
-; The following is to test that 
-; RUN: llvm-spirv %t.bc -spirv-text -o %t.spv.txt -spirv-ext=+SPV_KHR_uniform_group_instructions --spirv-use-llvm-backend-target
+; The following is to test that
+; RUN: amd-llvm-spirv %t.bc -spirv-text -o %t.spv.txt -spirv-ext=+SPV_KHR_uniform_group_instructions --spirv-use-llvm-backend-target
 ; RUN: FileCheck < %t.spv.txt %s --check-prefix=CHECK-SPIRV
 
-; RUN: llvm-spirv %t.bc -o %t.spv -spirv-ext=+SPV_KHR_uniform_group_instructions --spirv-use-llvm-backend-target
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.bc -o %t.spv -spirv-ext=+SPV_KHR_uniform_group_instructions --spirv-use-llvm-backend-target
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc
 ; RUN: FileCheck < %t.rev.ll %s --check-prefix=CHECK-LLVM-SPV
 

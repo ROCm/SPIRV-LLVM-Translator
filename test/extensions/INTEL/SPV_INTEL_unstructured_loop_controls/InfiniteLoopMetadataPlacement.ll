@@ -1,8 +1,8 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv --spirv-ext=+SPV_INTEL_unstructured_loop_controls %t.bc -o %t.spv
-; RUN: llvm-spirv %t.spv --to-text -o - | FileCheck %s --check-prefix=CHECK-SPV
+; RUN: amd-llvm-spirv --spirv-ext=+SPV_INTEL_unstructured_loop_controls %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.spv --to-text -o - | FileCheck %s --check-prefix=CHECK-SPV
 
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o - | FileCheck %s --check-prefix=CHECK-REV-LLVM
 
 ; ModuleID = 'llvm_loop_test.cpp'

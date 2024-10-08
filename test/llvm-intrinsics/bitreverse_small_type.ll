@@ -18,9 +18,9 @@
 ; are not supported in clang.  In this test, such vector cases have been added manually for completeness.
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv -spirv-ext=+SPV_INTEL_arbitrary_precision_integers -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV --implicit-check-not="BitReverse"
-; RUN: llvm-spirv -spirv-ext=+SPV_INTEL_arbitrary_precision_integers %t.bc -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
+; RUN: amd-llvm-spirv -spirv-ext=+SPV_INTEL_arbitrary_precision_integers -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV --implicit-check-not="BitReverse"
+; RUN: amd-llvm-spirv -spirv-ext=+SPV_INTEL_arbitrary_precision_integers %t.bc -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; TODO: There is no validation for SPV_INTEL_arbitrary_precision_integers implemented in
 ; SPIRV-Tools. Enable after SPIR-V Tools are ready.

@@ -1,9 +1,9 @@
 ; RUN: llvm-as %s -o %t.bc
 ; Translation shouldn't crash:
-; RUN: llvm-spirv %t.bc -spirv-text --spirv-debug-info-version=nonsemantic-shader-200 -o %t.spt
+; RUN: amd-llvm-spirv %t.bc -spirv-text --spirv-debug-info-version=nonsemantic-shader-200 -o %t.spt
 ; RUN: FileCheck < %t.spt %s -check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-200
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-200
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o - | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; CHECK-SPIRV: [[#CompUnit:]] [[#]] DebugCompilationUnit

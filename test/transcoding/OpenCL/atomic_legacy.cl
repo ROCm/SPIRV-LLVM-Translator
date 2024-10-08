@@ -1,8 +1,8 @@
 // RUN: %clang_cc1 %s -triple spir -cl-std=CL1.2 -emit-llvm-bc -fdeclare-opencl-builtins -o %t.bc
-// RUN: llvm-spirv %t.bc -o %t.spv
+// RUN: amd-llvm-spirv %t.bc -o %t.spv
 // RUN: spirv-val %t.spv
-// RUN: llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-// RUN: llvm-spirv %t.spv -r --spirv-target-env=CL1.2 -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
+// RUN: amd-llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+// RUN: amd-llvm-spirv %t.spv -r --spirv-target-env=CL1.2 -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
 
 // This test checks that the translator is capable to correctly translate
 // legacy atomic OpenCL C 1.2 built-in functions [1] into corresponding SPIR-V

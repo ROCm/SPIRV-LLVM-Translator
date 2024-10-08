@@ -5,17 +5,17 @@
 
 ; RUN: llvm-as %s -o %t.bc
 
-; RUN: llvm-spirv -o %t.100.spt %t.bc --spirv-debug-info-version=nonsemantic-shader-100 -spirv-text
+; RUN: amd-llvm-spirv -o %t.100.spt %t.bc --spirv-debug-info-version=nonsemantic-shader-100 -spirv-text
 ; RUN: FileCheck %s --input-file %t.100.spt --check-prefix CHECK-SPIRV
-; RUN: llvm-spirv -o %t.100.spv %t.bc --spirv-debug-info-version=nonsemantic-shader-100
-; RUN: llvm-spirv -r -o %t.100.rev.bc %t.100.spv
+; RUN: amd-llvm-spirv -o %t.100.spv %t.bc --spirv-debug-info-version=nonsemantic-shader-100
+; RUN: amd-llvm-spirv -r -o %t.100.rev.bc %t.100.spv
 ; RUN: llvm-dis %t.100.rev.bc -o %t.100.rev.ll
 ; RUN: FileCheck %s --input-file %t.100.rev.ll --check-prefix CHECK-LLVM
 
-; RUN: llvm-spirv -o %t.200.spt %t.bc --spirv-debug-info-version=nonsemantic-shader-200 -spirv-text
+; RUN: amd-llvm-spirv -o %t.200.spt %t.bc --spirv-debug-info-version=nonsemantic-shader-200 -spirv-text
 ; RUN: FileCheck %s --input-file %t.200.spt --check-prefix CHECK-SPIRV
-; RUN: llvm-spirv -o %t.200.spv %t.bc --spirv-debug-info-version=nonsemantic-shader-200
-; RUN: llvm-spirv -r -o %t.200.rev.bc %t.200.spv
+; RUN: amd-llvm-spirv -o %t.200.spv %t.bc --spirv-debug-info-version=nonsemantic-shader-200
+; RUN: amd-llvm-spirv -r -o %t.200.rev.bc %t.200.spv
 ; RUN: llvm-dis %t.200.rev.bc -o %t.200.rev.ll
 ; RUN: FileCheck %s --input-file %t.200.rev.ll --check-prefix CHECK-LLVM
 
@@ -27,7 +27,7 @@
 
 ;; Ensure SPIR-V DebugGlobalVariable's Variable field does not hold a DIExpression if nonsemantic debug info is not enabled
 
-; RUN: llvm-spirv -o %t.spt %t.bc -spirv-text
+; RUN: amd-llvm-spirv -o %t.spt %t.bc -spirv-text
 ; RUN: FileCheck %s --input-file %t.spt --check-prefix CHECK-NONE-SPIRV
 
 ; CHECK-NONE-SPIRV: [[DEBUG_INFO_NONE:[0-9]+]] [[#]] DebugInfoNone

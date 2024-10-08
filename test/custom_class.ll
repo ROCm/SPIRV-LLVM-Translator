@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc
+; RUN: amd-llvm-spirv %t.bc
 
 ; --- Source code ---
 ; Generated with "intel/llvm/clang++ -fsycl-device-only  -emit-llvm -S"
@@ -11,7 +11,7 @@
 ;   CustomClass(int value);
 ;private:
 ;   int data;
-;}; 
+;};
 ;
 ;CustomClass::CustomClass(int value) : data(value) {}
 ;

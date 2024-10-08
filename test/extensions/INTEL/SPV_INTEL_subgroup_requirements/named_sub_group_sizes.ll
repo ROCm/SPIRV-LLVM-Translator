@@ -1,16 +1,16 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_subgroup_requirements -o %t.spv
-; RUN: llvm-spirv %t.spv -to-text -o %t.spt
+; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_subgroup_requirements -o %t.spv
+; RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
-; RUN: llvm-spirv %t.bc -o %t2.spv
-; RUN: llvm-spirv %t2.spv -to-text -o %t2.spt
+; RUN: amd-llvm-spirv %t.bc -o %t2.spv
+; RUN: amd-llvm-spirv %t2.spv -to-text -o %t2.spt
 ; RUN: FileCheck < %t2.spt %s --check-prefix=CHECK-SPIRV-2
 
-; RUN: llvm-spirv -r %t2.spv -o %t2.rev.bc
+; RUN: amd-llvm-spirv -r %t2.spv -o %t2.rev.bc
 ; RUN: llvm-dis < %t2.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; CHECK-SPIRV: Capability SubgroupRequirementsINTEL
@@ -23,7 +23,7 @@
 
 ; Check that with no SPV_INTEL_subgroup_requirements,
 ; (1) No SubgroupRequirementsINTEL Capability nor SPV_INTEL_subgroup_requirements extension is attached
-; (2) the SubgroupSize (=35) ExecutionMode is attached with the value original value from the LLVM IR 
+; (2) the SubgroupSize (=35) ExecutionMode is attached with the value original value from the LLVM IR
 ; CHECK-SPIRV-2-NOT: Capability SubgroupRequirementsINTEL
 ; CHECK-SPIRV-2-NOT: Extension "SPV_INTEL_subgroup_requirements"
 ; CHECK-SPIRV-2: EntryPoint 6 [[kernel:[0-9]+]] "_ZTSZ4mainE7Kernel1"

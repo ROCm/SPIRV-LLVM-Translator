@@ -58,25 +58,25 @@
 ;   sub_group_rotate(c, x);
 ; }
 ; clang -cc1 -O2 -triple spir -cl-std=cl2.0 -finclude-default-header -cl-ext=+all source.cl -emit-llvm-bc -o tmp.bc
-; llvm-spirv tmp.bc --spirv-ext=+all,-SPV_KHR_untyped_pointers -o tmp.spv
-; spirv-dis tmp.spv -o llvm-spirv/test/GroupAndSubgroupInstructions.spvasm
+; amd-llvm-spirv tmp.bc --spirv-ext=+all,-SPV_KHR_untyped_pointers -o tmp.spv
+; spirv-dis tmp.spv -o amd-llvm-spirv/test/GroupAndSubgroupInstructions.spvasm
 
 ; REQUIRES: spirv-as
 ; RUN: spirv-as %s --target-env spv1.3 -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -r %t.spv --spirv-target-env=CL1.2 -o %t.bc
+; RUN: amd-llvm-spirv -r %t.spv --spirv-target-env=CL1.2 -o %t.bc
 ; RUN: llvm-dis %t.bc -o %t.ll
 ; RUN: FileCheck < %t.ll %s --check-prefixes=CHECK-COMMON,CHECK-CL,CHECK-CL12
 
-; RUN: llvm-spirv -r %t.spv --spirv-target-env=CL2.0 -o %t.bc
+; RUN: amd-llvm-spirv -r %t.spv --spirv-target-env=CL2.0 -o %t.bc
 ; RUN: llvm-dis %t.bc -o %t.ll
 ; RUN: FileCheck < %t.ll %s --check-prefixes=CHECK-COMMON,CHECK-CL,CHECK-CL20
 
-; RUN: llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.bc
+; RUN: amd-llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.bc
 ; RUN: llvm-dis %t.bc -o %t.ll
 ; RUN: FileCheck < %t.ll %s --check-prefixes=CHECK-COMMON,CHECK-SPV-IR
 
-; RUN: llvm-spirv %t.bc --spirv-ext=+all,-SPV_KHR_untyped_pointers -o %t.rev.spv
+; RUN: amd-llvm-spirv %t.bc --spirv-ext=+all,-SPV_KHR_untyped_pointers -o %t.rev.spv
 ; RUN: spirv-val %t.rev.spv
 
 

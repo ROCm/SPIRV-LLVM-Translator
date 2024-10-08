@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
 
 ; Test that duplicate align information does not result in SPIR-V validation

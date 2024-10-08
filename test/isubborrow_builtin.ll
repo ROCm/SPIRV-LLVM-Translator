@@ -1,9 +1,9 @@
 ; REQUIRES: spirv-dis
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-dis --raw-id %t.spv | FileCheck --check-prefix CHECK-SPIRV %s
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o - | FileCheck --check-prefix CHECK-LLVM %s
 
 target triple = "spir64-unknown-unknown"
@@ -53,7 +53,7 @@ define spir_func void @test_builtin_isubborrowcc(i8 %a, i8 %b) {
 ; CHECK-SPIRV:       [[entry:%[a-z0-9_]+]] = OpLabel
 ; CHECK-SPIRV:      [[var_11:%[a-z0-9_]+]] = OpVariable [[_ptr_Function_i8struct]] Function
 ; CHECK-SPIRV:      [[var_12:%[a-z0-9_]+]] = OpISubBorrow [[i8struct]] [[a]] [[b]]
-; CHECK-SPIRV:                               OpStore [[var_11]] [[var_12]] 
+; CHECK-SPIRV:                               OpStore [[var_11]] [[var_12]]
 ; CHECK-SPIRV:                               OpReturn
 ; CHECK-SPIRV:                               OpFunctionEnd
 
@@ -71,7 +71,7 @@ define spir_func void @test_builtin_isubborrowss(i16 %a, i16 %b) {
 ; CHECK-SPIRV:     [[entry_0:%[a-z0-9_]+]] = OpLabel
 ; CHECK-SPIRV:      [[var_21:%[a-z0-9_]+]] = OpVariable [[_ptr_Function_i16struct]] Function
 ; CHECK-SPIRV:      [[var_22:%[a-z0-9_]+]] = OpISubBorrow [[i16struct]] [[a_0]] [[b_0]]
-; CHECK-SPIRV:                               OpStore [[var_21]] [[var_22]] 
+; CHECK-SPIRV:                               OpStore [[var_21]] [[var_22]]
 ; CHECK-SPIRV:                               OpReturn
 ; CHECK-SPIRV:                               OpFunctionEnd
 
@@ -89,7 +89,7 @@ define spir_func void @test_builtin_isubborrowii(i32 %a, i32 %b) {
 ; CHECK-SPIRV:     [[entry_1:%[a-z0-9_]+]] = OpLabel
 ; CHECK-SPIRV:      [[var_31:%[a-z0-9_]+]] = OpVariable [[_ptr_Function_i32struct]] Function
 ; CHECK-SPIRV:      [[var_32:%[a-z0-9_]+]] = OpISubBorrow [[i32struct]] [[a_1]] [[b_1]]
-; CHECK-SPIRV:                               OpStore [[var_31]] [[var_32]] 
+; CHECK-SPIRV:                               OpStore [[var_31]] [[var_32]]
 ; CHECK-SPIRV:                               OpReturn
 ; CHECK-SPIRV:                               OpFunctionEnd
 
@@ -107,7 +107,7 @@ define spir_func void @test_builtin_isubborrowll(i64 %a, i64 %b) {
 ; CHECK-SPIRV:     [[entry_2:%[a-z0-9_]+]] = OpLabel
 ; CHECK-SPIRV:      [[var_41:%[a-z0-9_]+]] = OpVariable [[_ptr_Function_i64struct]] Function
 ; CHECK-SPIRV:      [[var_42:%[a-z0-9_]+]] = OpISubBorrow [[i64struct]] [[a_2]] [[b_2]]
-; CHECK-SPIRV:                               OpStore [[var_41]] [[var_42]] 
+; CHECK-SPIRV:                               OpStore [[var_41]] [[var_42]]
 ; CHECK-SPIRV:                               OpReturn
 ; CHECK-SPIRV:                               OpFunctionEnd
 
@@ -125,7 +125,7 @@ define spir_func void @test_builtin_isubborrowDv4_xS_(<4 x i32> %a, <4 x i32> %b
 ; CHECK-SPIRV:     [[entry_3:%[a-z0-9_]+]] = OpLabel
 ; CHECK-SPIRV:      [[var_51:%[a-z0-9_]+]] = OpVariable [[_ptr_Function_vecstruct]] Function
 ; CHECK-SPIRV:      [[var_52:%[a-z0-9_]+]] = OpISubBorrow [[vecstruct]] [[a_3]] [[b_3]]
-; CHECK-SPIRV:                               OpStore [[var_51]] [[var_52]] 
+; CHECK-SPIRV:                               OpStore [[var_51]] [[var_52]]
 ; CHECK-SPIRV:                               OpReturn
 ; CHECK-SPIRV:                               OpFunctionEnd
 

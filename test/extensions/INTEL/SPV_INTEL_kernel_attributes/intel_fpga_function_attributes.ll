@@ -25,14 +25,14 @@
 ;; }
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_kernel_attributes,+SPV_INTEL_fpga_cluster_attributes,+SPV_INTEL_loop_fuse,+SPV_INTEL_fpga_invocation_pipelining_attributes -o %t.spv
-; RUN: llvm-spirv %t.spv -to-text -o %t.spt
+; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_kernel_attributes,+SPV_INTEL_fpga_cluster_attributes,+SPV_INTEL_loop_fuse,+SPV_INTEL_fpga_invocation_pipelining_attributes -o %t.spv
+; RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
-; RUN: llvm-spirv -spirv-text -r %t.spt -o %t.rev.bc
+; RUN: amd-llvm-spirv -spirv-text -r %t.spt -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; CHECK-SPIRV: Capability KernelAttributesINTEL

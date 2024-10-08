@@ -23,9 +23,9 @@
 
 1 FunctionEnd
 
-; RUN: llvm-spirv %s -to-binary -o %t.spv
+; RUN: amd-llvm-spirv %s -to-binary -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.bc
 ; RUN: llvm-dis < %t.bc | FileCheck %s
 
 ; CHECK: @var =

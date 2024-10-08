@@ -1,7 +1,7 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -spirv-text -o %t
+; RUN: amd-llvm-spirv %t.bc -spirv-text -o %t
 ; RUN: FileCheck < %t %s
-; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
 
 ; Image types may be represented in two ways while translating to SPIR-V:

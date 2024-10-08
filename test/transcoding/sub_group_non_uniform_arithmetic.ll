@@ -1,7 +1,7 @@
 ;; #pragma OPENCL EXTENSION cl_khr_subgroup_non_uniform_arithmetic : enable
 ;; #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 ;; #pragma OPENCL EXTENSION cl_khr_fp64 : enable
-;; 
+;;
 ;; kernel void testNonUniformArithmeticChar(global char* dst)
 ;; {
 ;;     char v = 0;
@@ -18,7 +18,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;; 
+;;
 ;; kernel void testNonUniformArithmeticUChar(global uchar* dst)
 ;; {
 ;;     uchar v = 0;
@@ -35,7 +35,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;; 
+;;
 ;; kernel void testNonUniformArithmeticShort(global short* dst)
 ;; {
 ;;     short v = 0;
@@ -52,7 +52,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;; 
+;;
 ;; kernel void testNonUniformArithmeticUShort(global ushort* dst)
 ;; {
 ;;     ushort v = 0;
@@ -69,7 +69,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;; 
+;;
 ;; kernel void testNonUniformArithmeticInt(global int* dst)
 ;; {
 ;;     int v = 0;
@@ -86,7 +86,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;; 
+;;
 ;; kernel void testNonUniformArithmeticUInt(global uint* dst)
 ;; {
 ;;     uint v = 0;
@@ -103,7 +103,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;; 
+;;
 ;; kernel void testNonUniformArithmeticLong(global long* dst)
 ;; {
 ;;     long v = 0;
@@ -120,7 +120,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;; 
+;;
 ;; kernel void testNonUniformArithmeticULong(global ulong* dst)
 ;; {
 ;;     ulong v = 0;
@@ -137,7 +137,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;; 
+;;
 ;; kernel void testNonUniformArithmeticFloat(global float* dst)
 ;; {
 ;;     float v = 0;
@@ -154,7 +154,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;; 
+;;
 ;; kernel void testNonUniformArithmeticHalf(global half* dst)
 ;; {
 ;;     half v = 0;
@@ -171,7 +171,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;; 
+;;
 ;; kernel void testNonUniformArithmeticDouble(global double* dst)
 ;; {
 ;;     double v = 0;
@@ -188,7 +188,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;; 
+;;
 ;; kernel void testNonUniformBitwiseChar(global char* dst)
 ;; {
 ;;     char v = 0;
@@ -293,7 +293,7 @@
 ;;     dst[7] = sub_group_non_uniform_scan_exclusive_or(v);
 ;;     dst[8] = sub_group_non_uniform_scan_exclusive_xor(v);
 ;; }
-;; 
+;;
 ;; kernel void testNonUniformLogical(global int* dst)
 ;; {
 ;;     int v = 0;
@@ -309,13 +309,13 @@
 ;; }
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv %t.spv -to-text -o %t.spt
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefixes=CHECK-COMMON,CHECK-LLVM
-; RUN: llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefixes=CHECK-COMMON,CHECK-SPV-IR
 
 ; CHECK-SPIRV-DAG: {{[0-9]*}} Capability GroupNonUniformArithmetic

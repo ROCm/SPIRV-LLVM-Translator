@@ -1,10 +1,10 @@
-; This test checks that any invalid source language in the Compilation Unit instruction is mapped to 
+; This test checks that any invalid source language in the Compilation Unit instruction is mapped to
 ; DW_LANG_OpenCL and the original literal value is retained in the "Source Lang Literal" LLVM module flag metadata.
 
 ; REQUIRES: spirv-as
 
 ; RUN: spirv-as --target-env spv1.3 %s -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s
 
 ; SPIR-V
 ; Version: 1.1

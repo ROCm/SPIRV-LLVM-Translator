@@ -1,7 +1,7 @@
 ;; #pragma OPENCL EXTENSION cl_khr_subgroup_clustered_reduce : enable
 ;; #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 ;; #pragma OPENCL EXTENSION cl_khr_fp64 : enable
-;; 
+;;
 ;; kernel void testClusteredArithmeticChar(global char* dst)
 ;; {
 ;;     char v = 0;
@@ -10,7 +10,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;; 
+;;
 ;; kernel void testClusteredArithmeticUChar(global uchar* dst)
 ;; {
 ;;     uchar v = 0;
@@ -19,7 +19,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;; 
+;;
 ;; kernel void testClusteredArithmeticShort(global short* dst)
 ;; {
 ;;     short v = 0;
@@ -28,7 +28,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;; 
+;;
 ;; kernel void testClusteredArithmeticUShort(global ushort* dst)
 ;; {
 ;;     ushort v = 0;
@@ -37,7 +37,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;; 
+;;
 ;; kernel void testClusteredArithmeticInt(global int* dst)
 ;; {
 ;;     int v = 0;
@@ -46,7 +46,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;; 
+;;
 ;; kernel void testClusteredArithmeticUInt(global uint* dst)
 ;; {
 ;;     uint v = 0;
@@ -55,7 +55,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;; 
+;;
 ;; kernel void testClusteredArithmeticLong(global long* dst)
 ;; {
 ;;     long v = 0;
@@ -64,7 +64,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;; 
+;;
 ;; kernel void testClusteredArithmeticULong(global ulong* dst)
 ;; {
 ;;     ulong v = 0;
@@ -73,7 +73,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;; 
+;;
 ;; kernel void testClusteredArithmeticFloat(global float* dst)
 ;; {
 ;;     float v = 0;
@@ -82,7 +82,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;; 
+;;
 ;; kernel void testClusteredArithmeticHalf(global half* dst)
 ;; {
 ;;     half v = 0;
@@ -91,7 +91,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;; 
+;;
 ;; kernel void testClusteredArithmeticDouble(global double* dst)
 ;; {
 ;;     double v = 0;
@@ -100,7 +100,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;; 
+;;
 ;; kernel void testClusteredBitwiseChar(global char* dst)
 ;; {
 ;;     char v = 0;
@@ -108,7 +108,7 @@
 ;;     dst[1] = sub_group_clustered_reduce_or(v, 2);
 ;;     dst[2] = sub_group_clustered_reduce_xor(v, 2);
 ;; }
-;; 
+;;
 ;; kernel void testClusteredBitwiseUChar(global uchar* dst)
 ;; {
 ;;     uchar v = 0;
@@ -116,7 +116,7 @@
 ;;     dst[1] = sub_group_clustered_reduce_or(v, 2);
 ;;     dst[2] = sub_group_clustered_reduce_xor(v, 2);
 ;; }
-;; 
+;;
 ;; kernel void testClusteredBitwiseShort(global short* dst)
 ;; {
 ;;     short v = 0;
@@ -124,7 +124,7 @@
 ;;     dst[1] = sub_group_clustered_reduce_or(v, 2);
 ;;     dst[2] = sub_group_clustered_reduce_xor(v, 2);
 ;; }
-;; 
+;;
 ;; kernel void testClusteredBitwiseUShort(global ushort* dst)
 ;; {
 ;;     ushort v = 0;
@@ -132,7 +132,7 @@
 ;;     dst[1] = sub_group_clustered_reduce_or(v, 2);
 ;;     dst[2] = sub_group_clustered_reduce_xor(v, 2);
 ;; }
-;; 
+;;
 ;; kernel void testClusteredBitwiseInt(global int* dst)
 ;; {
 ;;     int v = 0;
@@ -140,7 +140,7 @@
 ;;     dst[1] = sub_group_clustered_reduce_or(v, 2);
 ;;     dst[2] = sub_group_clustered_reduce_xor(v, 2);
 ;; }
-;; 
+;;
 ;; kernel void testClusteredBitwiseUInt(global uint* dst)
 ;; {
 ;;     uint v = 0;
@@ -148,7 +148,7 @@
 ;;     dst[1] = sub_group_clustered_reduce_or(v, 2);
 ;;     dst[2] = sub_group_clustered_reduce_xor(v, 2);
 ;; }
-;; 
+;;
 ;; kernel void testClusteredBitwiseLong(global long* dst)
 ;; {
 ;;     long v = 0;
@@ -156,7 +156,7 @@
 ;;     dst[1] = sub_group_clustered_reduce_or(v, 2);
 ;;     dst[2] = sub_group_clustered_reduce_xor(v, 2);
 ;; }
-;; 
+;;
 ;; kernel void testClusteredBitwiseULong(global ulong* dst)
 ;; {
 ;;     ulong v = 0;
@@ -164,7 +164,7 @@
 ;;     dst[1] = sub_group_clustered_reduce_or(v, 2);
 ;;     dst[2] = sub_group_clustered_reduce_xor(v, 2);
 ;; }
-;; 
+;;
 ;; kernel void testClusteredLogical(global int* dst)
 ;; {
 ;;     int v = 0;
@@ -174,13 +174,13 @@
 ;; }
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv %t.spv -to-text -o %t.spt
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefixes=CHECK-COMMON,CHECK-LLVM
-; RUN: llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefixes=CHECK-COMMON,CHECK-SPV-IR
 
 ; CHECK-SPIRV-DAG: {{[0-9]*}} Capability GroupNonUniformClustered

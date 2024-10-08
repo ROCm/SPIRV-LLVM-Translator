@@ -27,12 +27,12 @@ if config.spirv_tools_found:
 if not config.spirv_skip_debug_info_tests:
     # Direct object generation.
     config.available_features.add('object-emission')
-    
+
     # LLVM can be configured with an empty default triple.
     # Some tests are "generic" and require a valid default triple.
     if config.target_triple:
         config.available_features.add('default_triple')
-    
+
     # Ask llvm-config about asserts.
     llvm_config.feature_config([('--assertion-mode', {'ON': 'asserts'})])
 
@@ -52,7 +52,7 @@ config.substitutions.append(('%PATH%', config.environment['PATH']))
 
 tool_dirs = [config.llvm_spirv_dir, config.llvm_tools_dir]
 
-tools = ['llvm-as', 'llvm-dis', 'llvm-spirv', 'not']
+tools = ['llvm-as', 'llvm-dis', 'amd-llvm-spirv', 'not']
 if not config.spirv_skip_debug_info_tests:
     tools.extend(['llc', 'llvm-dwarfdump', 'llvm-objdump', 'llvm-readelf', 'llvm-readobj'])
 

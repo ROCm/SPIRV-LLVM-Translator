@@ -1,7 +1,7 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv --spirv-ext=+SPV_INTEL_cache_controls -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv --spirv-ext=+SPV_INTEL_cache_controls %t.bc -o %t.spv
-; RUN: llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
+; RUN: amd-llvm-spirv --spirv-ext=+SPV_INTEL_cache_controls -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv --spirv-ext=+SPV_INTEL_cache_controls %t.bc -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; CHECK-SPIRV: Decorate {{[0-9]+}} CacheControlLoadINTEL 0 0
 ; CHECK-SPIRV: Decorate {{[0-9]+}} CacheControlStoreINTEL 0 1

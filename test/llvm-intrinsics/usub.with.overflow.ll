@@ -1,9 +1,9 @@
 ; REQUIRES: spirv-dis
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-dis --raw-id %t.spv | FileCheck --check-prefix CHECK-SPIRV %s
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -r -o %t.rev.bc %t.spv
+; RUN: amd-llvm-spirv -r -o %t.rev.bc %t.spv
 ; RUN: llvm-dis -o - %t.rev.bc | FileCheck --check-prefix CHECK-LLVM %s
 
 target triple = "spir64-unknown-unknown"
@@ -156,7 +156,7 @@ entry:
 ; CHECK-LLVM:   ret i1 %8
 define spir_func <4 x i1> @test_usub_with_overflow_v4i32(<4 x i32> %a, <4 x i32> %b) {
 entry:
-  %res = call {<4 x i32>, <4 x i1>} @llvm.usub.with.overflow.v4i32(<4 x i32> %a, <4 x i32> %b) 
+  %res = call {<4 x i32>, <4 x i1>} @llvm.usub.with.overflow.v4i32(<4 x i32> %a, <4 x i32> %b)
   %0 = extractvalue {<4 x i32>, <4 x i1>} %res, 0
   %1 = extractvalue {<4 x i32>, <4 x i1>} %res, 1
   ret <4 x i1> %1

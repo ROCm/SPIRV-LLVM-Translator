@@ -4,8 +4,8 @@
 ;; %3 = tail call i64 @_Z12get_local_idj(i32 0) - A function call
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv %t.bc -spirv-text -o %t.txt
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.bc -spirv-text -o %t.txt
 ; RUN: FileCheck < %t.txt %s --check-prefix=CHECK-SPIRV
 ; RUN: spirv-val %t.spv
 

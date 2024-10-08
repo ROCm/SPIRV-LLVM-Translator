@@ -2,8 +2,8 @@
 ; metadata
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_memory_access_aliasing -o %t.spv
-; RUN: llvm-spirv %t.spv -to-text -o %t.spt
+; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_memory_access_aliasing -o %t.spv
+; RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
 ; CHECK-SPIRV-NOT: Capability MemoryAccessAliasingINTEL

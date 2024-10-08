@@ -50,9 +50,9 @@
 
 1 FunctionEnd
 
-; RUN: llvm-spirv --to-binary %s -o %t.spv
+; RUN: amd-llvm-spirv --to-binary %s -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv --spirv-target-env=CL1.2 -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: amd-llvm-spirv --spirv-target-env=CL1.2 -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: FileCheck %s < %t.ll
 
 ; OpAtomicLoad is emulated via atom_add(*p, 0)

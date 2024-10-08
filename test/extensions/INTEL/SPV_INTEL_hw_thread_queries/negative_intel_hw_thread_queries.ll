@@ -2,7 +2,7 @@
 ; Check for errors in case if the extension is not enabled, but the appropriate
 ; SPV-IR patter is found
 ; RUN: llvm-as %s -o %t.bc
-; RUN: not llvm-spirv %t.bc -o %t.spv 2>&1 | FileCheck %s
+; RUN: not amd-llvm-spirv %t.bc -o %t.spv 2>&1 | FileCheck %s
 
 ; CHECK: InvalidModule: Invalid SPIR-V module: Intel HW thread queries must be enabled by SPV_INTEL_hw_thread_queries extension.
 ; CHECK: LLVM value that is being translated:

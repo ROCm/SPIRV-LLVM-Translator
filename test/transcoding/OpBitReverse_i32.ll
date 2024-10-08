@@ -1,8 +1,8 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv --spirv-ext=+SPV_KHR_bit_instructions -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv --spirv-ext=+SPV_KHR_bit_instructions %t.bc -o %t.spv
+; RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_bit_instructions -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_bit_instructions %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; CHECK-SPIRV: 4 TypeInt [[int:[0-9]+]] 32
 ; CHECK-SPIRV: 4 BitReverse [[int]]

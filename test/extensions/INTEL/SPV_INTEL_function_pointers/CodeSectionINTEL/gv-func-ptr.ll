@@ -1,6 +1,6 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -spirv-ext=+SPV_INTEL_function_pointers -o %t.spv
-; RUN: llvm-spirv -r -spirv-emit-function-ptr-addr-space %t.spv -o %t.r.bc
+; RUN: amd-llvm-spirv %t.bc -spirv-ext=+SPV_INTEL_function_pointers -o %t.spv
+; RUN: amd-llvm-spirv -r -spirv-emit-function-ptr-addr-space %t.spv -o %t.r.bc
 ; RUN: llvm-dis %t.r.bc -o %t.r.ll
 ; RUN: FileCheck < %t.r.ll %s --check-prefix=CHECK-LLVM
 

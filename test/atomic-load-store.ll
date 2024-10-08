@@ -1,7 +1,7 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -to-text %t.spv -o - | FileCheck %s
+; RUN: amd-llvm-spirv -to-text %t.spv -o - | FileCheck %s
 
 ; CHECK-DAG: Constant [[#]] [[#CrossDeviceScope:]] 0
 ; CHECK-DAG: Constant [[#]] [[#Release:]] 4

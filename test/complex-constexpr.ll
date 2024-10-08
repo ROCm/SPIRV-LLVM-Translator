@@ -1,8 +1,8 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv %t.spv -o %t.spt --to-text
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.spv -o %t.spt --to-text
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc
 ; RUN: FileCheck %s --input-file %t.spt -check-prefix=CHECK-SPIRV
 ; RUN: FileCheck %s --input-file %t.rev.ll  -check-prefix=CHECK-LLVM

@@ -21,7 +21,7 @@
 
 1 FunctionEnd
 
-; RUN: llvm-spirv %s -to-binary -o %t.spv
+; RUN: amd-llvm-spirv %s -to-binary -o %t.spv
 ; RUN: spirv-val %t.spv
 ; Reverse translation shouldn't crash:
-; RUN: llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o %t.bc
+; RUN: amd-llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o %t.bc

@@ -5,7 +5,7 @@
 ; clang -cc1 -triple spir -O0 -debug-info-kind=line-tables-only -emit-llvm -o /tmp/SingleOpLine.ll /tmp/SingleOpLine.cl
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -spirv-text -o - | FileCheck %s
+; RUN: amd-llvm-spirv %t.bc -spirv-text -o - | FileCheck %s
 
 ; ModuleID = '/tmp/SingleOpLine.cl'
 source_filename = "/tmp/SingleOpLine.cl"

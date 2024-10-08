@@ -1,8 +1,8 @@
 ; Make sure the translator doesn't crash if the input LLVM IR contains llvm.invariant.* intrinsics
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -to-text %t.spv -o - | FileCheck %s
+; RUN: amd-llvm-spirv -to-text %t.spv -o - | FileCheck %s
 
 ; CHECK-NOT: FunctionParameter
 ; CHECK-NOT: FunctionCall

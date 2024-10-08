@@ -2,8 +2,8 @@
 // which are not defined in the spec.
 
 // RUN: %clang_cc1 -triple spir -O1 -cl-std=cl2.0 -fdeclare-opencl-builtins -finclude-default-header %s -emit-llvm-bc -o %t.bc
-// RUN: llvm-spirv %t.bc -spirv-text -o - | FileCheck %s
-// RUN: llvm-spirv %t.bc -o %t.spv
+// RUN: amd-llvm-spirv %t.bc -spirv-text -o - | FileCheck %s
+// RUN: amd-llvm-spirv %t.bc -o %t.spv
 // RUN: spirv-val %t.spv
 
 // CHECK-LABEL: Label

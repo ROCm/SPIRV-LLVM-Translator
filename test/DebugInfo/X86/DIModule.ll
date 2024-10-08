@@ -1,12 +1,12 @@
 ; ModuleID = '/Volumes/Data/apple-internal/llvm/tools/clang/test/Modules/debug-info-moduleimport.m'
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: llvm-spirv --spirv-ext=+SPV_INTEL_debug_module %t.bc -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: amd-llvm-spirv --spirv-ext=+SPV_INTEL_debug_module %t.bc -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -mtriple=x86_64-apple-macosx %t.ll -accel-tables=Dwarf -o %t -filetype=obj
 ; RUN: llvm-dwarfdump -debug-info %t | FileCheck %s
 ; RUN: llvm-dwarfdump -verify %t
 
-; RUN: llvm-spirv --spirv-ext=+SPV_INTEL_debug_module %t.bc -spirv-text -o - | FileCheck %s --check-prefix CHECK-SPIRV
+; RUN: amd-llvm-spirv --spirv-ext=+SPV_INTEL_debug_module %t.bc -spirv-text -o - | FileCheck %s --check-prefix CHECK-SPIRV
 
 ; CHECK: DW_TAG_compile_unit
 ; CHECK-NOT: DW_TAG
@@ -29,7 +29,7 @@ target triple = "spir64-unknown-unknown"
 ; CHECK-SPIRV: String [[IncludePath:[0-9]+]] "/llvm/tools/clang/test/Modules/Inputs"
 ; CHECK-SPIRV: String [[ApiNotes:[0-9]+]] "m.apinotes"
 
-; CHECK-SPIRV: ExtInst {{[0-9]+}} [[Module:[0-9]+]] {{[0-9]+}} DebugModuleINTEL [[Name]] {{[0-9]+}} 0 {{[0-9]+}} [[Defines]] [[IncludePath]] [[ApiNotes]] 0 
+; CHECK-SPIRV: ExtInst {{[0-9]+}} [[Module:[0-9]+]] {{[0-9]+}} DebugModuleINTEL [[Name]] {{[0-9]+}} 0 {{[0-9]+}} [[Defines]] [[IncludePath]] [[ApiNotes]] 0
 ; CHECK-SPIRV: ExtInst {{[0-9]+}} {{[0-9]+}} {{[0-9]+}} DebugImportedEntity {{[0-9]+}} {{[0-9]+}} {{[0-9]+}} {{[0-9]+}} [[Module]]
 
 !llvm.dbg.cu = !{!0}

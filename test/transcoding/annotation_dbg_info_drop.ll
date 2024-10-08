@@ -1,10 +1,10 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv %t.spv --to-text -o %t.spt
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.spv --to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefixes=CHECK,CHECK-SPV
 
-; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_fpga_reg -o %t.fpga_reg.spv
-; RUN: llvm-spirv %t.fpga_reg.spv --to-text -o %t.fpga_reg.spt
+; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_fpga_reg -o %t.fpga_reg.spv
+; RUN: amd-llvm-spirv %t.fpga_reg.spv --to-text -o %t.fpga_reg.spt
 ; RUN: FileCheck < %t.fpga_reg.spt %s --check-prefixes=CHECK,CHECK-SPV-FPGA_REG
 
 ; need to rewrite the entire test since with opaque pointers a lot of bitcasts
@@ -12,8 +12,8 @@
 ; XFAIL: *
 
 ; -- Check that reverse translation is not failed.
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
-; RUN: llvm-spirv -r %t.fpga_reg.spv -o %t.rev.fpga_reg.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.fpga_reg.spv -o %t.rev.fpga_reg.bc
 
 ; ModuleID = 'annotation_dbg_info_drop.cpp'
 source_filename = "annotation_dbg_info_drop.cpp"

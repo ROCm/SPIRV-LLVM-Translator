@@ -1,5 +1,5 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: not llvm-spirv %t.bc --spirv-ext=+SPV_KHR_cooperative_matrix -o %t.spv 2>&1 | FileCheck %s
+; RUN: not amd-llvm-spirv %t.bc --spirv-ext=+SPV_KHR_cooperative_matrix -o %t.spv 2>&1 | FileCheck %s
 
 ; CHECK: InvalidInstruction: Can't translate llvm instruction:
 ; CHECK: TypeCooperativeMatrixKHR

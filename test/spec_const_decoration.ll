@@ -1,5 +1,5 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: llvm-spirv %t.bc -spirv-text -o - | FileCheck %s
+; RUN: amd-llvm-spirv %t.bc -spirv-text -o - | FileCheck %s
 
 ; CHECK: Decorate [[#SpecConst:]] SpecId 0
 ; CHECK: SpecConstant [[#]] [[#SpecConst]] 70

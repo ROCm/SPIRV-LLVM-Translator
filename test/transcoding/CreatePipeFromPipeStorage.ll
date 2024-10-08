@@ -1,8 +1,8 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -spirv-text -o %t.txt
+; RUN: amd-llvm-spirv %t.bc -spirv-text -o %t.txt
 ; RUN: FileCheck < %t.txt %s --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-SPV-IR
 
 

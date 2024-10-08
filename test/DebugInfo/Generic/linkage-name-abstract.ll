@@ -1,14 +1,14 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 
 ; RUN: llc -mtriple=%triple -O0 -filetype=obj -dwarf-linkage-names=Abstract < %t.ll | llvm-dwarfdump -v -debug-info - > %t
 ; RUN: FileCheck %s -check-prefix=ONENAME < %t
-; RUN: FileCheck %s -check-prefix=REF < %t 
+; RUN: FileCheck %s -check-prefix=REF < %t
 ; Verify tuning for SCE gets us Abstract only.
 ; RUN: llc -mtriple=%triple -O0 -filetype=obj -debugger-tune=sce < %t.ll | llvm-dwarfdump -v -debug-info - > %t
 ; RUN: FileCheck %s -check-prefix=ONENAME < %t
-; RUN: FileCheck %s -check-prefix=REF < %t 
+; RUN: FileCheck %s -check-prefix=REF < %t
 ; REQUIRES: object-emission
 
 ; Verify that the only linkage-name present is the abstract origin of the
@@ -16,7 +16,7 @@
 
 ; IR generated from clang -O0 with:
 ; void f1();
-; __attribute__((always_inline)) void f2() { 
+; __attribute__((always_inline)) void f2() {
 ;   f1();
 ; }
 ; void f3() {

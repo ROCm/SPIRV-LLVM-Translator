@@ -1,7 +1,7 @@
 ;; #pragma OPENCL EXTENSION cl_khr_subgroup_extended_types : enable
 ;; #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 ;; #pragma OPENCL EXTENSION cl_khr_fp64 : enable
-;; 
+;;
 ;; kernel void testBroadcastChar()
 ;; {
 ;;     char16 v = 0;
@@ -12,7 +12,7 @@
 ;;     v.s01234567 = sub_group_broadcast(v.s01234567, 0);
 ;;     v = sub_group_broadcast(v, 0);
 ;; }
-;; 
+;;
 ;; kernel void testBroadcastUChar()
 ;; {
 ;;     uchar16 v = 0;
@@ -23,7 +23,7 @@
 ;;     v.s01234567 = sub_group_broadcast(v.s01234567, 0);
 ;;     v = sub_group_broadcast(v, 0);
 ;; }
-;; 
+;;
 ;; kernel void testBroadcastShort()
 ;; {
 ;;     short16 v = 0;
@@ -34,7 +34,7 @@
 ;;     v.s01234567 = sub_group_broadcast(v.s01234567, 0);
 ;;     v = sub_group_broadcast(v, 0);
 ;; }
-;; 
+;;
 ;; kernel void testBroadcastUShort()
 ;; {
 ;;     ushort16 v = 0;
@@ -45,7 +45,7 @@
 ;;     v.s01234567 = sub_group_broadcast(v.s01234567, 0);
 ;;     v = sub_group_broadcast(v, 0);
 ;; }
-;; 
+;;
 ;; kernel void testBroadcastInt()
 ;; {
 ;;     int16 v = 0;
@@ -56,7 +56,7 @@
 ;;     v.s01234567 = sub_group_broadcast(v.s01234567, 0);
 ;;     v = sub_group_broadcast(v, 0);
 ;; }
-;; 
+;;
 ;; kernel void testBroadcastUInt()
 ;; {
 ;;     uint16 v = 0;
@@ -67,7 +67,7 @@
 ;;     v.s01234567 = sub_group_broadcast(v.s01234567, 0);
 ;;     v = sub_group_broadcast(v, 0);
 ;; }
-;; 
+;;
 ;; kernel void testBroadcastLong()
 ;; {
 ;;     long16 v = 0;
@@ -78,7 +78,7 @@
 ;;     v.s01234567 = sub_group_broadcast(v.s01234567, 0);
 ;;     v = sub_group_broadcast(v, 0);
 ;; }
-;; 
+;;
 ;; kernel void testBroadcastULong()
 ;; {
 ;;     ulong16 v = 0;
@@ -89,7 +89,7 @@
 ;;     v.s01234567 = sub_group_broadcast(v.s01234567, 0);
 ;;     v = sub_group_broadcast(v, 0);
 ;; }
-;; 
+;;
 ;; kernel void testBroadcastFloat()
 ;; {
 ;;     float16 v = 0;
@@ -100,7 +100,7 @@
 ;;     v.s01234567 = sub_group_broadcast(v.s01234567, 0);
 ;;     v = sub_group_broadcast(v, 0);
 ;; }
-;; 
+;;
 ;; kernel void testBroadcastHalf()
 ;; {
 ;;     half16 v = 0;
@@ -111,7 +111,7 @@
 ;;     v.s01234567 = sub_group_broadcast(v.s01234567, 0);
 ;;     v = sub_group_broadcast(v, 0);
 ;; }
-;; 
+;;
 ;; kernel void testBroadcastDouble()
 ;; {
 ;;     double16 v = 0;
@@ -122,7 +122,7 @@
 ;;     v.s01234567 = sub_group_broadcast(v.s01234567, 0);
 ;;     v = sub_group_broadcast(v, 0);
 ;; }
-;; 
+;;
 ;; kernel void testReduceScanChar(global char* dst)
 ;; {
 ;;     char v = 0;
@@ -136,7 +136,7 @@
 ;;     dst[7] = sub_group_scan_exclusive_min(v);
 ;;     dst[8] = sub_group_scan_exclusive_max(v);
 ;; }
-;; 
+;;
 ;; kernel void testReduceScanUChar(global uchar* dst)
 ;; {
 ;;     uchar v = 0;
@@ -150,7 +150,7 @@
 ;;     dst[7] = sub_group_scan_exclusive_min(v);
 ;;     dst[8] = sub_group_scan_exclusive_max(v);
 ;; }
-;; 
+;;
 ;; kernel void testReduceScanShort(global short* dst)
 ;; {
 ;;     short v = 0;
@@ -164,7 +164,7 @@
 ;;     dst[7] = sub_group_scan_exclusive_min(v);
 ;;     dst[8] = sub_group_scan_exclusive_max(v);
 ;; }
-;; 
+;;
 ;; kernel void testReduceScanUShort(global ushort* dst)
 ;; {
 ;;     ushort v = 0;
@@ -180,11 +180,11 @@
 ;; }
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv %t.spv -to-text -o %t.spt
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; CHECK-SPIRV-DAG: TypeInt   [[char:[0-9]+]]   8  0
@@ -253,16 +253,16 @@ target triple = "spir64"
 
 ; CHECK-SPIRV-LABEL: 5 Function
 ; CHECK-SPIRV: GroupBroadcast [[char]] {{[0-9]+}} [[ScopeSubgroup]] [[char_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[char2]] [[char2_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[char2]] [[char2_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[char2]] {{[0-9]+}} [[ScopeSubgroup]] [[char2_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[char3]] [[char3_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[char3]] [[char3_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[char3]] {{[0-9]+}} [[ScopeSubgroup]] [[char3_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[char4]] [[char4_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[char4]] [[char4_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[char4]] {{[0-9]+}} [[ScopeSubgroup]] [[char4_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[char8]] [[char8_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[char8]] [[char8_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[char8]] {{[0-9]+}} [[ScopeSubgroup]] [[char8_0]] [[int_0]]
 ; CHECK-SPIRV: VectorShuffle [[char16]] {{[0-9]+}}
-; CHECK-SPIRV: VectorShuffle [[char16]] [[char16_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[char16]] [[char16_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[char16]] {{[0-9]+}} [[ScopeSubgroup]] [[char16_0]] [[int_0]]
 ; CHECK-SPIRV: FunctionEnd
 
@@ -318,16 +318,16 @@ declare dso_local spir_func <16 x i8> @_Z19sub_group_broadcastDv16_cj(<16 x i8>,
 
 ; CHECK-SPIRV-LABEL: 5 Function
 ; CHECK-SPIRV: GroupBroadcast [[char]] {{[0-9]+}} [[ScopeSubgroup]] [[char_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[char2]] [[char2_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[char2]] [[char2_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[char2]] {{[0-9]+}} [[ScopeSubgroup]] [[char2_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[char3]] [[char3_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[char3]] [[char3_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[char3]] {{[0-9]+}} [[ScopeSubgroup]] [[char3_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[char4]] [[char4_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[char4]] [[char4_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[char4]] {{[0-9]+}} [[ScopeSubgroup]] [[char4_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[char8]] [[char8_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[char8]] [[char8_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[char8]] {{[0-9]+}} [[ScopeSubgroup]] [[char8_0]] [[int_0]]
 ; CHECK-SPIRV: VectorShuffle [[char16]] {{[0-9]+}}
-; CHECK-SPIRV: VectorShuffle [[char16]] [[char16_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[char16]] [[char16_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[char16]] {{[0-9]+}} [[ScopeSubgroup]] [[char16_0]] [[int_0]]
 ; CHECK-SPIRV: FunctionEnd
 
@@ -383,16 +383,16 @@ declare dso_local spir_func <16 x i8> @_Z19sub_group_broadcastDv16_hj(<16 x i8>,
 
 ; CHECK-SPIRV-LABEL: 5 Function
 ; CHECK-SPIRV: GroupBroadcast [[short]] {{[0-9]+}} [[ScopeSubgroup]] [[short_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[short2]] [[short2_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[short2]] [[short2_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[short2]] {{[0-9]+}} [[ScopeSubgroup]] [[short2_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[short3]] [[short3_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[short3]] [[short3_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[short3]] {{[0-9]+}} [[ScopeSubgroup]] [[short3_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[short4]] [[short4_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[short4]] [[short4_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[short4]] {{[0-9]+}} [[ScopeSubgroup]] [[short4_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[short8]] [[short8_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[short8]] [[short8_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[short8]] {{[0-9]+}} [[ScopeSubgroup]] [[short8_0]] [[int_0]]
 ; CHECK-SPIRV: VectorShuffle [[short16]] {{[0-9]+}}
-; CHECK-SPIRV: VectorShuffle [[short16]] [[short16_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[short16]] [[short16_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[short16]] {{[0-9]+}} [[ScopeSubgroup]] [[short16_0]] [[int_0]]
 ; CHECK-SPIRV: FunctionEnd
 
@@ -448,16 +448,16 @@ declare dso_local spir_func <16 x i16> @_Z19sub_group_broadcastDv16_sj(<16 x i16
 
 ; CHECK-SPIRV-LABEL: 5 Function
 ; CHECK-SPIRV: GroupBroadcast [[short]] {{[0-9]+}} [[ScopeSubgroup]] [[short_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[short2]] [[short2_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[short2]] [[short2_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[short2]] {{[0-9]+}} [[ScopeSubgroup]] [[short2_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[short3]] [[short3_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[short3]] [[short3_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[short3]] {{[0-9]+}} [[ScopeSubgroup]] [[short3_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[short4]] [[short4_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[short4]] [[short4_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[short4]] {{[0-9]+}} [[ScopeSubgroup]] [[short4_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[short8]] [[short8_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[short8]] [[short8_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[short8]] {{[0-9]+}} [[ScopeSubgroup]] [[short8_0]] [[int_0]]
 ; CHECK-SPIRV: VectorShuffle [[short16]] {{[0-9]+}}
-; CHECK-SPIRV: VectorShuffle [[short16]] [[short16_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[short16]] [[short16_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[short16]] {{[0-9]+}} [[ScopeSubgroup]] [[short16_0]] [[int_0]]
 ; CHECK-SPIRV: FunctionEnd
 
@@ -513,16 +513,16 @@ declare dso_local spir_func <16 x i16> @_Z19sub_group_broadcastDv16_tj(<16 x i16
 
 ; CHECK-SPIRV-LABEL: 5 Function
 ; CHECK-SPIRV: GroupBroadcast [[int]] {{[0-9]+}} [[ScopeSubgroup]] [[int_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[int2]] [[int2_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[int2]] [[int2_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[int2]] {{[0-9]+}} [[ScopeSubgroup]] [[int2_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[int3]] [[int3_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[int3]] [[int3_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[int3]] {{[0-9]+}} [[ScopeSubgroup]] [[int3_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[int4]] [[int4_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[int4]] [[int4_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[int4]] {{[0-9]+}} [[ScopeSubgroup]] [[int4_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[int8]] [[int8_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[int8]] [[int8_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[int8]] {{[0-9]+}} [[ScopeSubgroup]] [[int8_0]] [[int_0]]
 ; CHECK-SPIRV: VectorShuffle [[int16]] {{[0-9]+}}
-; CHECK-SPIRV: VectorShuffle [[int16]] [[int16_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[int16]] [[int16_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[int16]] {{[0-9]+}} [[ScopeSubgroup]] [[int16_0]] [[int_0]]
 ; CHECK-SPIRV: FunctionEnd
 
@@ -578,16 +578,16 @@ declare dso_local spir_func <16 x i32> @_Z19sub_group_broadcastDv16_ij(<16 x i32
 
 ; CHECK-SPIRV-LABEL: 5 Function
 ; CHECK-SPIRV: GroupBroadcast [[int]] {{[0-9]+}} [[ScopeSubgroup]] [[int_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[int2]] [[int2_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[int2]] [[int2_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[int2]] {{[0-9]+}} [[ScopeSubgroup]] [[int2_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[int3]] [[int3_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[int3]] [[int3_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[int3]] {{[0-9]+}} [[ScopeSubgroup]] [[int3_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[int4]] [[int4_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[int4]] [[int4_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[int4]] {{[0-9]+}} [[ScopeSubgroup]] [[int4_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[int8]] [[int8_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[int8]] [[int8_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[int8]] {{[0-9]+}} [[ScopeSubgroup]] [[int8_0]] [[int_0]]
 ; CHECK-SPIRV: VectorShuffle [[int16]] {{[0-9]+}}
-; CHECK-SPIRV: VectorShuffle [[int16]] [[int16_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[int16]] [[int16_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[int16]] {{[0-9]+}} [[ScopeSubgroup]] [[int16_0]] [[int_0]]
 ; CHECK-SPIRV: FunctionEnd
 
@@ -643,16 +643,16 @@ declare dso_local spir_func <16 x i32> @_Z19sub_group_broadcastDv16_jj(<16 x i32
 
 ; CHECK-SPIRV-LABEL: 5 Function
 ; CHECK-SPIRV: GroupBroadcast [[long]] {{[0-9]+}} [[ScopeSubgroup]] [[long_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[long2]] [[long2_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[long2]] [[long2_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[long2]] {{[0-9]+}} [[ScopeSubgroup]] [[long2_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[long3]] [[long3_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[long3]] [[long3_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[long3]] {{[0-9]+}} [[ScopeSubgroup]] [[long3_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[long4]] [[long4_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[long4]] [[long4_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[long4]] {{[0-9]+}} [[ScopeSubgroup]] [[long4_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[long8]] [[long8_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[long8]] [[long8_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[long8]] {{[0-9]+}} [[ScopeSubgroup]] [[long8_0]] [[int_0]]
 ; CHECK-SPIRV: VectorShuffle [[long16]] {{[0-9]+}}
-; CHECK-SPIRV: VectorShuffle [[long16]] [[long16_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[long16]] [[long16_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[long16]] {{[0-9]+}} [[ScopeSubgroup]] [[long16_0]] [[int_0]]
 ; CHECK-SPIRV: FunctionEnd
 
@@ -708,16 +708,16 @@ declare dso_local spir_func <16 x i64> @_Z19sub_group_broadcastDv16_lj(<16 x i64
 
 ; CHECK-SPIRV-LABEL: 5 Function
 ; CHECK-SPIRV: GroupBroadcast [[long]] {{[0-9]+}} [[ScopeSubgroup]] [[long_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[long2]] [[long2_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[long2]] [[long2_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[long2]] {{[0-9]+}} [[ScopeSubgroup]] [[long2_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[long3]] [[long3_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[long3]] [[long3_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[long3]] {{[0-9]+}} [[ScopeSubgroup]] [[long3_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[long4]] [[long4_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[long4]] [[long4_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[long4]] {{[0-9]+}} [[ScopeSubgroup]] [[long4_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[long8]] [[long8_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[long8]] [[long8_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[long8]] {{[0-9]+}} [[ScopeSubgroup]] [[long8_0]] [[int_0]]
 ; CHECK-SPIRV: VectorShuffle [[long16]] {{[0-9]+}}
-; CHECK-SPIRV: VectorShuffle [[long16]] [[long16_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[long16]] [[long16_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[long16]] {{[0-9]+}} [[ScopeSubgroup]] [[long16_0]] [[int_0]]
 ; CHECK-SPIRV: FunctionEnd
 
@@ -773,16 +773,16 @@ declare dso_local spir_func <16 x i64> @_Z19sub_group_broadcastDv16_mj(<16 x i64
 
 ; CHECK-SPIRV-LABEL: 5 Function
 ; CHECK-SPIRV: GroupBroadcast [[float]] {{[0-9]+}} [[ScopeSubgroup]] [[float_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[float2]] [[float2_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[float2]] [[float2_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[float2]] {{[0-9]+}} [[ScopeSubgroup]] [[float2_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[float3]] [[float3_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[float3]] [[float3_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[float3]] {{[0-9]+}} [[ScopeSubgroup]] [[float3_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[float4]] [[float4_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[float4]] [[float4_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[float4]] {{[0-9]+}} [[ScopeSubgroup]] [[float4_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[float8]] [[float8_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[float8]] [[float8_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[float8]] {{[0-9]+}} [[ScopeSubgroup]] [[float8_0]] [[int_0]]
 ; CHECK-SPIRV: VectorShuffle [[float16]] {{[0-9]+}}
-; CHECK-SPIRV: VectorShuffle [[float16]] [[float16_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[float16]] [[float16_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[float16]] {{[0-9]+}} [[ScopeSubgroup]] [[float16_0]] [[int_0]]
 ; CHECK-SPIRV: FunctionEnd
 
@@ -838,16 +838,16 @@ declare dso_local spir_func <16 x float> @_Z19sub_group_broadcastDv16_fj(<16 x f
 
 ; CHECK-SPIRV-LABEL: 5 Function
 ; CHECK-SPIRV: GroupBroadcast [[half]] {{[0-9]+}} [[ScopeSubgroup]] [[half_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[half2]] [[half2_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[half2]] [[half2_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[half2]] {{[0-9]+}} [[ScopeSubgroup]] [[half2_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[half3]] [[half3_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[half3]] [[half3_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[half3]] {{[0-9]+}} [[ScopeSubgroup]] [[half3_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[half4]] [[half4_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[half4]] [[half4_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[half4]] {{[0-9]+}} [[ScopeSubgroup]] [[half4_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[half8]] [[half8_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[half8]] [[half8_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[half8]] {{[0-9]+}} [[ScopeSubgroup]] [[half8_0]] [[int_0]]
 ; CHECK-SPIRV: VectorShuffle [[half16]] {{[0-9]+}}
-; CHECK-SPIRV: VectorShuffle [[half16]] [[half16_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[half16]] [[half16_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[half16]] {{[0-9]+}} [[ScopeSubgroup]] [[half16_0]] [[int_0]]
 ; CHECK-SPIRV: FunctionEnd
 
@@ -903,16 +903,16 @@ declare dso_local spir_func <16 x half> @_Z19sub_group_broadcastDv16_Dhj(<16 x h
 
 ; CHECK-SPIRV-LABEL: 5 Function
 ; CHECK-SPIRV: GroupBroadcast [[double]] {{[0-9]+}} [[ScopeSubgroup]] [[double_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[double2]] [[double2_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[double2]] [[double2_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[double2]] {{[0-9]+}} [[ScopeSubgroup]] [[double2_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[double3]] [[double3_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[double3]] [[double3_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[double3]] {{[0-9]+}} [[ScopeSubgroup]] [[double3_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[double4]] [[double4_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[double4]] [[double4_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[double4]] {{[0-9]+}} [[ScopeSubgroup]] [[double4_0]] [[int_0]]
-; CHECK-SPIRV: VectorShuffle [[double8]] [[double8_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[double8]] [[double8_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[double8]] {{[0-9]+}} [[ScopeSubgroup]] [[double8_0]] [[int_0]]
 ; CHECK-SPIRV: VectorShuffle [[double16]] {{[0-9]+}}
-; CHECK-SPIRV: VectorShuffle [[double16]] [[double16_0:[0-9]+]] 
+; CHECK-SPIRV: VectorShuffle [[double16]] [[double16_0:[0-9]+]]
 ; CHECK-SPIRV: GroupBroadcast [[double16]] {{[0-9]+}} [[ScopeSubgroup]] [[double16_0]] [[int_0]]
 ; CHECK-SPIRV: FunctionEnd
 

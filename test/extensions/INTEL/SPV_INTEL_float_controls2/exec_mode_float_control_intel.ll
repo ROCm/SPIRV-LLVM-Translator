@@ -1,6 +1,6 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_INTEL_float_controls2
-; RUN: llvm-spirv %t.spv -o %t.spt --to-text
+; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_INTEL_float_controls2
+; RUN: amd-llvm-spirv %t.spv -o %t.spt --to-text
 ; RUN: FileCheck %s --input-file %t.spt -check-prefix=SPV
 
 ; ModuleID = 'float_control.bc'

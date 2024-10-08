@@ -1,14 +1,14 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.out.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.out.bc
 ; RUN: llvm-dis %t.out.bc -o - | FileCheck %s --check-prefix=CHECK-OCL-IR
-; RUN: llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.out.bc
+; RUN: amd-llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.out.bc
 ; RUN: llvm-dis %t.out.bc -o - | FileCheck %s --check-prefix=CHECK-SPV-IR
 
 ; Check that produced builtin-call-based SPV-IR is recognized by the translator
-; RUN: llvm-spirv -spirv-text %t.out.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv -spirv-text %t.out.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV
 
 ; CHECK-SPIRV: Decorate [[Id:[0-9]+]] BuiltIn 28
 ; CHECK-SPIRV: Variable {{[0-9]+}} [[Id:[0-9]+]]

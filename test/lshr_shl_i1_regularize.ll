@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv -s %t.bc -o %t.reg.bc
+; RUN: amd-llvm-spirv -s %t.bc -o %t.reg.bc
 ; RUN: llvm-dis %t.reg.bc -o - | FileCheck --check-prefix=CHECK-LLVM %s
 
 target triple = "spir64-unknown-unknown"

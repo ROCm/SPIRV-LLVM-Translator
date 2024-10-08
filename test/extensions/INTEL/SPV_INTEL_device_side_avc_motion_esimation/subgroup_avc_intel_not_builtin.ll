@@ -5,7 +5,7 @@
 ; }
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o - -spirv-text | FileCheck %s
+; RUN: amd-llvm-spirv %t.bc -o - -spirv-text | FileCheck %s
 
 ; Checks that a function with a name started from 'intel_sub_group_avc_' prefix,
 ; but which is not a part of 'cl_intel_device_side_avc_motion_estimation'

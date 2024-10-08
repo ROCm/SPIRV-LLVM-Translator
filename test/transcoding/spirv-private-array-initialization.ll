@@ -1,7 +1,7 @@
 ; RUN: llvm-as <%s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv -r %t.spv -o %t_4mspirv.bc
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv -r %t.spv -o %t_4mspirv.bc
 ; RUN: llvm-dis %t_4mspirv.bc -o - | FileCheck %s --check-prefix=CHECK-LLVM
 ;
 ; CHECK-SPIRV-DAG: TypeInt [[i32:[0-9]+]] 32 0
@@ -25,8 +25,8 @@
 ; CHECK-SPIRV: Bitcast [[i32x3_ptr]] [[arr2_i8_ptr:[0-9]+]] [[arr2]]
 ; CHECK-SPIRV: CopyMemorySized [[arr2_i8_ptr]] [[test_arr2]] [[twelve]] 2 4
 
-; CHECK-LLVM:@__const.test.arr = internal addrspace(2) constant [3 x i32] [i32 1, i32 2, i32 3], align 4 
-; CHECK-LLVM-DAG:@__const.test.arr2 = internal addrspace(2) constant [3 x i32] [i32 1, i32 2, i32 3], align 4 
+; CHECK-LLVM:@__const.test.arr = internal addrspace(2) constant [3 x i32] [i32 1, i32 2, i32 3], align 4
+; CHECK-LLVM-DAG:@__const.test.arr2 = internal addrspace(2) constant [3 x i32] [i32 1, i32 2, i32 3], align 4
 
 ; CHECK-LLVM-DAG:call void @llvm.memcpy.p0.p2.i32(ptr align 4 %[[VAR0:.*]], ptr addrspace(2) align 4 @__const.test.arr, i32 12, i1 false)
 

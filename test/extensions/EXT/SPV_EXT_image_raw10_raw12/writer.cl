@@ -1,14 +1,14 @@
 // RUN: %clang_cc1 -triple spir-unknown-unknown -O1 -cl-std=CL2.0 -fdeclare-opencl-builtins -finclude-default-header -emit-llvm-bc %s -o %t.bc
-// RUN: llvm-spirv --spirv-ext=+SPV_EXT_image_raw10_raw12 %t.bc -o %t.spv
-// RUN: llvm-spirv --spirv-ext=+SPV_EXT_image_raw10_raw12 %t.spv -to-text -o %t.spt
+// RUN: amd-llvm-spirv --spirv-ext=+SPV_EXT_image_raw10_raw12 %t.bc -o %t.spv
+// RUN: amd-llvm-spirv --spirv-ext=+SPV_EXT_image_raw10_raw12 %t.spv -to-text -o %t.spt
 // RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-// RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+// RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefixes=CHECK-COMMON,CHECK-LLVM
-// RUN: llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.rev.bc
+// RUN: amd-llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.rev.bc
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefixes=CHECK-COMMON,CHECK-SPV-IR
 
-// RUN: not llvm-spirv --spirv-ext=-SPV_EXT_image_raw10_raw12 %t.bc -o %t.spv 2>&1 | FileCheck %s --check-prefix=CHECK-EXT-OFF
+// RUN: not amd-llvm-spirv --spirv-ext=-SPV_EXT_image_raw10_raw12 %t.bc -o %t.spv 2>&1 | FileCheck %s --check-prefix=CHECK-EXT-OFF
 // CHECK-EXT-OFF: Feature requires the following SPIR-V extension
 // CHECK-EXT-OFF-NEXT: SPV_EXT_image_raw10_raw12
 

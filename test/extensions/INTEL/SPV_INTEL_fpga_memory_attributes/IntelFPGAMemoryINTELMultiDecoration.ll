@@ -1,23 +1,23 @@
-; Test checks that MemoryINTEL decoration can be applied twice on a single 
+; Test checks that MemoryINTEL decoration can be applied twice on a single
 ; variable
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_fpga_memory_attributes -o %t.spv
-; RUN: llvm-spirv %t.spv -to-text -o %t.spt
+; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_fpga_memory_attributes -o %t.spv
+; RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc
 ; RUN: FileCheck < %t.rev.ll %s --check-prefix=CHECK-LLVM
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc
 ; RUN: FileCheck < %t.rev.ll %s --check-prefix=CHECK-LLVM
 
 ; CHECK-SPIRV: Capability FPGAMemoryAttributesINTEL
 ; CHECK-SPIRV: Extension "SPV_INTEL_fpga_memory_attributes"
-; CHECK-SPIRV: Decorate [[#empty:]] MemoryINTEL "DEFAULT" 
-; CHECK-SPIRV-NOT: Decorate [[#]] MemoryINTEL "DEFAULT" 
+; CHECK-SPIRV: Decorate [[#empty:]] MemoryINTEL "DEFAULT"
+; CHECK-SPIRV-NOT: Decorate [[#]] MemoryINTEL "DEFAULT"
 ; CHECK-SPIRV: Decorate [[#mlab:]] MemoryINTEL "MLAB"
-; CHECK-SPIRV-NOT: Decorate [[#]] MemoryINTEL "DEFAULT" 
+; CHECK-SPIRV-NOT: Decorate [[#]] MemoryINTEL "DEFAULT"
 ; CHECK-SPIRV: Decorate [[#block_ram:]] MemoryINTEL "BLOCK_RAM"
 
 

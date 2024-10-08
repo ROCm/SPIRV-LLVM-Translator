@@ -1,22 +1,22 @@
 ; Bunch of negative tests:
 ;
-; RUN: not llvm-spirv --spirv-ext=EXT 2>&1 | FileCheck %s --check-prefix=CHECK-INVALID-FORMAT
-; RUN: not llvm-spirv --spirv-ext=+EXT 2>&1 | FileCheck %s --check-prefix=CHECK-INVALID-EXT
-; RUN: not llvm-spirv --spirv-ext=-EXT 2>&1 | FileCheck %s --check-prefix=CHECK-INVALID-EXT
-; RUN: not llvm-spirv --spirv-ext=- 2>&1 | FileCheck %s --check-prefix=CHECK-INVALID-FORMAT
-; RUN: not llvm-spirv --spirv-ext=+ 2>&1 | FileCheck %s --check-prefix=CHECK-INVALID-FORMAT
-; RUN: not llvm-spirv --spirv-ext=, 2>&1 | FileCheck %s --check-prefix=CHECK-INVALID-FORMAT
-; RUN: not llvm-spirv --spirv-ext= 2>&1 | FileCheck %s --check-prefix=CHECK-INVALID-FORMAT
+; RUN: not amd-llvm-spirv --spirv-ext=EXT 2>&1 | FileCheck %s --check-prefix=CHECK-INVALID-FORMAT
+; RUN: not amd-llvm-spirv --spirv-ext=+EXT 2>&1 | FileCheck %s --check-prefix=CHECK-INVALID-EXT
+; RUN: not amd-llvm-spirv --spirv-ext=-EXT 2>&1 | FileCheck %s --check-prefix=CHECK-INVALID-EXT
+; RUN: not amd-llvm-spirv --spirv-ext=- 2>&1 | FileCheck %s --check-prefix=CHECK-INVALID-FORMAT
+; RUN: not amd-llvm-spirv --spirv-ext=+ 2>&1 | FileCheck %s --check-prefix=CHECK-INVALID-FORMAT
+; RUN: not amd-llvm-spirv --spirv-ext=, 2>&1 | FileCheck %s --check-prefix=CHECK-INVALID-FORMAT
+; RUN: not amd-llvm-spirv --spirv-ext= 2>&1 | FileCheck %s --check-prefix=CHECK-INVALID-FORMAT
 ;
 ; Bunch of positive tests:
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc --spirv-ext=+all,-SPV_KHR_untyped_pointers -o - 2>&1 | FileCheck %s --check-prefix=CHECK-VALID
-; RUN: llvm-spirv %t.bc --spirv-ext=-all -o - 2>&1 | FileCheck %s --check-prefix=CHECK-VALID
-; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_subgroups -o - 2>&1 | FileCheck %s --check-prefix=CHECK-VALID
-; RUN: llvm-spirv %t.bc --spirv-ext=-SPV_INTEL_subgroups -o - 2>&1 | FileCheck %s --check-prefix=CHECK-VALID
-; RUN: llvm-spirv %t.bc --spirv-ext=+all,-SPV_INTEL_subgroups,-SPV_KHR_untyped_pointers -o - 2>&1 | FileCheck %s --check-prefix=CHECK-VALID
-; RUN: llvm-spirv %t.bc --spirv-ext=-all,+SPV_INTEL_subgroups -o - 2>&1 | FileCheck %s --check-prefix=CHECK-VALID
-; RUN: llvm-spirv %t.bc --spirv-ext=-SPV_INTEL_subgroups,+SPV_INTEL_subgroups -o - 2>&1 | FileCheck %s --check-prefix=CHECK-VALID
+; RUN: amd-llvm-spirv %t.bc --spirv-ext=+all,-SPV_KHR_untyped_pointers -o - 2>&1 | FileCheck %s --check-prefix=CHECK-VALID
+; RUN: amd-llvm-spirv %t.bc --spirv-ext=-all -o - 2>&1 | FileCheck %s --check-prefix=CHECK-VALID
+; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_subgroups -o - 2>&1 | FileCheck %s --check-prefix=CHECK-VALID
+; RUN: amd-llvm-spirv %t.bc --spirv-ext=-SPV_INTEL_subgroups -o - 2>&1 | FileCheck %s --check-prefix=CHECK-VALID
+; RUN: amd-llvm-spirv %t.bc --spirv-ext=+all,-SPV_INTEL_subgroups,-SPV_KHR_untyped_pointers -o - 2>&1 | FileCheck %s --check-prefix=CHECK-VALID
+; RUN: amd-llvm-spirv %t.bc --spirv-ext=-all,+SPV_INTEL_subgroups -o - 2>&1 | FileCheck %s --check-prefix=CHECK-VALID
+; RUN: amd-llvm-spirv %t.bc --spirv-ext=-SPV_INTEL_subgroups,+SPV_INTEL_subgroups -o - 2>&1 | FileCheck %s --check-prefix=CHECK-VALID
 ;
 ; CHECK-INVALID-FORMAT: Invalid value of --spirv-ext
 ; CHECK-INVALID-EXT: Unknown extension 'EXT' was specified

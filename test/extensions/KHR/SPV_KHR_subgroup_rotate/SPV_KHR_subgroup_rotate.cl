@@ -1,15 +1,15 @@
 // RUN: %clang_cc1 -triple spir-unknown-unknown -O1 -cl-std=CL2.0 -fdeclare-opencl-builtins -finclude-default-header -emit-llvm-bc %s -o %t.bc
-// RUN: llvm-spirv --spirv-ext=+SPV_KHR_subgroup_rotate %t.bc -o %t.spv
-// RUN: llvm-spirv --spirv-ext=+SPV_KHR_subgroup_rotate %t.spv -to-text -o %t.spt
+// RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_subgroup_rotate %t.bc -o %t.spv
+// RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_subgroup_rotate %t.spv -to-text -o %t.spt
 // RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-// RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+// RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefixes=CHECK-COMMON,CHECK-LLVM
-// RUN: llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.rev.bc
+// RUN: amd-llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.rev.bc
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefixes=CHECK-COMMON,CHECK-SPV-IR
 
 // From SPIR-V friendly IR:
-// RUN: llvm-spirv %t.rev.bc --spirv-ext=+SPV_KHR_subgroup_rotate -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+// RUN: amd-llvm-spirv %t.rev.bc --spirv-ext=+SPV_KHR_subgroup_rotate -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
 
 // CHECK-SPIRV-DAG: {{[0-9]*}} Capability GroupNonUniformRotateKHR
 // CHECK-SPIRV-DAG: Extension "SPV_KHR_subgroup_rotate"

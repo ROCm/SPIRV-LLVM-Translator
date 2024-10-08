@@ -1,17 +1,17 @@
 ;; #pragma OPENCL EXTENSION cl_khr_subgroup_non_uniform_vote : enable
-;; 
+;;
 ;; kernel void testSubGroupElect(global int* dst){
 ;; 	dst[0] = sub_group_elect();
 ;; }
-;; 
+;;
 ;; kernel void testSubGroupNonUniformAll(global int* dst){
-;; 	dst[0] = sub_group_non_uniform_all(0); 
+;; 	dst[0] = sub_group_non_uniform_all(0);
 ;; }
-;; 
+;;
 ;; kernel void testSubGroupNonUniformAny(global int* dst){
 ;; 	dst[0] = sub_group_non_uniform_any(0);
 ;; }
-;; 
+;;
 ;; #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 ;; #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 ;; kernel void testSubGroupNonUniformAllEqual(global int* dst){
@@ -62,11 +62,11 @@
 ;; }
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv %t.spv -to-text -o %t.spt
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; ModuleID = 'sub_group_non_uniform_vote.cl'

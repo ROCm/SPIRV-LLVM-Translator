@@ -7,11 +7,11 @@
 ; case
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -spirv-text -o %t.spv.txt
+; RUN: amd-llvm-spirv %t.bc -spirv-text -o %t.spv.txt
 ; RUN: FileCheck < %t.spv.txt %s --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv -to-binary %t.spv.txt -o %t.spv
+; RUN: amd-llvm-spirv -to-binary %t.spv.txt -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv --spirv-target-env=CL2.0 -r %t.spv -o %t.bc
+; RUN: amd-llvm-spirv --spirv-target-env=CL2.0 -r %t.spv -o %t.bc
 ; RUN: llvm-dis %t.bc -o - | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; CHECK-SPIRV: FunctionCall [[#]] [[#SCOPE:]] [[#]]

@@ -1,6 +1,6 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv --spirv-fp-contract=on
-; RUN: llvm-spirv %t.spv -to-text -o - | FileCheck %s
+; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-fp-contract=on
+; RUN: amd-llvm-spirv %t.spv -to-text -o - | FileCheck %s
 ; RUN: spirv-val %t.spv
 
 ; CHECK: EntryPoint 6 [[K1:[0-9]+]] "kernel_off_1"

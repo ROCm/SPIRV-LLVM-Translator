@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: not llvm-spirv %t.bc 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
+; RUN: not amd-llvm-spirv %t.bc 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
 
 ; CHECK-ERROR: InvalidBitWidth: Invalid bit width in input: 16
 

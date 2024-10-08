@@ -9,10 +9,10 @@
 ; clang -cc1 -triple spir -emit-llvm -o test/SPIRV/OpSwitchEmpty.ll OpSwitchEmpty.cl -disable-llvm-passes
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -spirv-text -o - | FileCheck %s  --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.bc -spirv-text -o - | FileCheck %s  --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; CHECK-SPIRV: FunctionParameter {{[0-9]+}} [[X:[0-9]+]]
 ; CHECK-SPIRV: Switch [[X]] [[DEFAULT:[0-9]+]] {{$}}

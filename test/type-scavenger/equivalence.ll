@@ -1,10 +1,10 @@
-; Test if llvm-spirv type scavenging has an assertion 
+; Test if amd-llvm-spirv type scavenging has an assertion
 ; failure due to incorrect lookup of an equivalence class leader.
 
-; RUN: llvm-as < %s | llvm-spirv -o %t.spv
+; RUN: llvm-as < %s | amd-llvm-spirv -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv %t.spv -o - -to-text | FileCheck %s --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv %t.spv -o - -r | llvm-dis | FileCheck %s --check-prefix=CHECK-LLVM
+; RUN: amd-llvm-spirv %t.spv -o - -to-text | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv %t.spv -o - -r | llvm-dis | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; Incorrect lookup of equivalence class leader caused an assertion failure when
 ; processing call instruction to this name

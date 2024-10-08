@@ -1,34 +1,34 @@
 ; REQUIRES: object-emission
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -O2 -filetype=obj -mtriple=x86_64-unknown-linux-gnu < %t.ll \
 ; RUN: | llvm-dwarfdump -debug-line - | FileCheck %s
 
-; RUN: llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-100
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-100
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -O2 -filetype=obj -mtriple=x86_64-unknown-linux-gnu < %t.ll \
 ; RUN: | llvm-dwarfdump -debug-line - | FileCheck %s
 
-; RUN: llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-200
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-200
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -O2 -filetype=obj -mtriple=x86_64-unknown-linux-gnu < %t.ll \
 ; RUN: | llvm-dwarfdump -debug-line - | FileCheck %s
 ;
 ; Generated with clang -O2 -g from
 ;
 ; typedef float __m128 __attribute__((__vector_size__(16)));
-; 
+;
 ; extern __m128 doSomething(__m128, __m128);
-; 
-; 
+;
+;
 ; __m128 foo(__m128 X) {     // line 6
 ;   const __m128 V = {0.5f, 0.5f, 0.5f, 0.5f};  // line 7
 ;   __m128 Sub = X - V;  // line 8
 ;   __m128 Add = X + V;  // line 9
-; 
+;
 ;   __m128 Result = doSomething(Add, Sub);  // line 11
-; 
+;
 ;   return V - Result;  // line 13
 ; }
 ;

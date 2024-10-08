@@ -1,9 +1,9 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv --spirv-ext=+SPV_INTEL_fpga_memory_attributes -spirv-text -o - %t.bc | FileCheck --check-prefix CHECK-SPIRV %s
-; RUN: llvm-spirv --spirv-ext=+SPV_INTEL_fpga_memory_attributes %t.bc -o %t.spv
+; RUN: amd-llvm-spirv --spirv-ext=+SPV_INTEL_fpga_memory_attributes -spirv-text -o - %t.bc | FileCheck --check-prefix CHECK-SPIRV %s
+; RUN: amd-llvm-spirv --spirv-ext=+SPV_INTEL_fpga_memory_attributes %t.bc -o %t.spv
 ; spirv-val %t.spv
-; RUN: llvm-spirv -r --spirv-ext=+SPV_INTEL_fpga_memory_attributes %t.spv -o %t.rev.bc
-; RUN: llvm-dis %t.rev.bc -o - | FileCheck --check-prefix CHECK-LLVM %s 
+; RUN: amd-llvm-spirv -r --spirv-ext=+SPV_INTEL_fpga_memory_attributes %t.spv -o %t.rev.bc
+; RUN: llvm-dis %t.rev.bc -o - | FileCheck --check-prefix CHECK-LLVM %s
 
 target triple = "spir64-unknown-unknown"
 

@@ -3,9 +3,9 @@
 
 ; XFAIL: *
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv --to-text %t.spv -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv --to-text %t.spv -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: FileCheck < %t.ll %s --check-prefix=CHECK-LLVM
 
 ; CHECK-SPIRV: String [[#Foo:]] "foo"

@@ -1,14 +1,14 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -mtriple=x86_64-unknown-linux-gnu %t.ll -filetype=obj -o - | llvm-dwarfdump -v -debug-info - | FileCheck %s
 
-; RUN: llvm-spirv %t.bc -o %t.spv -spirv-debug-info-version=nonsemantic-shader-100
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: amd-llvm-spirv %t.bc -o %t.spv -spirv-debug-info-version=nonsemantic-shader-100
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -mtriple=x86_64-unknown-linux-gnu %t.ll -filetype=obj -o - | llvm-dwarfdump -v -debug-info - | FileCheck %s
 
-; RUN: llvm-spirv %t.bc -o %t.spv -spirv-debug-info-version=nonsemantic-shader-200
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: amd-llvm-spirv %t.bc -o %t.spv -spirv-debug-info-version=nonsemantic-shader-200
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -mtriple=x86_64-unknown-linux-gnu %t.ll -filetype=obj -o - | llvm-dwarfdump -v -debug-info - | FileCheck %s
 
 ; Generated from:
@@ -17,7 +17,7 @@
 ;   static int fully_specified;
 ;   static int smem[];
 ; };
-;  
+;
 ; int A::fully_specified;
 ; int A::smem[] = { 0, 1, 2, 3 };
 ;

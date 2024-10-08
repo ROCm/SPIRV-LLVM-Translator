@@ -1,14 +1,14 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv -spirv-text %t.bc --spirv-max-version=1.5 -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-15
-; RUN: llvm-spirv %t.bc --spirv-max-version=1.5 -o %t.spv
+; RUN: amd-llvm-spirv -spirv-text %t.bc --spirv-max-version=1.5 -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-15
+; RUN: amd-llvm-spirv %t.bc --spirv-max-version=1.5 -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
 
-; RUN: llvm-spirv -spirv-text %t.bc --spirv-max-version=1.6
+; RUN: amd-llvm-spirv -spirv-text %t.bc --spirv-max-version=1.6
 ; FileCheck < %t.spt %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-16
-; RUN: llvm-spirv %t.bc --spirv-max-version=1.6 -o %t.spv
+; RUN: amd-llvm-spirv %t.bc --spirv-max-version=1.6 -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM-16
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM-16
 
 ; CHECK-SPIRV: 3 Name [[#r1:]] "r1"
 ; CHECK-SPIRV: 3 Name [[#r2:]] "r2"

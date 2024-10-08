@@ -1,7 +1,7 @@
 ;; Test to check that freeze instruction does not cause a crash
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; All freeze instructions should be deleted and uses of freeze's result should be replaced
 ; with freeze's source or a random constant if freeze's source is poison or undef.
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM --implicit-check-not="= freeze"
@@ -28,7 +28,7 @@ define spir_func i32 @testfunction_i32A(i32 %val) {
 ; CHECK-LLVM-NEXT: ret i32
 define spir_func i32 @testfunction_i32B(i32 %val) {
    %1 = freeze i32 poison
-   %2 = add nsw i32 %1, 1   
+   %2 = add nsw i32 %1, 1
    ret i32 %2
 }
 
@@ -38,7 +38,7 @@ define spir_func i32 @testfunction_i32B(i32 %val) {
 ; CHECK-LLVM-NEXT: ret i32
 define spir_func i32 @testfunction_i32C(i32 %val) {
    %1 = freeze i32 undef
-   %2 = add nsw i32 %1, 1   
+   %2 = add nsw i32 %1, 1
    ret i32 %2
 }
 

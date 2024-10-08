@@ -5,7 +5,7 @@
 ; RUN: spirv-as --target-env spv1.6 -o %t.spv %s
 ; RUN: spirv-val %t.spv
 
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc
 ; RUN: FileCheck < %t.rev.ll %s
 

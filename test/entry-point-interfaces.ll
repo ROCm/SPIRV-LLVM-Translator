@@ -1,11 +1,11 @@
 ; RUN: llvm-as %s -o %t.bc
 
-; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val --target-env spv1.4 %t.spv
-; RUN: llvm-spirv -to-text %t.spv -o %t.from.spv.spt
+; RUN: amd-llvm-spirv -to-text %t.spv -o %t.from.spv.spt
 ; RUN: FileCheck < %t.from.spv.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: llvm-spirv -spirv-text %t.bc -o %t.from.bc.spt
+; RUN: amd-llvm-spirv -spirv-text %t.bc -o %t.from.bc.spt
 ; RUN: FileCheck < %t.from.bc.spt %s --check-prefix=CHECK-SPIRV
 
 ; CHECK-SPIRV: 7 EntryPoint 6 [[#]] "test" [[#Interface1:]] [[#Interface2:]]

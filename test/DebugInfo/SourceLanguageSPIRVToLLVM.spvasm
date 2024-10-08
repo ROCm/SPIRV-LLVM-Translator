@@ -6,25 +6,25 @@
 ; REQUIRES: spirv-as
 
 ; RUN: sed -e 's/SOURCE_LANGUAGE/OpenCL_CPP/' %s | spirv-as --target-env spv1.3 - -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s --check-prefix=CHECK-CPP14
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s --check-prefix=CHECK-CPP14
 
 ; RUN: sed -e 's/SOURCE_LANGUAGE/CPP_for_OpenCL/' %s | spirv-as --target-env spv1.3 - -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s --check-prefix=CHECK-CPP17
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s --check-prefix=CHECK-CPP17
 
 ; RUN: sed -e 's/SOURCE_LANGUAGE/OpenCL_C/' %s | spirv-as --target-env spv1.3 - -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s --check-prefix=CHECK-OPENCL
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s --check-prefix=CHECK-OPENCL
 
 ; RUN: sed -e 's/SOURCE_LANGUAGE/GLSL/' %s | spirv-as --target-env spv1.3 - -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s --check-prefix=CHECK-OPENCL
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s --check-prefix=CHECK-OPENCL
 
 ; RUN: sed -e 's/SOURCE_LANGUAGE/HLSL/' %s | spirv-as --target-env spv1.3 - -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s --check-prefix=CHECK-OPENCL
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s --check-prefix=CHECK-OPENCL
 
 ; RUN: sed -e 's/SOURCE_LANGUAGE/ESSL/' %s | spirv-as --target-env spv1.3 - -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s --check-prefix=CHECK-OPENCL
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s --check-prefix=CHECK-OPENCL
 
 ; RUN: sed -e 's/SOURCE_LANGUAGE/Unknown/' %s | spirv-as --target-env spv1.3 - -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s --check-prefix=CHECK-OPENCL
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s --check-prefix=CHECK-OPENCL
 
 ; SPIR-V
 ; Version: 1.1

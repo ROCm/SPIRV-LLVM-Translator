@@ -19,18 +19,18 @@
 ;; bash$ $PATH_TO_GEN/bin/clang -cc1 -x cl -cl-std=CL2.0 -triple spir64-unknown-unknown -emit-llvm  -include opencl-20.h  BuildNDRange_2.cl -o BuildNDRange_2.ll
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -spirv-text -o %t.spv.txt
+; RUN: amd-llvm-spirv %t.bc -spirv-text -o %t.spv.txt
 ; RUN: FileCheck < %t.spv.txt %s --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc
 ; RUN: FileCheck < %t.rev.ll %s --check-prefix=CHECK-LLVM
 
-; RUN: llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc
 ; RUN: FileCheck < %t.rev.ll %s --check-prefix=CHECK-LLVM-SPV
 
-; RUN: llvm-spirv %t.rev.bc -spirv-text -o %t.spt
+; RUN: amd-llvm-spirv %t.rev.bc -spirv-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
 ; CHECK-SPIRV-DAG:     Constant {{[0-9]+}} [[LEN2_ID:[0-9]+]] 2

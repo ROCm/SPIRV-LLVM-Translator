@@ -3,9 +3,9 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "spir64-unknown-unknown"
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.bc
 ; RUN: llvm-dis < %t.bc | FileCheck %s
 
 ; Check vector conversions w\o decorations are translated back to calls

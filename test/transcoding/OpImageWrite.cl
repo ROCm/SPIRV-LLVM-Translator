@@ -1,10 +1,10 @@
 // RUN: %clang_cc1 -O1 -triple spir-unknown-unknown -cl-std=CL2.0 %s -finclude-default-header -emit-llvm-bc -o %t.bc
-// RUN: llvm-spirv %t.bc -spirv-text -o %t.txt
+// RUN: amd-llvm-spirv %t.bc -spirv-text -o %t.txt
 // RUN: FileCheck < %t.txt %s --check-prefix=CHECK-SPIRV
-// RUN: llvm-spirv %t.bc -o %t.spv
-// RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+// RUN: amd-llvm-spirv %t.bc -o %t.spv
+// RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
-// RUN: llvm-spirv -r %t.spv -o %t.rev.bc --spirv-target-env=SPV-IR
+// RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc --spirv-target-env=SPV-IR
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-SPV-IR
 
 // CHECK-SPIRV: TypeVoid [[VOID_TY:[0-9]+]]
@@ -29,7 +29,7 @@ kernel void test_img2d(write_only image2d_t image_wo, read_write image2d_t image
     write_imagei(image_wo, (int2)(0,0), (int4)(0,0,0,0));
     write_imagef(image_rw, (int2)(0,0), (float4)(0,0,0,0));
     write_imagei(image_rw, (int2)(0,0), (int4)(0,0,0,0));
-    
+
     // LOD
     write_imagef(image_wo, (int2)(0,0), 0, (float4)(0,0,0,0));
     write_imagei(image_wo, (int2)(0,0), 0, (int4)(0,0,0,0));
@@ -65,7 +65,7 @@ kernel void test_img2d_array(write_only image2d_array_t image_wo, read_write ima
     write_imagei(image_wo, (int4)(0,0,0,0), (int4)(0,0,0,0));
     write_imagef(image_rw, (int4)(0,0,0,0), (float4)(0,0,0,0));
     write_imagei(image_rw, (int4)(0,0,0,0), (int4)(0,0,0,0));
-    
+
     // LOD
     write_imagef(image_wo, (int4)(0,0,0,0), 0, (float4)(0,0,0,0));
     write_imagei(image_wo, (int4)(0,0,0,0), 0, (int4)(0,0,0,0));
@@ -101,7 +101,7 @@ kernel void test_img1d(write_only image1d_t image_wo, read_write image1d_t image
     write_imagei(image_wo, 0, (int4)(0,0,0,0));
     write_imagef(image_rw, 0, (float4)(0,0,0,0));
     write_imagei(image_rw, 0, (int4)(0,0,0,0));
-    
+
     // LOD
     write_imagef(image_wo, 0, 0, (float4)(0,0,0,0));
     write_imagei(image_wo, 0, 0, (int4)(0,0,0,0));
@@ -163,7 +163,7 @@ kernel void test_img1d_array(write_only image1d_array_t image_wo, read_write ima
     write_imagei(image_wo, (int2)(0,0), (int4)(0,0,0,0));
     write_imagef(image_rw, (int2)(0,0), (float4)(0,0,0,0));
     write_imagei(image_rw, (int2)(0,0), (int4)(0,0,0,0));
-    
+
     // LOD
     write_imagef(image_wo, (int2)(0,0), 0, (float4)(0,0,0,0));
     write_imagei(image_wo, (int2)(0,0), 0, (int4)(0,0,0,0));
@@ -197,7 +197,7 @@ kernel void test_img2d_depth(write_only image2d_depth_t image_wo)
 {
     write_imagef(image_wo, (int2)(0,0), (float)(0));
     write_imagef(image_wo, (int2)(0,0), (float)(0));
-    
+
     // LOD
     write_imagef(image_wo, (int2)(0,0), 0, (float)(0));
 }
@@ -220,7 +220,7 @@ kernel void test_img2d_array_depth(write_only image2d_array_depth_t image_wo)
 {
     write_imagef(image_wo, (int4)(0,0,0,0), (float)(0));
     write_imagef(image_wo, (int4)(0,0,0,0), (float)(0));
-    
+
     // LOD
     write_imagef(image_wo, (int4)(0,0,0,0), 0, (float)(0));
 }
@@ -245,7 +245,7 @@ kernel void test_img3d(write_only image3d_t image_wo, read_write image3d_t image
     write_imagei(image_wo, (int4)(0,0,0,0), (int4)(0,0,0,0));
     write_imagef(image_rw, (int4)(0,0,0,0), (float4)(0,0,0,0));
     write_imagei(image_rw, (int4)(0,0,0,0), (int4)(0,0,0,0));
-    
+
     // LOD
     write_imagef(image_wo, (int4)(0,0,0,0), 0, (float4)(0,0,0,0));
     write_imagei(image_wo, (int4)(0,0,0,0), 0, (int4)(0,0,0,0));

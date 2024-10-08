@@ -1,6 +1,6 @@
 // RUN: %clang_cc1 -triple spir-unknown-unknown -O1 -cl-std=CL2.0 -emit-llvm-bc %s -o %t.bc
-// RUN: llvm-spirv --spirv-ext=+SPV_EXT_image_raw10_raw12 %t.bc -o %t.spv
-// RUN: llvm-spirv --spirv-ext=+SPV_EXT_image_raw10_raw12 %t.spv -to-text -o %t.spt
+// RUN: amd-llvm-spirv --spirv-ext=+SPV_EXT_image_raw10_raw12 %t.bc -o %t.spv
+// RUN: amd-llvm-spirv --spirv-ext=+SPV_EXT_image_raw10_raw12 %t.spv -to-text -o %t.spt
 // RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
 // CHECK-SPIRV-NOT: Extension "SPV_EXT_image_raw10_raw12"

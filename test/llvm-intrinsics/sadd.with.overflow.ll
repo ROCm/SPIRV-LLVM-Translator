@@ -12,7 +12,7 @@
 ; -emit-llvm -fno-discard-value-names -O2 -g0 -ftrapv -target spir
 
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: llvm-spirv -s %t.bc -o - | llvm-dis -o - | FileCheck %s
+; RUN: amd-llvm-spirv -s %t.bc -o - | llvm-dis -o - | FileCheck %s
 
 ; CHECK: call { i32, i1 } @llvm_sadd_with_overflow_i32{{.*}} !nosanitize !2
 ; CHECK-NOT: call { i32, i1 } @llvm.sadd.with.overflow.i32

@@ -1,22 +1,22 @@
 ; REQUIRES: object-emission
 
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -split-dwarf-file=foo.dwo -filetype=obj -O0 -generate-type-units -mtriple=x86_64-unknown-linux-gnu < %t.ll \
 ; RUN:     | llvm-dwarfdump -v - | FileCheck %s
 ; RUN: llc -filetype=obj -O0 -generate-type-units -mtriple=x86_64-unknown-linux-gnu < %t.ll \
 ; RUN:     | llvm-dwarfdump -v - | FileCheck --check-prefix=SINGLE %s
 
-; RUN: llvm-spirv %t.bc -o %t.spv -spirv-debug-info-version=nonsemantic-shader-100
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: amd-llvm-spirv %t.bc -o %t.spv -spirv-debug-info-version=nonsemantic-shader-100
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -split-dwarf-file=foo.dwo -filetype=obj -O0 -generate-type-units -mtriple=x86_64-unknown-linux-gnu < %t.ll \
 ; RUN:     | llvm-dwarfdump -v - | FileCheck %s
 ; RUN: llc -filetype=obj -O0 -generate-type-units -mtriple=x86_64-unknown-linux-gnu < %t.ll \
 ; RUN:     | llvm-dwarfdump -v - | FileCheck --check-prefix=SINGLE %s
 
-; RUN: llvm-spirv %t.bc -o %t.spv -spirv-debug-info-version=nonsemantic-shader-200
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: amd-llvm-spirv %t.bc -o %t.spv -spirv-debug-info-version=nonsemantic-shader-200
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -split-dwarf-file=foo.dwo -filetype=obj -O0 -generate-type-units -mtriple=x86_64-unknown-linux-gnu < %t.ll \
 ; RUN:     | llvm-dwarfdump -v - | FileCheck %s
 ; RUN: llc -filetype=obj -O0 -generate-type-units -mtriple=x86_64-unknown-linux-gnu < %t.ll \

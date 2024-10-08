@@ -1,77 +1,77 @@
 ;; #pragma OPENCL EXTENSION cl_khr_subgroup_shuffle : enable
 ;; #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 ;; #pragma OPENCL EXTENSION cl_khr_fp64 : enable
-;; 
+;;
 ;; kernel void testShuffleChar(global char* dst)
 ;; {
 ;; 	char v = 0;
 ;;     dst[0] = sub_group_shuffle( v, 0 );
 ;;     dst[1] = sub_group_shuffle_xor( v, 0 );
 ;; }
-;; 
+;;
 ;; kernel void testShuffleUChar(global uchar* dst)
 ;; {
 ;; 	uchar v = 0;
 ;;     dst[0] = sub_group_shuffle( v, 0 );
 ;;     dst[1] = sub_group_shuffle_xor( v, 0 );
 ;; }
-;; 
+;;
 ;; kernel void testShuffleShort(global short* dst)
 ;; {
 ;; 	short v = 0;
 ;;     dst[0] = sub_group_shuffle( v, 0 );
 ;;     dst[1] = sub_group_shuffle_xor( v, 0 );
 ;; }
-;; 
+;;
 ;; kernel void testShuffleUShort(global ushort* dst)
 ;; {
 ;; 	ushort v = 0;
 ;;     dst[0] = sub_group_shuffle( v, 0 );
 ;;     dst[1] = sub_group_shuffle_xor( v, 0 );
 ;; }
-;; 
+;;
 ;; kernel void testShuffleInt(global int* dst)
 ;; {
 ;; 	int v = 0;
 ;;     dst[0] = sub_group_shuffle( v, 0 );
 ;;     dst[1] = sub_group_shuffle_xor( v, 0 );
 ;; }
-;; 
+;;
 ;; kernel void testShuffleUInt(global uint* dst)
 ;; {
 ;; 	uint v = 0;
 ;;     dst[0] = sub_group_shuffle( v, 0 );
 ;;     dst[1] = sub_group_shuffle_xor( v, 0 );
 ;; }
-;; 
+;;
 ;; kernel void testShuffleLong(global long* dst)
 ;; {
 ;; 	long v = 0;
 ;;     dst[0] = sub_group_shuffle( v, 0 );
 ;;     dst[1] = sub_group_shuffle_xor( v, 0 );
 ;; }
-;; 
+;;
 ;; kernel void testShuffleULong(global ulong* dst)
 ;; {
 ;; 	ulong v = 0;
 ;;     dst[0] = sub_group_shuffle( v, 0 );
 ;;     dst[1] = sub_group_shuffle_xor( v, 0 );
 ;; }
-;; 
+;;
 ;; kernel void testShuffleFloat(global float* dst)
 ;; {
 ;; 	float v = 0;
 ;;     dst[0] = sub_group_shuffle( v, 0 );
 ;;     dst[1] = sub_group_shuffle_xor( v, 0 );
 ;; }
-;; 
+;;
 ;; kernel void testShuffleHalf(global half* dst)
 ;; {
 ;; 	half v = 0;
 ;;     dst[0] = sub_group_shuffle( v, 0 );
 ;;     dst[1] = sub_group_shuffle_xor( v, 0 );
 ;; }
-;; 
+;;
 ;; kernel void testShuffleDouble(global double* dst)
 ;; {
 ;; 	double v = 0;
@@ -80,13 +80,13 @@
 ;; }
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv %t.spv -to-text -o %t.spt
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefixes=CHECK-COMMON,CHECK-LLVM
-; RUN: llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefixes=CHECK-COMMON,CHECK-SPV-IR
 
 ; CHECK-SPIRV-DAG: {{[0-9]*}} Capability GroupNonUniformShuffle

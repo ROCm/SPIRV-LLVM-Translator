@@ -1,18 +1,18 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: llvm-spirv %t.bc -spirv-text --spirv-preserve-auxdata --spirv-max-version=1.5 -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-EXT
-; RUN: not llvm-spirv %t.bc -spirv-text --spirv-preserve-auxdata --spirv-max-version=1.5 --spirv-ext=-SPV_KHR_non_semantic_info -o - 2>&1 | FileCheck %s --check-prefix=CHECK-SPIRV-EXT-DISABLED
-; RUN: llvm-spirv %t.bc -o %t.spv --spirv-preserve-auxdata --spirv-max-version=1.5
-; RUN: llvm-spirv -r --spirv-preserve-auxdata %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.bc -spirv-text --spirv-preserve-auxdata --spirv-max-version=1.5 -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-EXT
+; RUN: not amd-llvm-spirv %t.bc -spirv-text --spirv-preserve-auxdata --spirv-max-version=1.5 --spirv-ext=-SPV_KHR_non_semantic_info -o - 2>&1 | FileCheck %s --check-prefix=CHECK-SPIRV-EXT-DISABLED
+; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-preserve-auxdata --spirv-max-version=1.5
+; RUN: amd-llvm-spirv -r --spirv-preserve-auxdata %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o - | FileCheck %s --check-prefix=CHECK-LLVM
-; RUN: llvm-spirv -r %t.spv -o %t.rev.without.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.without.bc
 ; RUN: llvm-dis %t.rev.without.bc -o - | FileCheck %s --implicit-check-not="{{foo|bar|baz}}"
 
-; RUN: llvm-spirv %t.bc -spirv-text --spirv-preserve-auxdata -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-NOEXT
-; RUN: llvm-spirv %t.bc -spirv-text --spirv-preserve-auxdata --spirv-ext=+SPV_KHR_non_semantic_info -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-NOEXT
-; RUN: llvm-spirv %t.bc -o %t.spv --spirv-preserve-auxdata
-; RUN: llvm-spirv -r --spirv-preserve-auxdata %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.bc -spirv-text --spirv-preserve-auxdata -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-NOEXT
+; RUN: amd-llvm-spirv %t.bc -spirv-text --spirv-preserve-auxdata --spirv-ext=+SPV_KHR_non_semantic_info -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-NOEXT
+; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-preserve-auxdata
+; RUN: amd-llvm-spirv -r --spirv-preserve-auxdata %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o - | FileCheck %s --check-prefix=CHECK-LLVM
-; RUN: llvm-spirv -r %t.spv -o %t.rev.without.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.without.bc
 ; RUN: llvm-dis %t.rev.without.bc -o - | FileCheck %s --implicit-check-not="{{foo|bar|baz}}"
 
 ; Check SPIR-V versions in a format magic number + version
@@ -50,6 +50,6 @@ ret void
 attributes #0 = { "foo" }
 ; CHECK-LLVM: attributes #[[#Fcn1IRAttr]] = { {{.*}}"bar"="baz" }
 attributes #1 = { "bar"="baz" }
- 
+
 ; CHECK-SPIRV-EXT-DISABLED: RequiresExtension: Feature requires the following SPIR-V extension:
 ; CHECK-SPIRV-EXT-DISABLED-NEXT: SPV_KHR_non_semantic_info

@@ -1,33 +1,33 @@
 ; The test checks command-line option for the translator which allows to represent
 ; unknown intrinsics as external function calls in SPIR-V.
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv -spirv-allow-unknown-intrinsics %t.bc -o %t.spv
+; RUN: amd-llvm-spirv -spirv-allow-unknown-intrinsics %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; Check that passing a prefix list into the option works/fails as expected.
 ;
 ; Positive cases:
-; RUN: llvm-spirv -spirv-allow-unknown-intrinsics=llvm. %t.bc
-; RUN: llvm-spirv -spirv-allow-unknown-intrinsics=llvm.,random.prefix %t.bc
+; RUN: amd-llvm-spirv -spirv-allow-unknown-intrinsics=llvm. %t.bc
+; RUN: amd-llvm-spirv -spirv-allow-unknown-intrinsics=llvm.,random.prefix %t.bc
 ;
 ; Positive cases (identical to "no setting at all"):
-; RUN: llvm-spirv -spirv-allow-unknown-intrinsics= %t.bc
-; RUN: llvm-spirv -spirv-allow-unknown-intrinsics="" %t.bc
-; RUN: llvm-spirv -spirv-allow-unknown-intrinsics=random.prefix, %t.bc
+; RUN: amd-llvm-spirv -spirv-allow-unknown-intrinsics= %t.bc
+; RUN: amd-llvm-spirv -spirv-allow-unknown-intrinsics="" %t.bc
+; RUN: amd-llvm-spirv -spirv-allow-unknown-intrinsics=random.prefix, %t.bc
 ;
 ; Negative cases:
-; RUN: not llvm-spirv -spirv-allow-unknown-intrinsics=llvm.some.custom %t.bc 2>&1 \
+; RUN: not amd-llvm-spirv -spirv-allow-unknown-intrinsics=llvm.some.custom %t.bc 2>&1 \
 ; RUN: | FileCheck %s --check-prefix=CHECK-FAIL-READCYCLE
 ; CHECK-FAIL-READCYCLE: InvalidFunctionCall: Unexpected llvm intrinsic:
 ; CHECK-FAIL-READCYCLE-NEXT: llvm.readcyclecounter
-; RUN: not llvm-spirv -spirv-allow-unknown-intrinsics=llvm.readcyclecounter %t.bc 2>&1 \
+; RUN: not amd-llvm-spirv -spirv-allow-unknown-intrinsics=llvm.readcyclecounter %t.bc 2>&1 \
 ; RUN: | FileCheck %s --check-prefix=CHECK-FAIL-CUSTOM
 ; CHECK-FAIL-CUSTOM: InvalidFunctionCall: Unexpected llvm intrinsic:
 ; CHECK-FAIL-CUSTOM-NEXT: llvm.some.custom.intrinsic
-; RUN: not llvm-spirv -spirv-allow-unknown-intrinsics=non.llvm.1,non,llvm.2 %t.bc
+; RUN: not amd-llvm-spirv -spirv-allow-unknown-intrinsics=non.llvm.1,non,llvm.2 %t.bc
 
 ; Note: This test used to call llvm.fma, but that is now traslated correctly.
 

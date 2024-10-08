@@ -1,8 +1,8 @@
 // RUN: %clang_cc1 -triple spir-unknown-unknown -O1 -cl-std=CL2.0 -fdeclare-opencl-builtins -finclude-default-header -emit-llvm-bc %s -o %t.bc
-// RUN: not llvm-spirv --spirv-max-version=1.4 %t.bc 2>&1 | FileCheck --check-prefix=CHECK-ERROR %s
-// RUN: llvm-spirv %t.bc -o %t.spv
+// RUN: not amd-llvm-spirv --spirv-max-version=1.4 %t.bc 2>&1 | FileCheck --check-prefix=CHECK-ERROR %s
+// RUN: amd-llvm-spirv %t.bc -o %t.spv
 // RUN: spirv-val %t.spv
-// RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+// RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
 // Before SPIR-V 1.5, the Id operand of OpGroupNonUniformBroadcast must come from a constant instruction.

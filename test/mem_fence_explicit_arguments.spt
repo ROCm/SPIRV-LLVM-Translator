@@ -26,11 +26,11 @@
 
 1 FunctionEnd
 
-; RUN: llvm-spirv %s -to-binary -o %t.spv
+; RUN: amd-llvm-spirv %s -to-binary -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.bc
 ; RUN: llvm-dis < %t.bc | FileCheck %s --check-prefixes CHECK,CHECK-12
-; RUN: llvm-spirv -r %t.spv --spirv-target-env=CL2.0 -o %t.bc
+; RUN: amd-llvm-spirv -r %t.spv --spirv-target-env=CL2.0 -o %t.bc
 ; RUN: llvm-dis < %t.bc | FileCheck %s --check-prefixes CHECK,CHECK-20
 
 ; CHECK: define spir_func void @test(i32 %[[VAL1:[a-zA-Z0-9]+]], i32 %[[VAL2:[a-zA-Z0-9]+]])

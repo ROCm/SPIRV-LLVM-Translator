@@ -1,26 +1,26 @@
 ;; Test SPIR-V opaque types
 ;;
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -spirv-text -o %t.spv.txt
+; RUN: amd-llvm-spirv %t.bc -spirv-text -o %t.spv.txt
 ; RUN: FileCheck < %t.spv.txt %s --check-prefix=CHECK-SPIRV
 
 ; Check that untyped pointers extension does not affect the translation of images.
-; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_KHR_untyped_pointers -spirv-text -o %t.spv.txt
+; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_KHR_untyped_pointers -spirv-text -o %t.spv.txt
 ; RUN: FileCheck < %t.spv.txt %s --check-prefix=CHECK-SPIRV
 
-; RUN: llvm-spirv %t.bc -o %t.from-llvm.spv
-; RUN: llvm-spirv -to-binary %t.spv.txt -o %t.from-text.spv
-; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.bc -o %t.from-llvm.spv
+; RUN: amd-llvm-spirv -to-binary %t.spv.txt -o %t.from-text.spv
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc
 ; RUN: FileCheck < %t.rev.ll %s --check-prefix=CHECK-LLVM
-; RUN: llvm-spirv --spirv-target-env=SPV-IR -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv --spirv-target-env=SPV-IR -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc
-; RUN: FileCheck < %t.rev.ll %s --check-prefix=CHECK-LLVM-SPIRV
+; RUN: FileCheck < %t.rev.ll %s --check-prefix=CHECK-amd-llvm-spirv
 
 ; Check that produced SPIR-V friendly IR is correctly recognized
-; RUN: llvm-spirv %t.rev.bc -spirv-text -o %t.spv.txt
+; RUN: amd-llvm-spirv %t.rev.bc -spirv-text -o %t.spv.txt
 ; RUN: FileCheck < %t.spv.txt %s --check-prefix=CHECK-SPIRV
 
 ; CHECK-SPIRV: 2 Capability Float16
@@ -127,8 +127,8 @@ define spir_func void @bar(
 ; CHECK-LLVM:  ptr addrspace(2) %s.coerce)
 ; CHECK-LLVM:  call spir_func float @_Z11read_imagef20ocl_image2d_depth_ro11ocl_samplerDv4_if(ptr addrspace(1) %srcimg.coerce, ptr addrspace(2) %s.coerce, <4 x i32> zeroinitializer, float 1.000000e+00)
 
-; CHECK-LLVM-SPIRV: call spir_func target("spirv.SampledImage", float, 1, 1, 0, 0, 0, 0, 0) @_Z20__spirv_SampledImagePU3AS134__spirv_Image__float_1_1_0_0_0_0_0PU3AS215__spirv_Sampler(target("spirv.Image", float, 1, 1, 0, 0, 0, 0, 0) %srcimg.coerce, target("spirv.Sampler") %s.coerce)
-; CHECK-LLVM-SPIRV: call spir_func <4 x float> @_Z38__spirv_ImageSampleExplicitLod_Rfloat4PU3AS141__spirv_SampledImage__float_1_1_0_0_0_0_0Dv4_iif(target("spirv.SampledImage", float, 1, 1, 0, 0, 0, 0, 0) %1, <4 x i32> zeroinitializer, i32 2, float 1.000000e+00)
+; CHECK-amd-llvm-spirv: call spir_func target("spirv.SampledImage", float, 1, 1, 0, 0, 0, 0, 0) @_Z20__spirv_SampledImagePU3AS134__spirv_Image__float_1_1_0_0_0_0_0PU3AS215__spirv_Sampler(target("spirv.Image", float, 1, 1, 0, 0, 0, 0, 0) %srcimg.coerce, target("spirv.Sampler") %s.coerce)
+; CHECK-amd-llvm-spirv: call spir_func <4 x float> @_Z38__spirv_ImageSampleExplicitLod_Rfloat4PU3AS141__spirv_SampledImage__float_1_1_0_0_0_0_0Dv4_iif(target("spirv.SampledImage", float, 1, 1, 0, 0, 0, 0, 0) %1, <4 x i32> zeroinitializer, i32 2, float 1.000000e+00)
 
 define spir_func void @test_sampler(target("spirv.Image", float, 1, 1, 0, 0, 0, 0, 0) %srcimg.coerce,
                                     target("spirv.Sampler") %s.coerce) {

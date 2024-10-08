@@ -1,5 +1,5 @@
 ; RUN: llvm-as --preserve-input-debuginfo-format %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
 
 source_filename = "debug-label-bitcode.c"
 

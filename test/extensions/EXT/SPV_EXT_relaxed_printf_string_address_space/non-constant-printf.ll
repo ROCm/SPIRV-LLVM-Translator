@@ -1,11 +1,11 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: not llvm-spirv %t.bc -o %t.spv 2>&1 | FileCheck %s --check-prefix=CHECK-WO-EXT
+; RUN: not amd-llvm-spirv %t.bc -o %t.spv 2>&1 | FileCheck %s --check-prefix=CHECK-WO-EXT
 
-; RUN: llvm-spirv -spirv-text %t.bc -o %t.spt --spirv-ext=+SPV_EXT_relaxed_printf_string_address_space
+; RUN: amd-llvm-spirv -spirv-text %t.bc -o %t.spt --spirv-ext=+SPV_EXT_relaxed_printf_string_address_space
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: llvm-spirv -to-binary %t.spt -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -to-binary %t.spt -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o %t.rev.ll
 ; RUN: FileCheck < %t.rev.ll %s --check-prefix=CHECK-LLVM
 

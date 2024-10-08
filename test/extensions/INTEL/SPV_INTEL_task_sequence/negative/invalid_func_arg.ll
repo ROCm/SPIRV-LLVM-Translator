@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: not llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_task_sequence 2>&1 \
+; RUN: not amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_task_sequence 2>&1 \
 ; RUN: | FileCheck %s --check-prefix=CHECK-ERROR
 
 ; CHECK-ERROR: InvalidInstruction: Can't translate llvm instruction:

@@ -1,9 +1,9 @@
 ; RUN: llvm-as %s -o %t.bc
 
-; RUN: llvm-spirv %t.bc -spirv-text --spirv-ext=-SPV_KHR_bit_instructions -o %t.txt
+; RUN: amd-llvm-spirv %t.bc -spirv-text --spirv-ext=-SPV_KHR_bit_instructions -o %t.txt
 ; RUN: FileCheck < %t.txt %s --check-prefixes=CHECK-WITHOUT-EXT
 
-; RUN: llvm-spirv %t.bc -spirv-text --spirv-ext=+SPV_KHR_bit_instructions -o %t.txt
+; RUN: amd-llvm-spirv %t.bc -spirv-text --spirv-ext=+SPV_KHR_bit_instructions -o %t.txt
 ; RUN: FileCheck < %t.txt %s --check-prefixes=CHECK-WITH-EXT
 
 ; CHECK-WITHOUT-EXT: Name [[#]] "llvm_bitreverse_i32"

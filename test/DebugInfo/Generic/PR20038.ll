@@ -5,8 +5,8 @@
 ; XFAIL: sparc
 
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 
 ; RUN: llc -mtriple=%triple -O0 -filetype=obj -dwarf-linkage-names=All < %t.ll | llvm-dwarfdump -v -debug-info - | FileCheck %s
 

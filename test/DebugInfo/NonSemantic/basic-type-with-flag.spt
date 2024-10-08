@@ -2,8 +2,8 @@
 ;; containing FlagUnknownPhysicalLayout flag of DebugTypeBasic can be
 ;; consumed without issues
 
-; RUN: llvm-spirv %s -to-binary -o %t.spv
-; RUN: llvm-spirv -r %t.spv
+; RUN: amd-llvm-spirv %s -to-binary -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv
 ; RUN: llvm-dis < %t.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; CHECK-LLVM: DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)

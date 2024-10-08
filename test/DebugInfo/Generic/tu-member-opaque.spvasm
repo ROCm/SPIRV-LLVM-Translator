@@ -1,11 +1,11 @@
 ; REQUIRES: spirv-as
 
 ; RUN: cat %s > %t.spvasm
-; RUN: llvm-spirv %t.spvasm --to-binary -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s
+; RUN: amd-llvm-spirv %t.spvasm --to-binary -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s
 
 ; SPIR-V generated via:
-;   clang -cc1 input.cl -triple spir -disable-llvm-passes -debug-info-kind=standalone -emit-llvm-bc -o - | ./bin/llvm-spirv -spirv-mem2reg -o input.spv; llvm-spirv input.spv --to-text -o -
+;   clang -cc1 input.cl -triple spir -disable-llvm-passes -debug-info-kind=standalone -emit-llvm-bc -o - | ./bin/amd-llvm-spirv -spirv-mem2reg -o input.spv; amd-llvm-spirv input.spv --to-text -o -
 ; where input.cl is:
 ; struct Foo {
 ;   int e;
@@ -39,7 +39,7 @@
 3 Name 5 "foo"
 4 Name 6 "entry"
 5 Name 30 "struct.Foo"
-5 Decorate 5 LinkageAttributes "foo" Export 
+5 Decorate 5 LinkageAttributes "foo" Export
 4 TypeInt 17 32 0
 4 Constant 17 18 32
 4 Constant 17 22 0

@@ -1,9 +1,9 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv -spirv-text %t.bc -o %t.spt --spirv-debug-info-version=nonsemantic-shader-200
+; RUN: amd-llvm-spirv -spirv-text %t.bc -o %t.spt --spirv-debug-info-version=nonsemantic-shader-200
 ; RUN: FileCheck < %t.spt %s -check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv -to-binary %t.spt -o %t.spv
+; RUN: amd-llvm-spirv -to-binary %t.spt -o %t.spv
 
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o %t.rev.ll
 ; RUN: FileCheck < %t.rev.ll %s -check-prefix=CHECK-LLVM
 

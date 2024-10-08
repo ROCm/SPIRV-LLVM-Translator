@@ -1,7 +1,7 @@
 ; REQUIRES: spirv-as
 ; RUN: spirv-as --target-env spv1.4 -o %t.spv %s
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -r -o - %t.spv | llvm-dis | FileCheck %s
+; RUN: amd-llvm-spirv -r -o - %t.spv | llvm-dis | FileCheck %s
 
 ; SPIR-V
 ; Version: 1.4

@@ -1,22 +1,22 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv --spirv-debug-info-version=ocl-100 %t.bc
-; RUN: llvm-spirv %t.spv -o %t.spt --to-text
+; RUN: amd-llvm-spirv --spirv-debug-info-version=ocl-100 %t.bc
+; RUN: amd-llvm-spirv %t.spv -o %t.spt --to-text
 ; RUN: FileCheck %s --input-file %t.spt -check-prefixes=CHECK-SPIRV,CHECK-SPIRV-NO-BITFIELD
-; RUN: llvm-spirv -r %t.spv -o %t_1.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t_1.bc
 ; RUN: llvm-dis %t_1.bc -o %t_1.ll
 ; RUN: FileCheck %s --input-file %t_1.ll  -check-prefixes=CHECK-LLVM,CHECK-LLVM-NO-BITFIELD
 
-; RUN: llvm-spirv --spirv-ext=+SPV_KHR_non_semantic_info --spirv-debug-info-version=nonsemantic-shader-100 %t.bc
-; RUN: llvm-spirv %t.spv -o %t.spt --to-text
+; RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_non_semantic_info --spirv-debug-info-version=nonsemantic-shader-100 %t.bc
+; RUN: amd-llvm-spirv %t.spv -o %t.spt --to-text
 ; RUN: FileCheck %s --input-file %t.spt -check-prefixes=CHECK-SPIRV,CHECK-SPIRV-BITFIELD
-; RUN: llvm-spirv -r %t.spv -o %t_1.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t_1.bc
 ; RUN: llvm-dis %t_1.bc -o %t_1.ll
 ; RUN: FileCheck %s --input-file %t_1.ll  -check-prefixes=CHECK-LLVM,CHECK-LLVM-NO-BITFIELD
 
-; RUN: llvm-spirv --spirv-debug-info-version=nonsemantic-shader-200 %t.bc -o %t.spv
-; RUN: llvm-spirv %t.spv -o %t.spt --to-text
+; RUN: amd-llvm-spirv --spirv-debug-info-version=nonsemantic-shader-200 %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.spv -o %t.spt --to-text
 ; RUN: FileCheck %s --input-file %t.spt -check-prefixes=CHECK-SPIRV,CHECK-SPIRV-BITFIELD
-; RUN: llvm-spirv -r %t.spv -o %t_1.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t_1.bc
 ; RUN: llvm-dis %t_1.bc -o %t_1.ll
 ; RUN: FileCheck %s --input-file %t_1.ll  -check-prefixes=CHECK-LLVM,CHECK-LLVM-BITFIELD
 
@@ -113,7 +113,7 @@ attributes #2 = { nocallback nofree nounwind willreturn memory(argmem: readwrite
 !18 = !DILocation(line: 29, column: 50, scope: !10)
 ; CHECK-LLVM: !DILocalVariable(name: "arr_bf1", {{.*}}, type: ![[#ARRAY_TYPE:]])
 !19 = !DILocalVariable(name: "arr_bf1", scope: !10, file: !11, line: 33, type: !20)
-; CHECK-LLVM: ![[#ARRAY_TYPE]] = {{.*}}!DICompositeType(tag: DW_TAG_array_type, baseType: ![[#BITFIELD_STRUCT:]], {{.*}}) 
+; CHECK-LLVM: ![[#ARRAY_TYPE]] = {{.*}}!DICompositeType(tag: DW_TAG_array_type, baseType: ![[#BITFIELD_STRUCT:]], {{.*}})
 !20 = !DICompositeType(tag: DW_TAG_array_type, baseType: !21, size: 16, elements: !30)
 ; CHECK-LLVM: ![[#BITFIELD_STRUCT]] = {{.*}}!DICompositeType(tag: DW_TAG_structure_type, name: "struct_bit_fields1", {{.*}}, identifier: "_ZTS18struct_bit_fields1")
 !21 = distinct !DICompositeType(tag: DW_TAG_structure_type, name: "struct_bit_fields1", file: !11, line: 19, size: 16, flags: DIFlagTypePassByValue, elements: !22, identifier: "_ZTS18struct_bit_fields1")

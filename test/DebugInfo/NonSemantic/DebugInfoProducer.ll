@@ -11,17 +11,17 @@
 ; ./clang -cc1 -debug-info-kind=standalone -v s.cpp -S -emit-llvm -triple spir
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc --spirv-debug-info-version=nonsemantic-shader-200 -spirv-text -o - | FileCheck %s --check-prefix CHECK-SPIRV-200
-; RUN: llvm-spirv %t.bc --spirv-debug-info-version=nonsemantic-shader-200 -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.bc --spirv-debug-info-version=nonsemantic-shader-200 -spirv-text -o - | FileCheck %s --check-prefix CHECK-SPIRV-200
+; RUN: amd-llvm-spirv %t.bc --spirv-debug-info-version=nonsemantic-shader-200 -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o %t.rev.ll
 ; RUN: FileCheck %s --input-file %t.rev.ll --check-prefix CHECK-LLVM-200
 
 ; Check that we don't produce "producer" info for NonSemantic.Shader.DebugInfo.100 as it's not specification conformant
-; RUN: llvm-spirv %t.bc --spirv-debug-info-version=nonsemantic-shader-100 -spirv-text -o %t.spt
+; RUN: amd-llvm-spirv %t.bc --spirv-debug-info-version=nonsemantic-shader-100 -spirv-text -o %t.spt
 ; RUN: FileCheck %s --input-file %t.spt --check-prefix CHECK-SPIRV-100
-; RUN: llvm-spirv %t.bc --spirv-debug-info-version=nonsemantic-shader-100 -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.bc --spirv-debug-info-version=nonsemantic-shader-100 -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o - | FileCheck %s --check-prefix CHECK-LLVM-100
 
 ; ModuleID = 's.bc'

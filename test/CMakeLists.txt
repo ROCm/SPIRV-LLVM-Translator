@@ -4,7 +4,7 @@ llvm_canonicalize_cmake_booleans(LLVM_BUILD_SHARED_LIBS)
 llvm_canonicalize_cmake_booleans(LLVM_SPIRV_BUILD_EXTERNAL)
 
 # required by lit.site.cfg.py.in
-get_target_property(LLVM_SPIRV_DIR llvm-spirv BINARY_DIR)
+get_target_property(LLVM_SPIRV_DIR amd-llvm-spirv BINARY_DIR)
 get_target_property(LLVM_SPIRV_LIB_DIR LLVMSPIRVLib BINARY_DIR)
 set(LLVM_SPIRV_TEST_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -120,13 +120,13 @@ if(NOT LLVM_SPIRV_BUILD_EXTERNAL)
 endif(NOT LLVM_SPIRV_BUILD_EXTERNAL)
 
 
-add_lit_testsuite(check-llvm-spirv "Running the LLVM-SPIRV regression tests"
+add_lit_testsuite(check-amd-llvm-spirv "Running the amd-llvm-spirv regression tests"
   ${CMAKE_CURRENT_BINARY_DIR}
   ARGS
     --verbose
   DEPENDS
     ${LLVM_SPIRV_TEST_DEPS}
-    llvm-spirv
+    amd-llvm-spirv
 )
 
 # to enable a custom test target on cmake below 3.11
@@ -138,7 +138,7 @@ if(LLVM_SPIRV_BUILD_EXTERNAL)
   endif(POLICY CMP0037 AND ${CMAKE_VERSION} VERSION_LESS "3.11.0")
   add_custom_target(test
     DEPENDS
-      check-llvm-spirv
+      check-amd-llvm-spirv
   )
   cmake_policy(POP)
 endif(LLVM_SPIRV_BUILD_EXTERNAL)

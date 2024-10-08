@@ -7,16 +7,16 @@
 ; added once this is defined.
 
 ; RUN: sed -e 's/INPUT_LANGUAGE/DW_LANG_C99/' %s | llvm-as - -o %t.bc
-; RUN: llvm-spirv -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-OPENCLC
+; RUN: amd-llvm-spirv -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-OPENCLC
 
 ; RUN: sed -e 's/INPUT_LANGUAGE/DW_LANG_OpenCL/' %s | llvm-as - -o %t.bc
-; RUN: llvm-spirv -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-OPENCLC
+; RUN: amd-llvm-spirv -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-OPENCLC
 
 ; RUN: sed -e 's/INPUT_LANGUAGE/DW_LANG_C_plus_plus/' %s | llvm-as - -o %t.bc
-; RUN: llvm-spirv -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-CPP4OPENCL
+; RUN: amd-llvm-spirv -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-CPP4OPENCL
 
 ; RUN: sed -e 's/INPUT_LANGUAGE/DW_LANG_C_plus_plus_14/' %s | llvm-as - -o %t.bc
-; RUN: llvm-spirv -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-CPP4OPENCL
+; RUN: amd-llvm-spirv -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-CPP4OPENCL
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown"

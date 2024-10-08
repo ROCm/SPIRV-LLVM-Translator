@@ -1,16 +1,16 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -spirv-text -o %t
-; RUN: llvm-spirv -r %t -spirv-text --spirv-target-env=SPV-IR --spirv-builtin-format=function -o %t2_rev.bc
-; RUN: llvm-spirv -r %t -spirv-text --spirv-target-env=SPV-IR --spirv-builtin-format=global -o %t3_rev.bc
-; RUN: llvm-spirv -r %t -spirv-text --spirv-builtin-format=function -o %t2_rev_ocl.bc
+; RUN: amd-llvm-spirv %t.bc -spirv-text -o %t
+; RUN: amd-llvm-spirv -r %t -spirv-text --spirv-target-env=SPV-IR --spirv-builtin-format=function -o %t2_rev.bc
+; RUN: amd-llvm-spirv -r %t -spirv-text --spirv-target-env=SPV-IR --spirv-builtin-format=global -o %t3_rev.bc
+; RUN: amd-llvm-spirv -r %t -spirv-text --spirv-builtin-format=function -o %t2_rev_ocl.bc
 ; RUN: llvm-dis < %t2_rev.bc | FileCheck --check-prefix=CHECK-FUNCTION-FORMAT-REV %s
 ; RUN: llvm-dis < %t3_rev.bc | FileCheck --check-prefix=CHECK-GLOBAL-FORMAT-REV %s
 ; RUN: llvm-dis < %t2_rev_ocl.bc | FileCheck --check-prefix=CHECK-FUNCTION-FORMAT-OCL-REV %s
-; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv %t.bc --spirv-builtin-format=function -o %t2.spv
+; RUN: amd-llvm-spirv %t.bc --spirv-builtin-format=function -o %t2.spv
 ; RUN: spirv-val %t2.spv
-; RUN: llvm-spirv %t.bc --spirv-builtin-format=global -o %t3.spv
+; RUN: amd-llvm-spirv %t.bc --spirv-builtin-format=global -o %t3.spv
 ; RUN: spirv-val %t3.spv
 
 ; CHECK-FUNCTION-FORMAT-REV: declare spir_func i64 @_Z26__spirv_BuiltInWorkgroupIdi(i32)

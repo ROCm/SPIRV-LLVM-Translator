@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv -s %t.bc -o - | llvm-dis -o - | FileCheck %s --implicit-check-not="<6 x i32>"
+; RUN: amd-llvm-spirv -s %t.bc -o - | llvm-dis -o - | FileCheck %s --implicit-check-not="<6 x i32>"
 
 ; CHECK: [[ASCastInst:%.*]] = addrspacecast ptr addrspace(1) @Id to ptr addrspace(4)
 ; CHECK: [[LoadInst1:%.*]] = load <3 x i64>, ptr addrspace(4) [[ASCastInst]], align 32

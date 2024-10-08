@@ -1,14 +1,14 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv %t.spv -r -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv %t.spv -r -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o - | FileCheck %s --check-prefixes=CHECK-LLVM,CHECK-LLVM-OCL
-; RUN: llvm-spirv %t.spv -r --spirv-target-env=SPV-IR -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.spv -r --spirv-target-env=SPV-IR -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o - | FileCheck %s --check-prefixes=CHECK-LLVM,CHECK-LLVM-SPV
 
 ; Check that produced builtin-call-based SPV-IR is recognized by the translator
-; RUN: llvm-spirv %t.rev.bc -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv %t.rev.bc -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
 
 ; The IR was generated from the following source:
 ; #include <CL/sycl.hpp>
@@ -20,7 +20,7 @@
 ;     sycl::range<2> Range(2, 3);
 ;     sycl::buffer<int, 2> buf((int *)array, Range,
 ;                              {cl::sycl::property::buffer::use_host_ptr()});
-; 
+;
 ;     Queue.submit([&](sycl::handler &cgh) {
 ;       auto acc = buf.get_access<sycl::access::mode::read_write>(cgh);
 ;       cgh.parallel_for<class dim2_subscr>(Range, [=](sycl::item<2> itemID) {
@@ -33,7 +33,7 @@
 ; }
 ; Command line:
 ; clang++ -fsycl -fsycl-device-only emit-llvm tmp.cpp -o tmp.bc
-; llvm-spirv tmp.bc -spirv-text -o builtin_vars_arithmetics.ll
+; amd-llvm-spirv tmp.bc -spirv-text -o builtin_vars_arithmetics.ll
 
 ; CHECK-SPIRV-DAG: Decorate [[GlobalInvocationId:[0-9]+]] BuiltIn 28
 ; CHECK-SPIRV-DAG: Decorate [[GlobalSize:[0-9]+]] BuiltIn 31
@@ -41,9 +41,9 @@
 ; CHECK-SPIRV-DAG: Decorate [[GlobalInvocationId]] Constant
 ; CHECK-SPIRV-DAG: Decorate [[GlobalSize]] Constant
 ; CHECK-SPIRV-DAG: Decorate [[GlobalOffset]] Constant
-; CHECK-SPIRV-DAG: Decorate [[GlobalOffset]] LinkageAttributes "__spirv_BuiltInGlobalOffset" Import 
-; CHECK-SPIRV-DAG: Decorate [[GlobalSize]] LinkageAttributes "__spirv_BuiltInGlobalSize" Import 
-; CHECK-SPIRV-DAG: Decorate [[GlobalInvocationId]] LinkageAttributes "__spirv_BuiltInGlobalInvocationId" Import 
+; CHECK-SPIRV-DAG: Decorate [[GlobalOffset]] LinkageAttributes "__spirv_BuiltInGlobalOffset" Import
+; CHECK-SPIRV-DAG: Decorate [[GlobalSize]] LinkageAttributes "__spirv_BuiltInGlobalSize" Import
+; CHECK-SPIRV-DAG: Decorate [[GlobalInvocationId]] LinkageAttributes "__spirv_BuiltInGlobalInvocationId" Import
 ;
 ; CHECK-LLVM-NOT: addrspacecast ptr addrspace(1) @__spirv_BuiltInGlobalInvocationId to ptr addrspace(4)
 ; CHECK-LLVM-NOT: load <3 x i64>

@@ -1,12 +1,12 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv -spirv-debug-info-version=nonsemantic-shader-100
-; RUN: llvm-spirv %t.spv --to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.bc -o %t.spv -spirv-debug-info-version=nonsemantic-shader-100
+; RUN: amd-llvm-spirv %t.spv --to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
-; RUN: llvm-spirv %t.bc -o %t.spv -spirv-debug-info-version=nonsemantic-shader-200
-; RUN: llvm-spirv %t.spv --to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.bc -o %t.spv -spirv-debug-info-version=nonsemantic-shader-200
+; RUN: amd-llvm-spirv %t.spv --to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; Generated from:
@@ -20,7 +20,7 @@
 ; int A::smem[] = { 0, 1, 2, 3 };
 
 ; CHECK-SPIRV: ExtInst [[#]] [[#Member1:]] [[#]] DebugTypeMember [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] {{$}}
-; CHECK-SPIRV: ExtInst [[#]] [[#Member2:]] [[#]] DebugTypeMember [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] {{$}} 
+; CHECK-SPIRV: ExtInst [[#]] [[#Member2:]] [[#]] DebugTypeMember [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] {{$}}
 ; CHECK-SPIRV: ExtInst [[#]] [[#]] [[#]] DebugTypeComposite [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] [[#Member1]] [[#Member2]]
 ; CHECK-SPIRV: ExtInst [[#]] [[#]] [[#]] DebugGlobalVariable [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] [[#Member1]]
 ; CHECK-SPIRV: ExtInst [[#]] [[#]] [[#]] DebugGlobalVariable [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] [[#]] [[#Member2]]

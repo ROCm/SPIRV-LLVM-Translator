@@ -39,8 +39,8 @@
 
 1 FunctionEnd
 
-; RUN: llvm-spirv %s -to-binary -o %t.spv
+; RUN: amd-llvm-spirv %s -to-binary -o %t.spv
 ; RUN: spirv-val %t.spv
 ; The purpose of this test is to check that SPIR-V file that uses extensions is
 ; not rejected by the translator by default
-; RUN: llvm-spirv -r %t.spv -o %t.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.bc

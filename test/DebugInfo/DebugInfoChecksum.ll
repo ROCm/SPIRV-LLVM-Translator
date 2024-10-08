@@ -11,15 +11,15 @@
 ; ./clang -cc1 -debug-info-kind=standalone -S -emit-llvm -triple spir -gcodeview -gcodeview-ghash main.cpp
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -spirv-text -o - | FileCheck %s --check-prefix CHECK-SPIRV-OCL
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.bc -spirv-text -o - | FileCheck %s --check-prefix CHECK-SPIRV-OCL
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o %t.rev.ll
 ; RUN: FileCheck %s --input-file %t.rev.ll --check-prefix CHECK-LLVM
 
-; RUN: llvm-spirv %t.bc -spirv-text --spirv-debug-info-version=nonsemantic-shader-200 -o - | FileCheck %s --check-prefix CHECK-SPIRV-200
-; RUN: llvm-spirv %t.bc --spirv-debug-info-version=nonsemantic-shader-200 -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.bc -spirv-text --spirv-debug-info-version=nonsemantic-shader-200 -o - | FileCheck %s --check-prefix CHECK-SPIRV-200
+; RUN: amd-llvm-spirv %t.bc --spirv-debug-info-version=nonsemantic-shader-200 -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o %t.rev.ll
 ; RUN: FileCheck %s --input-file %t.rev.ll --check-prefix CHECK-LLVM
 

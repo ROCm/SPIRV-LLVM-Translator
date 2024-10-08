@@ -1,14 +1,14 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv %t.spv -r -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv %t.spv -r -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o - | FileCheck %s --check-prefixes=CHECK-LLVM,CHECK-LLVM-OCL
-; RUN: llvm-spirv %t.spv -r --spirv-target-env=SPV-IR -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.spv -r --spirv-target-env=SPV-IR -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o - | FileCheck %s --check-prefixes=CHECK-LLVM,CHECK-LLVM-SPV
 
 ; Check that produced builtin-call-based SPV-IR is recognized by the translator
-; RUN: llvm-spirv %t.rev.bc -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv %t.rev.bc -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
 
 ; The IR was generated from the following source:
 ; #include <CL/sycl.hpp>
@@ -37,7 +37,7 @@
 ; }
 ; Command line:
 ; clang -fsycl -fsycl-device-only -Xclang -fsycl-enable-optimizations tmp.cpp -o tmp.bc
-; llvm-spirv tmp.bc -s -o builtin_vars_opt.ll
+; amd-llvm-spirv tmp.bc -s -o builtin_vars_opt.ll
 
 ; CHECK-SPIRV-DAG: Decorate [[#SG_MaxSize_BI:]] BuiltIn 37
 ; CHECK-SPIRV-DAG: Decorate [[#SG_MaxSize_BI:]] Constant

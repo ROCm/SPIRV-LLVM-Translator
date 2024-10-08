@@ -18,23 +18,23 @@
 ; opt -mem2reg 1.ll -S -o 1.o.ll
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv.default
-; RUN: llvm-spirv %t.spv.default -to-text -o - | FileCheck %s --check-prefixes CHECK,CHECK-ON
+; RUN: amd-llvm-spirv %t.bc -o %t.spv.default
+; RUN: amd-llvm-spirv %t.spv.default -to-text -o - | FileCheck %s --check-prefixes CHECK,CHECK-ON
 ; RUN: spirv-val %t.spv.default
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv.off --spirv-fp-contract=off
-; RUN: llvm-spirv %t.spv.off -to-text -o - | FileCheck %s --check-prefixes CHECK,CHECK-OFF
+; RUN: amd-llvm-spirv %t.bc -o %t.spv.off --spirv-fp-contract=off
+; RUN: amd-llvm-spirv %t.spv.off -to-text -o - | FileCheck %s --check-prefixes CHECK,CHECK-OFF
 ; RUN: spirv-val %t.spv.off
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv.fast --spirv-fp-contract=fast
-; RUN: llvm-spirv %t.spv.fast -to-text -o - | FileCheck %s --check-prefixes CHECK,CHECK-FAST
+; RUN: amd-llvm-spirv %t.bc -o %t.spv.fast --spirv-fp-contract=fast
+; RUN: amd-llvm-spirv %t.spv.fast -to-text -o - | FileCheck %s --check-prefixes CHECK,CHECK-FAST
 ; RUN: spirv-val %t.spv.fast
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv.on --spirv-fp-contract=on
-; RUN: llvm-spirv %t.spv.on -to-text -o - | FileCheck %s --check-prefixes CHECK,CHECK-ON
+; RUN: amd-llvm-spirv %t.bc -o %t.spv.on --spirv-fp-contract=on
+; RUN: amd-llvm-spirv %t.spv.on -to-text -o - | FileCheck %s --check-prefixes CHECK,CHECK-ON
 ; RUN: spirv-val %t.spv.on
 
 ; CHECK: EntryPoint 6 [[K1:[0-9]+]] "k1"

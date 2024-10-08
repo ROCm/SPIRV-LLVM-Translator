@@ -12,10 +12,10 @@
 ; }
 
 ; Command line:
-; clang -cc1 -triple spir constant_sampler.cl -cl-std=cl2.0 -emit-llvm -o llvm-spirv/test/DebugInfo/translate_sampler_initializer.ll -finclude-default-header -debug-info-kind=standalone
+; clang -cc1 -triple spir constant_sampler.cl -cl-std=cl2.0 -emit-llvm -o amd-llvm-spirv/test/DebugInfo/translate_sampler_initializer.ll -finclude-default-header -debug-info-kind=standalone
 
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: llvm-spirv %t.bc -spirv-text -o - | FileCheck %s
+; RUN: amd-llvm-spirv %t.bc -spirv-text -o - | FileCheck %s
 
 ; CHECK: TypeSampler [[#SamplerTy:]]
 ; CHECK: ConstantSampler [[#SamplerTy]] [[#ConstSampler:]] 2 0 0
@@ -24,7 +24,7 @@
 ; CHECK: ExtInst [[#]] [[#SamplerVar:]] [[#]] DebugLocalVariable
 
 ; CHECK: Label
-; CHECK-NEXT: ExtInst [[#]] [[#]] [[#]] DebugScope [[#Func]] 
+; CHECK-NEXT: ExtInst [[#]] [[#]] [[#]] DebugScope [[#Func]]
 ; CHECK-NEXT: Line [[#]] 0 0
 ; CHECK-NEXT: ExtInst [[#]] [[#]] [[#]] DebugValue [[#SamplerVar]] [[#ConstSampler]]
 ; CHECK-NEXT: Line [[#]] 4 0

@@ -1,15 +1,15 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -spirv-text -o %t.txt
+; RUN: amd-llvm-spirv %t.bc -spirv-text -o %t.txt
 ; RUN: FileCheck < %t.txt %s --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc --spirv-target-env=SPV-IR
-; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM-SPIRV
-; RUN: llvm-spirv %t.rev.bc -o %t.rev.spv
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc --spirv-target-env=SPV-IR
+; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-amd-llvm-spirv
+; RUN: amd-llvm-spirv %t.rev.bc -o %t.rev.spv
 ; RUN: spirv-val %t.rev.spv
-; RUN: llvm-spirv %t.rev.bc -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv %t.rev.bc -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
 
 target datalayout = "e-p:32:32-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir-unknown-unknown"
@@ -25,8 +25,8 @@ define spir_kernel void @f(ptr addrspace(1) %img, ptr addrspace(1) nocapture %ty
 ; CHECK-LLVM: [[DTADD:%.+]] = add i32 [[DTSUB]], 4304
 ; CHECK-LLVM: store i32 [[DTADD]]
 
-; CHECK-LLVM-SPIRV: [[DTCALL:%.+]] = call spir_func i32 @_Z24__spirv_ImageQueryFormatPU3AS133__spirv_Image__void_1_0_0_0_0_0_0(target("spirv.Image", void, 1, 0, 0, 0, 0, 0, 0) %img)
-; CHECK-LLVM-SPIRV: add i32 [[DTCALL]], 4304
+; CHECK-amd-llvm-spirv: [[DTCALL:%.+]] = call spir_func i32 @_Z24__spirv_ImageQueryFormatPU3AS133__spirv_Image__void_1_0_0_0_0_0_0(target("spirv.Image", void, 1, 0, 0, 0, 0, 0, 0) %img)
+; CHECK-amd-llvm-spirv: add i32 [[DTCALL]], 4304
 
 ; CHECK-SPIRV: 4 ImageQueryFormat {{[0-9]+}} [[DataTypeID:[0-9]+]]
 ; CHECK-SPIRV: 5 IAdd {{[0-9]+}} [[DTAddID:[0-9]+]] [[DataTypeID]] [[DataTypeOffsetId]]
@@ -40,8 +40,8 @@ define spir_kernel void @f(ptr addrspace(1) %img, ptr addrspace(1) nocapture %ty
 ; CHECK-LLVM: [[OADD:%.+]] = add i32 [[OSUB]], 4272
 ; CHECK-LLVM: store i32 [[OADD]]
 
-; CHECK-LLVM-SPIRV: [[OCALL:%.+]] = call spir_func i32 @_Z23__spirv_ImageQueryOrderPU3AS133__spirv_Image__void_1_0_0_0_0_0_0(target("spirv.Image", void, 1, 0, 0, 0, 0, 0, 0) %img)
-; CHECK-LLVM-SPIRV: add i32 [[OCALL]], 4272
+; CHECK-amd-llvm-spirv: [[OCALL:%.+]] = call spir_func i32 @_Z23__spirv_ImageQueryOrderPU3AS133__spirv_Image__void_1_0_0_0_0_0_0(target("spirv.Image", void, 1, 0, 0, 0, 0, 0, 0) %img)
+; CHECK-amd-llvm-spirv: add i32 [[OCALL]], 4272
 
 ; CHECK-SPIRV: 4 ImageQueryOrder {{[0-9]+}} [[OrderID:[0-9]+]]
 ; CHECK-SPIRV: 5 IAdd {{[0-9]+}} [[OrderAddID:[0-9]+]] [[OrderID]] [[OrderOffsetId]]

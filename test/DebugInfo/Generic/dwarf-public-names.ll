@@ -1,8 +1,8 @@
 ; REQUIRES: object-emission
 
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 
 ; RUN: llc -mtriple=%triple -debugger-tune=gdb -filetype=obj -o %t.o < %t.ll
 ; RUN: llvm-dwarfdump -debug-pubnames %t.o | FileCheck %s

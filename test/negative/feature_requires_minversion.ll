@@ -3,10 +3,10 @@
 ; requested using --spirv-max-version.
 
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: not llvm-spirv --spirv-max-version=1.0 %t.bc 2>&1 | FileCheck %s
-; RUN: not llvm-spirv --spirv-max-version=1.1 %t.bc 2>&1 | FileCheck %s
-; RUN: not llvm-spirv --spirv-max-version=1.2 %t.bc 2>&1 | FileCheck %s
-; RUN: llvm-spirv --spirv-max-version=1.3 %t.bc -o %t.spv
+; RUN: not amd-llvm-spirv --spirv-max-version=1.0 %t.bc 2>&1 | FileCheck %s
+; RUN: not amd-llvm-spirv --spirv-max-version=1.1 %t.bc 2>&1 | FileCheck %s
+; RUN: not amd-llvm-spirv --spirv-max-version=1.2 %t.bc 2>&1 | FileCheck %s
+; RUN: amd-llvm-spirv --spirv-max-version=1.3 %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
 
 ; CHECK: RequiresVersion: Cannot fulfill SPIR-V version restriction:

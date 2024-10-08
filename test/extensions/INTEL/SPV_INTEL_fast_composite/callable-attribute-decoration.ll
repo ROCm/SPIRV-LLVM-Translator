@@ -1,8 +1,8 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_INTEL_fast_composite
-; RUN: llvm-spirv %t.spv -o %t.spt --to-text
+; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_INTEL_fast_composite
+; RUN: amd-llvm-spirv %t.spv -o %t.spt --to-text
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv %t.spv -o %t.bc -r
+; RUN: amd-llvm-spirv %t.spv -o %t.bc -r
 ; RUN: llvm-dis %t.bc -o %t.ll
 ; RUN: FileCheck < %t.ll %s --check-prefix=CHECK-LLVM
 target triple = "spir64"

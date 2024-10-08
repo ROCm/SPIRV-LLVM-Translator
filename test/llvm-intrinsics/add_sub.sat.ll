@@ -1,6 +1,6 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv %t.spv -to-text -o - | FileCheck %s
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.spv -to-text -o - | FileCheck %s
 ; RUN: spirv-val %t.spv
 
 ; Test checks that saturation addition and substraction llvm intrinsics

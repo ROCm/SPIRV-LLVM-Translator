@@ -1,6 +1,6 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc --spirv-preserve-auxdata --spirv-text -spirv-allow-unknown-intrinsics=llvm.genx. --spirv-preserve-auxdata -o %t.txt
-; RUN: llvm-spirv --spirv-preserve-auxdata --spirv-target-env=SPV-IR --spirv-text -r %t.txt -o %t.bc
+; RUN: amd-llvm-spirv %t.bc --spirv-preserve-auxdata --spirv-text -spirv-allow-unknown-intrinsics=llvm.genx. --spirv-preserve-auxdata -o %t.txt
+; RUN: amd-llvm-spirv --spirv-preserve-auxdata --spirv-target-env=SPV-IR --spirv-text -r %t.txt -o %t.bc
 ; RUN: llvm-dis %t.bc -o %t.ll
 ; RUN: FileCheck < %t.txt %s --check-prefix=CHECK-SPIRV
 ; RUN: FileCheck < %t.ll %s --check-prefix=CHECK-LLVM

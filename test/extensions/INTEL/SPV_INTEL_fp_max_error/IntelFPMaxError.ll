@@ -2,16 +2,16 @@
 
 ;; Check that an error is reported if a fpbuiltin-max-error attribute is encountered without the SPV_INTEL_fp_max_error
 ;; extension.
-; RUN: not llvm-spirv %t.bc --spirv-allow-unknown-intrinsics=llvm.fpbuiltin -o %t.spv 2>&1  | FileCheck %s --check-prefix=CHECK_NO_CAPABILITY_ERROR
+; RUN: not amd-llvm-spirv %t.bc --spirv-allow-unknown-intrinsics=llvm.fpbuiltin -o %t.spv 2>&1  | FileCheck %s --check-prefix=CHECK_NO_CAPABILITY_ERROR
 ; CHECK_NO_CAPABILITY_ERROR: RequiresExtension: Feature requires the following SPIR-V extension:
 ; CHECK_NO_CAPABILITY_ERROR-NEXT: SPV_INTEL_fp_max_error
 
 ;; Check that fpbuiltin-max-error is translated and reverse-translated properly
-; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_fp_max_error --spirv-allow-unknown-intrinsics=llvm.fpbuiltin -o %t.spv
-; RUN: llvm-spirv %t.spv -to-text -o %t.spt
+; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_fp_max_error --spirv-allow-unknown-intrinsics=llvm.fpbuiltin -o %t.spv
+; RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; CHECK-SPIRV: Capability FPMaxErrorINTEL
@@ -197,7 +197,7 @@ entry:
   %t30 = call float @llvm.fpbuiltin.atan2.f32(float %f1, float %f2) #3
   %t31 = call float @llvm.fpbuiltin.ldexp.f32.i32(float %f1, i32 %f4) #3
   %t32 = call float @llvm.fpbuiltin.pow.f32(float %f1, float %f2) #3
-  
+
   ; CHECK-LLVM: call spir_func float @_Z5hypotff(float %f1, float %f2) #[[#AT5:]]
   %t33 = call float @llvm.fpbuiltin.hypot.f32(float %f1, float %f2) #4
 

@@ -5,15 +5,15 @@
 //   even if in LLVM IR it points to a DIFile instead of DICompileUnit.
 
 // RUN: %clang_cc1 %s -cl-std=clc++ -emit-llvm-bc -triple spir -debug-info-kind=line-tables-only -O0 -o %t.bc
-// RUN: llvm-spirv %t.bc --spirv-debug-info-version=nonsemantic-shader-100 -o %t.spv
-// RUN: llvm-spirv %t.spv -to-text -o %t.spt
+// RUN: amd-llvm-spirv %t.bc --spirv-debug-info-version=nonsemantic-shader-100 -o %t.spv
+// RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
 // RUN: FileCheck %s --input-file %t.spt  --check-prefix=CHECK-SPIRV
 
-// RUN: llvm-spirv %t.bc --spirv-debug-info-version=nonsemantic-shader-200 -o %t.spv
-// RUN: llvm-spirv %t.spv -to-text -o %t.spt
+// RUN: amd-llvm-spirv %t.bc --spirv-debug-info-version=nonsemantic-shader-200 -o %t.spv
+// RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
 // RUN: FileCheck %s --input-file %t.spt  --check-prefix=CHECK-SPIRV
 
-// RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
+// RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
 
 float foo(int i) {
     return i * 3.14;

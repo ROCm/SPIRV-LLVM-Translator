@@ -27,9 +27,9 @@
 
 1 FunctionEnd
 
-; RUN: llvm-spirv %s -to-binary -o %t.spv
+; RUN: amd-llvm-spirv %s -to-binary -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -r %t.spv --spirv-max-version=1.1 -o %t
-; RUN: not llvm-spirv -r %t.spv --spirv-max-version=1.0 -o - 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
+; RUN: amd-llvm-spirv -r %t.spv --spirv-max-version=1.1 -o %t
+; RUN: not amd-llvm-spirv -r %t.spv --spirv-max-version=1.0 -o - 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
 ;
 ; CHECK-ERROR: Invalid SPIR-V module: incorrect SPIR-V version number 1.1 (65792) - it conflicts with maximum allowed version which is set to 1.0 (65536)

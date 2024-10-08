@@ -1,20 +1,20 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_INTEL_complex_float_mul_div
-; RUN: llvm-spirv %t.spv -o %t.spt --to-text
+; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_INTEL_complex_float_mul_div
+; RUN: amd-llvm-spirv %t.spv -o %t.spt --to-text
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: llvm-spirv %t.spv -o %t.rev.bc -r
+; RUN: amd-llvm-spirv %t.spv -o %t.rev.bc -r
 ; RUN: llvm-dis %t.rev.bc -o %t.rev.ll
 ; RUN: FileCheck < %t.rev.ll %s --check-prefix=CHECK-LLVM
 
-; RUN: not llvm-spirv %t.bc 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
+; RUN: not amd-llvm-spirv %t.bc 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
 
 ; CHECK-ERROR: RequiresExtension: Feature requires the following SPIR-V extension:
 ; CHECK-ERROR-NEXT: SPV_INTEL_complex_float_mul_div
 
 ; CHECK-SPIRV: Capability ComplexFloatMulDivINTEL
 ; CHECK-SPIRV: Extension "SPV_INTEL_complex_float_mul_div"
-; CHECK-SPIRV: TypeFloat [[#TyFloat32:]] 32  
+; CHECK-SPIRV: TypeFloat [[#TyFloat32:]] 32
 ; CHECK-SPIRV: TypeVector [[#TyVec2Float32:]] [[#TyFloat32]] 2
 ; CHECK-SPIRV: ComplexFDivINTEL [[#TyVec2Float32]] [[#]] [[#]] [[#]]
 ; CHECK-SPIRV: ComplexFMulINTEL [[#TyVec2Float32]] [[#]] [[#]] [[#]]

@@ -1,8 +1,8 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv -spirv-text %t.bc -o %t.spt
+; RUN: amd-llvm-spirv -spirv-text %t.bc -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv -to-binary %t.spt -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -to-binary %t.spt -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o %t.rev.ll
 ; RUN: FileCheck < %t.rev.ll %s --check-prefix=CHECK-LLVM "--implicit-check-not={{(shl|lshr|or|and) i(16|32|64)}}"
 
@@ -20,7 +20,7 @@
 ; CHECK-SPIRV: ShiftRightLogical [[#TypeInt16]] [[#]] [[#FuncParameter]]
 ; CHECK-SPIRV: BitwiseOr [[#TypeInt16]] [[#RetVal:]]
 ; CHECK-SPIRV: ReturnValue [[#RetVal]]
-; CHECK-SPIRV: FunctionEnd 
+; CHECK-SPIRV: FunctionEnd
 
 ; CHECK-SPIRV: Function [[#TypeInt32]] [[#FuncNameInt32]]
 ; CHECK-SPIRV: FunctionParameter [[#TypeInt32]] [[#FuncParameter:]]
@@ -32,15 +32,15 @@
 ; CHECK-SPIRV: ReturnValue [[#RetVal:]]
 ; CHECK-SPIRV: FunctionEnd
 
-; CHECK-SPIRV: Function [[#TypeInt64]] [[#FuncNameInt64]] 
-; CHECK-SPIRV: FunctionParameter [[#TypeInt64]] [[#FuncParameter:]] 
+; CHECK-SPIRV: Function [[#TypeInt64]] [[#FuncNameInt64]]
+; CHECK-SPIRV: FunctionParameter [[#TypeInt64]] [[#FuncParameter:]]
 ; CHECK-SPIRV-COUNT-4: ShiftLeftLogical [[#TypeInt64]] [[#]] [[#FuncParameter]] [[#]]
 ; CHECK-SPIRV-COUNT-4: ShiftRightLogical [[#TypeInt64]] [[#]] [[#FuncParameter]] [[#]]
 ; CHECK-SPIRV-COUNT-6: BitwiseAnd [[#TypeInt64]]
 ; CHECK-SPIRV-COUNT-6: BitwiseOr [[#TypeInt64]]
 ; CHECK-SPIRV: BitwiseOr [[#TypeInt64]] [[#RetVal:]]
 ; CHECK-SPIRV: ReturnValue [[#RetVal]]
-; CHECK-SPIRV: FunctionEnd 
+; CHECK-SPIRV: FunctionEnd
 
 ; CHECK-LLVM-COUNT-2: call i16 @llvm.bswap.i16(i16
 ; CHECK-LLVM: call i32 @llvm.bswap.i32(i32

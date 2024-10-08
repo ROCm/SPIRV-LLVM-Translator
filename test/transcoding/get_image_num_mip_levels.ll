@@ -1,16 +1,16 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc --spirv-target-env=SPV-IR
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc --spirv-target-env=SPV-IR
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-SPV-IR
-; RUN: llvm-spirv -spirv-text %t.rev.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv -spirv-text %t.rev.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV
 
 ; Generated from the following OpenCL C code:
 ; #pragma OPENCL EXTENSION cl_khr_mipmap_image : enable
-; void test(image1d_t img1, 
+; void test(image1d_t img1,
 ;           image2d_t img2,
 ;           image3d_t img3,
 ;           image1d_array_t img4,
@@ -82,19 +82,19 @@ entry:
   ret void
 }
 
-; CHECK-SPIRV: Load [[IMAGE1D_T]] [[IMAGE1D:[0-9]+]] 
+; CHECK-SPIRV: Load [[IMAGE1D_T]] [[IMAGE1D:[0-9]+]]
 ; CHECK-SPIRV: ImageQueryLevels [[INT]] {{[0-9]+}} [[IMAGE1D]]
-; CHECK-SPIRV: Load [[IMAGE2D_T]] [[IMAGE2D:[0-9]+]] 
+; CHECK-SPIRV: Load [[IMAGE2D_T]] [[IMAGE2D:[0-9]+]]
 ; CHECK-SPIRV: ImageQueryLevels [[INT]] {{[0-9]+}} [[IMAGE2D]]
-; CHECK-SPIRV: Load [[IMAGE3D_T]] [[IMAGE3D:[0-9]+]] 
+; CHECK-SPIRV: Load [[IMAGE3D_T]] [[IMAGE3D:[0-9]+]]
 ; CHECK-SPIRV: ImageQueryLevels [[INT]] {{[0-9]+}} [[IMAGE3D]]
-; CHECK-SPIRV: Load [[IMAGE1D_ARRAY_T]] [[IMAGE1D_ARRAY:[0-9]+]] 
+; CHECK-SPIRV: Load [[IMAGE1D_ARRAY_T]] [[IMAGE1D_ARRAY:[0-9]+]]
 ; CHECK-SPIRV: ImageQueryLevels [[INT]] {{[0-9]+}} [[IMAGE1D_ARRAY]]
-; CHECK-SPIRV: Load [[IMAGE2D_ARRAY_T]] [[IMAGE2D_ARRAY:[0-9]+]] 
+; CHECK-SPIRV: Load [[IMAGE2D_ARRAY_T]] [[IMAGE2D_ARRAY:[0-9]+]]
 ; CHECK-SPIRV: ImageQueryLevels [[INT]] {{[0-9]+}} [[IMAGE2D_ARRAY]]
-; CHECK-SPIRV: Load [[IMAGE2D_DEPTH_T]] [[IMAGE2D_DEPTH:[0-9]+]] 
+; CHECK-SPIRV: Load [[IMAGE2D_DEPTH_T]] [[IMAGE2D_DEPTH:[0-9]+]]
 ; CHECK-SPIRV: ImageQueryLevels [[INT]] {{[0-9]+}} [[IMAGE2D_DEPTH]]
-; CHECK-SPIRV: Load [[IMAGE2D_ARRAY_DEPTH_T]] [[IMAGE2D_ARRAY_DEPTH:[0-9]+]] 
+; CHECK-SPIRV: Load [[IMAGE2D_ARRAY_DEPTH_T]] [[IMAGE2D_ARRAY_DEPTH:[0-9]+]]
 ; CHECK-SPIRV: ImageQueryLevels [[INT]] {{[0-9]+}} [[IMAGE2D_ARRAY_DEPTH]]
 
 ; CHECK-LLVM: call spir_func i32 @_Z24get_image_num_mip_levels14ocl_image1d_ro(ptr addrspace(1)

@@ -1,7 +1,7 @@
 ; Check translation of the buffer surface target extension type
 ;
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv -spirv-ext=+SPV_INTEL_vector_compute %t.bc -spirv-text -o %t.spv.txt
+; RUN: amd-llvm-spirv -spirv-ext=+SPV_INTEL_vector_compute %t.bc -spirv-text -o %t.spv.txt
 ; RUN: FileCheck < %t.spv.txt %s --check-prefix=CHECK-SPIRV
 target datalayout = "e-p:32:32-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir-unknown-unknown"

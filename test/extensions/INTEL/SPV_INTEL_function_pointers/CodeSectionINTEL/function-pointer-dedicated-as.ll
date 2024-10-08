@@ -9,34 +9,34 @@
 ; Overall IR generation is tested elsewhere, here checks are very simple
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -spirv-text --spirv-ext=+SPV_INTEL_function_pointers -spirv-emit-function-ptr-addr-space -o %t.spt
+; RUN: amd-llvm-spirv %t.bc -spirv-text --spirv-ext=+SPV_INTEL_function_pointers -spirv-emit-function-ptr-addr-space -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV-AS
-; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_function_pointers -spirv-emit-function-ptr-addr-space -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.r.bc
+; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_function_pointers -spirv-emit-function-ptr-addr-space -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o %t.r.bc
 ; RUN: llvm-dis %t.r.bc -o %t.r.ll
 ; RUN: FileCheck < %t.r.ll %s --check-prefix=CHECK-LLVM-NO-AS
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -spirv-text --spirv-ext=+SPV_INTEL_function_pointers -spirv-emit-function-ptr-addr-space -o %t.spt
+; RUN: amd-llvm-spirv %t.bc -spirv-text --spirv-ext=+SPV_INTEL_function_pointers -spirv-emit-function-ptr-addr-space -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV-AS
-; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_function_pointers -spirv-emit-function-ptr-addr-space -o %t.spv
-; RUN: llvm-spirv -r -spirv-emit-function-ptr-addr-space %t.spv -o %t.r.bc
+; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_function_pointers -spirv-emit-function-ptr-addr-space -o %t.spv
+; RUN: amd-llvm-spirv -r -spirv-emit-function-ptr-addr-space %t.spv -o %t.r.bc
 ; RUN: llvm-dis %t.r.bc -o %t.r.ll
 ; RUN: FileCheck < %t.r.ll %s --check-prefix=CHECK-LLVM-AS
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -spirv-text --spirv-ext=+SPV_INTEL_function_pointers -o %t.spt
+; RUN: amd-llvm-spirv %t.bc -spirv-text --spirv-ext=+SPV_INTEL_function_pointers -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV-NO-AS
-; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_function_pointers -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.r.bc
+; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_function_pointers -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o %t.r.bc
 ; RUN: llvm-dis %t.r.bc -o %t.r.ll
 ; RUN: FileCheck < %t.r.ll %s --check-prefix=CHECK-LLVM-NO-AS
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -spirv-text --spirv-ext=+SPV_INTEL_function_pointers -o %t.spt
+; RUN: amd-llvm-spirv %t.bc -spirv-text --spirv-ext=+SPV_INTEL_function_pointers -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV-NO-AS
-; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_function_pointers -o %t.spv
-; RUN: llvm-spirv -r -spirv-emit-function-ptr-addr-space %t.spv -o %t.r.bc
+; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_function_pointers -o %t.spv
+; RUN: amd-llvm-spirv -r -spirv-emit-function-ptr-addr-space %t.spv -o %t.r.bc
 ; RUN: llvm-dis %t.r.bc -o %t.r.ll
 ; RUN: FileCheck < %t.r.ll %s --check-prefix=CHECK-LLVM-AS
 

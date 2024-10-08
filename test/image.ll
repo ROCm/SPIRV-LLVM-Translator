@@ -1,11 +1,11 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv %t.bc -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv %t.bc -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
-; RUN: llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-SPV-IR
-; RUN: llvm-spirv %t.rev.bc -o %t.rev.spv
+; RUN: amd-llvm-spirv %t.rev.bc -o %t.rev.spv
 ; RUN: spirv-val %t.rev.spv
 
 ; CHECK-SPIRV: 2 TypeVoid [[VOID_TY:[0-9]+]]

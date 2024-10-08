@@ -5,7 +5,7 @@
 ;   specified and that address space cannot be `0`
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: not llvm-spirv %t.bc 2>&1 \
+; RUN: not amd-llvm-spirv %t.bc 2>&1 \
 ; RUN: | FileCheck %s --check-prefix=CHECK-ERROR
 
 ; CHECK-ERROR: InvalidInstruction: Can't translate llvm instruction:

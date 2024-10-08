@@ -1,18 +1,18 @@
 ; RUN: llvm-as %s -o %t.bc
 
-; RUN: not llvm-spirv %t.bc -o %t.spv 2>&1 | FileCheck %s --check-prefix=CHECK-WO-EXT
+; RUN: not amd-llvm-spirv %t.bc -o %t.spv 2>&1 | FileCheck %s --check-prefix=CHECK-WO-EXT
 
-; RUN: llvm-spirv %t.bc -o %t.spv -spirv-ext=+SPV_KHR_uniform_group_instructions
-; RUN: llvm-spirv %t.spv -o %t.spt -to-text
+; RUN: amd-llvm-spirv %t.bc -o %t.spv -spirv-ext=+SPV_KHR_uniform_group_instructions
+; RUN: amd-llvm-spirv %t.spv -o %t.spt -to-text
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o %t.rev.ll
 ; RUN: FileCheck < %t.rev.ll %s --check-prefix=CHECK-LLVM
 
-; RUN: llvm-spirv --spirv-target-env=SPV-IR -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv --spirv-target-env=SPV-IR -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc
-; RUN: FileCheck < %t.rev.ll %s --check-prefix=CHECK-LLVM-SPIRV
+; RUN: FileCheck < %t.rev.ll %s --check-prefix=CHECK-amd-llvm-spirv
 
 ; CHECK-WO-EXT: RequiresExtension: Feature requires the following SPIR-V extension:
 ; CHECK-WO-EXT: SPV_KHR_uniform_group_instructions
@@ -45,14 +45,14 @@
 ; CHECK-LLVM: call spir_func i32 @_Z21work_group_reduce_muli(i32 0)
 ; CHECK-LLVM: call spir_func half @_Z21work_group_reduce_mulDh(half 0xH0000)
 
-; CHECK-LLVM-SPIRV: %call1 = call spir_func i32 @_Z26__spirv_GroupBitwiseAndKHR{{.*}}(i32 2, i32 0, i32 0)
-; CHECK-LLVM-SPIRV: %call2 = call spir_func i32 @_Z25__spirv_GroupBitwiseOrKHR{{.*}}(i32 2, i32 0, i32 0)
-; CHECK-LLVM-SPIRV: %call3 = call spir_func i32 @_Z26__spirv_GroupBitwiseXorKHR{{.*}}(i32 2, i32 0, i32 0)
-; CHECK-LLVM-SPIRV: %call4 = call spir_func i1 @_Z26__spirv_GroupLogicalAndKHR{{.*}}(i32 2, i32 0, i1 false)
-; CHECK-LLVM-SPIRV: %call5 = call spir_func i1 @_Z25__spirv_GroupLogicalOrKHR{{.*}}(i32 2, i32 0, i1 false)
-; CHECK-LLVM-SPIRV: %call6 = call spir_func i1 @_Z26__spirv_GroupLogicalXorKHR{{.*}}(i32 2, i32 0, i1 false)
-; CHECK-LLVM-SPIRV: %call7 = call spir_func i32 @_Z20__spirv_GroupIMulKHR{{.*}}(i32 2, i32 0, i32 0)
-; CHECK-LLVM-SPIRV: %call8 = call spir_func half @_Z20__spirv_GroupFMulKHR{{.*}}(i32 2, i32 0, half 0xH0000)
+; CHECK-amd-llvm-spirv: %call1 = call spir_func i32 @_Z26__spirv_GroupBitwiseAndKHR{{.*}}(i32 2, i32 0, i32 0)
+; CHECK-amd-llvm-spirv: %call2 = call spir_func i32 @_Z25__spirv_GroupBitwiseOrKHR{{.*}}(i32 2, i32 0, i32 0)
+; CHECK-amd-llvm-spirv: %call3 = call spir_func i32 @_Z26__spirv_GroupBitwiseXorKHR{{.*}}(i32 2, i32 0, i32 0)
+; CHECK-amd-llvm-spirv: %call4 = call spir_func i1 @_Z26__spirv_GroupLogicalAndKHR{{.*}}(i32 2, i32 0, i1 false)
+; CHECK-amd-llvm-spirv: %call5 = call spir_func i1 @_Z25__spirv_GroupLogicalOrKHR{{.*}}(i32 2, i32 0, i1 false)
+; CHECK-amd-llvm-spirv: %call6 = call spir_func i1 @_Z26__spirv_GroupLogicalXorKHR{{.*}}(i32 2, i32 0, i1 false)
+; CHECK-amd-llvm-spirv: %call7 = call spir_func i32 @_Z20__spirv_GroupIMulKHR{{.*}}(i32 2, i32 0, i32 0)
+; CHECK-amd-llvm-spirv: %call8 = call spir_func half @_Z20__spirv_GroupFMulKHR{{.*}}(i32 2, i32 0, half 0xH0000)
 
 ; ModuleID = 'source.bc'
 source_filename = "group_operations.cpp"

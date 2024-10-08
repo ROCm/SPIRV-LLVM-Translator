@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: not --crash llvm-spirv %t.bc -o %t.spv 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
+; RUN: not --crash amd-llvm-spirv %t.bc -o %t.spv 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
 
 ; CHECK-ERROR: ConvertAsBFloat162Float2 must be of <2 x float> and take <2 x i16>
 

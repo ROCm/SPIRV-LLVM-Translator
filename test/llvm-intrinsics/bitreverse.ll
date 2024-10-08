@@ -1,10 +1,10 @@
 ;; Check that llvm.bitreverse.* intrinsics are lowered to emulation functions
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
+; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; SPV_KHR_bit_instructions extension was not enabled so BitReverse must not be generated
 ; CHECK-SPIRV-NOT: BitReverse
@@ -118,13 +118,13 @@ entry:
 
   %call16 = call i16 @llvm.bitreverse.i16(i16 %b)
   store i16 %call16, ptr addrspace(1) %res, align 2, !tbaa !7
-  
+
   %call32 = call i32 @llvm.bitreverse.i32(i32 %c)
   store i32 %call32, ptr addrspace(1) %res, align 4, !tbaa !7
 
   %call64 = call i64 @llvm.bitreverse.i64(i64 %d)
   store i64 %call64, ptr addrspace(1) %res, align 8, !tbaa !7
-  
+
   ret void
 }
 

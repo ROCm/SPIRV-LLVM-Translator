@@ -1,9 +1,9 @@
 // RUN: %clang_cc1 -cl-std=clc++ -emit-llvm-bc -triple spir -O0 %s -o %t.bc
-// RUN: llvm-spirv %t.bc -o %t.spv
+// RUN: amd-llvm-spirv %t.bc -o %t.spv
 // RUN: spirv-val %t.spv
-// RUN: llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-// RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
-// RUN: not llvm-spirv %t.bc --spirv-max-version=1.0 2>&1 | FileCheck %s --check-prefix=CHECK-SPV10
+// RUN: amd-llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+// RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
+// RUN: not amd-llvm-spirv %t.bc --spirv-max-version=1.0 2>&1 | FileCheck %s --check-prefix=CHECK-SPV10
 
 class Something {
   public:

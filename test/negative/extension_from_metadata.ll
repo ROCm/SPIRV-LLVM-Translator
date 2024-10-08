@@ -2,7 +2,7 @@
 ; metadata containing an extension that is disabled by --spirv-ext
 
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: not llvm-spirv --spirv-ext=-SPV_KHR_bit_instructions %t.bc 2>&1 | FileCheck %s
+; RUN: not amd-llvm-spirv --spirv-ext=-SPV_KHR_bit_instructions %t.bc 2>&1 | FileCheck %s
 
 ; CHECK: RequiresExtension: Feature requires the following SPIR-V extension:
 ; CHECK-NEXT: SPV_KHR_bit_instructions

@@ -2,9 +2,9 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "spir64-unknown-unknown"
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: llvm-spirv -r %t.spv -o %t.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.bc
 ; RUN: llvm-dis < %t.bc | FileCheck %s
 
 ; Most of atomics lost information about the sign of the integer operand
@@ -67,7 +67,7 @@ define spir_kernel void @test_atomic_global(ptr addrspace(1) %dst) #0 !kernel_ar
   ; CHECK: _Z14atomic_cmpxchgPU3AS1Viii(ptr addrspace(1) %dst, i32 0, i32 1) #0
   %cmpxchg_jg = call spir_func i32 @_Z14atomic_cmpxchgPU3AS1Vjjj(ptr addrspace(1) %dst, i32 0, i32 1) #0
   ; CHECK: _Z14atomic_cmpxchgPU3AS1Viii(ptr addrspace(1) %dst, i32 0, i32 1) #0
-  
+
   ; atomic_xchg
   %xchg_ig = call spir_func i32 @_Z11atomic_xchgPU3AS1Vii(ptr addrspace(1) %dst, i32 1) #0
   ; CHECK: _Z11atomic_xchgPU3AS1Vii(ptr addrspace(1) %dst, i32 1) #0

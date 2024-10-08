@@ -1,13 +1,13 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_KHR_untyped_pointers
+; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_KHR_untyped_pointers
 
 ; TODO: enable back once spirv-tools are updated
 ; R/UN: spirv-val %t.spv
 
-; RUN: llvm-spirv %t.spv -o %t.spt --to-text
+; RUN: amd-llvm-spirv %t.spv -o %t.spt --to-text
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o %t.rev.ll
 ; RUN: FileCheck < %t.rev.ll %s --check-prefix=CHECK-LLVM
 
