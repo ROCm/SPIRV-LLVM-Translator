@@ -303,7 +303,10 @@ Function *getOrCreateFunction(Module *M, Type *RetTy, ArrayRef<Type *> ArgTypes,
     if (F)
       NewF->setDSOLocal(F->isDSOLocal());
     F = NewF;
-    F->setCallingConv(CallingConv::SPIR_FUNC);
+    if (M->getTargetTriple() == "amdgcn-amd-amdhsa")
+      F->setCallingConv(CallingConv::C);
+    else
+      F->setCallingConv(CallingConv::SPIR_FUNC);
     if (Attrs)
       F->setAttributes(*Attrs);
   }
@@ -1509,7 +1512,9 @@ Value *getScalarOrArrayConstantInt(BasicBlock::iterator Pos, Type *T,
     auto *AT = ArrayType::get(ET, Len);
     std::vector<Constant *> EV(Len, ConstantInt::get(ET, V, IsSigned));
     auto *CA = ConstantArray::get(AT, EV);
-    auto *Alloca = new AllocaInst(AT, 0, "", Pos);
+    auto *Alloca = new AllocaInst(
+        AT, Pos->getParent()->getParent()->getDataLayout().getAllocaAddrSpace(),
+        "", Pos);
     new StoreInst(CA, Alloca, Pos);
     auto *Zero = ConstantInt::getNullValue(Type::getInt32Ty(T->getContext()));
     Value *Index[] = {Zero, Zero};
@@ -2291,7 +2296,9 @@ bool postProcessBuiltinWithArrayArguments(Function *F,
           auto *T = I->getType();
           if (!T->isArrayTy())
             continue;
-          auto *Alloca = new AllocaInst(T, 0, "", FBegin);
+          auto *Alloca = new AllocaInst(
+              T, F->getParent()->getDataLayout().getAllocaAddrSpace(), "",
+              FBegin);
           new StoreInst(I, Alloca, false, CI->getIterator());
           auto *Zero =
               ConstantInt::getNullValue(Type::getInt32Ty(T->getContext()));

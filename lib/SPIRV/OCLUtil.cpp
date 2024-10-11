@@ -147,7 +147,7 @@ template <> void SPIRVMap<OCLScopeKind, Scope>::init() {
 }
 
 template <> void SPIRVMap<std::string, Scope>::init() {
-  add("work_item", ScopeInvocation);
+  add("singlethread", ScopeInvocation);
   add("workgroup", ScopeWorkgroup);
   add("device", ScopeDevice);
   add("all_svm_devices", ScopeCrossDevice);
@@ -658,6 +658,8 @@ template <> void LLVMSPIRVAtomicRmwOpCodeMap::init() {
   add(llvm::AtomicRMWInst::FAdd, OpAtomicFAddEXT);
   add(llvm::AtomicRMWInst::FMin, OpAtomicFMinEXT);
   add(llvm::AtomicRMWInst::FMax, OpAtomicFMaxEXT);
+  add(llvm::AtomicRMWInst::UIncWrap, OpAtomicIIncrement);
+  add(llvm::AtomicRMWInst::UDecWrap, OpAtomicIDecrement);
 }
 
 } // namespace SPIRV

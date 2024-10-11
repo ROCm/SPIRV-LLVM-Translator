@@ -26,9 +26,9 @@ target triple = "spir64"
 ; 4 - sub_group
 
 ; CHECK-SPIRV-DAG: Constant [[#]] [[#ConstInt0:]] 0
+; CHECK-SPIRV-DAG: Constant [[#]] [[#ConstInt2:]] 2
 ; CHECK-SPIRV-DAG: Constant [[#]] [[#SequentiallyConsistent:]] 16
 ; CHECK-SPIRV-DAG: Constant [[#]] [[#ConstInt1:]] 1
-; CHECK-SPIRV-DAG: Constant [[#]] [[#ConstInt2:]] 2
 ; CHECK-SPIRV-DAG: Constant [[#]] [[#ConstInt3:]] 3
 ; CHECK-SPIRV-DAG: Constant [[#]] [[#ConstInt4:]] 4
 ; CHECK-SPIRV-DAG: Constant [[#]] [[#Const2Power30:]] 1073741824
@@ -82,8 +82,8 @@ entry:
 
 define dso_local void @fi3(ptr nocapture noundef %i, ptr nocapture noundef %ui) local_unnamed_addr #0 {
 entry:
-  %0 = atomicrmw and ptr %i, i32 1 syncscope("work_item") seq_cst, align 4
-  %1 = atomicrmw min ptr %i, i32 1 syncscope("all_svm_devices") seq_cst, align 4
+  %0 = atomicrmw and ptr %i, i32 1 syncscope("singlethread") seq_cst, align 4
+  %1 = atomicrmw min ptr %i, i32 1 seq_cst, align 4
   %2 = atomicrmw max ptr %i, i32 1 syncscope("wrong_scope") seq_cst, align 4
   %3 = atomicrmw umin ptr %ui, i32 1 syncscope("workgroup") seq_cst, align 4
   %4 = atomicrmw umax ptr %ui, i32 1 syncscope("workgroup") seq_cst, align 4

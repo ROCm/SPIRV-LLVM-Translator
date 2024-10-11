@@ -74,6 +74,7 @@
 #include "llvm/IR/PassInstrumentation.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/TypedPointerType.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -328,6 +329,7 @@ Type *SPIRVToLLVM::transType(SPIRVType *T, bool UseTPT) {
 
   SPIRVDBG(spvdbgs() << "[transType] " << *T << " -> ";)
   T->validate();
+  auto IsAMDGCN = M->getTargetTriple() == "amdgcn-amd-amdhsa";
   switch (static_cast<SPIRVWord>(T->getOpCode())) {
   case OpTypeVoid:
     return mapType(T, Type::getVoidTy(*Context));
@@ -342,27 +344,36 @@ Type *SPIRVToLLVM::transType(SPIRVType *T, bool UseTPT) {
     // and evaluated before the LLVM ArrayType can be constructed.
     auto *LenExpr = static_cast<const SPIRVTypeArray *>(T)->getLength();
     auto *LenValue = cast<ConstantInt>(transValue(LenExpr, nullptr, nullptr));
+    if (LenValue->getZExtValue() == UINT32_MAX && IsAMDGCN)
+      return mapType(T, ArrayType::get(transType(T->getArrayElementType()), 0));
     return mapType(T, ArrayType::get(transType(T->getArrayElementType()),
                                      LenValue->getZExtValue()));
   }
   case internal::OpTypeTokenINTEL:
     return mapType(T, Type::getTokenTy(*Context));
   case OpTypePointer: {
-    unsigned AS = SPIRSPIRVAddrSpaceMap::rmap(T->getPointerStorageClass());
+    unsigned AS =
+        IsAMDGCN ? mapSPIRVAddrSpaceToAMDGPU(T->getPointerStorageClass()) :
+                   SPIRSPIRVAddrSpaceMap::rmap(T->getPointerStorageClass());
     if (AS == SPIRAS_CodeSectionINTEL && !BM->shouldEmitFunctionPtrAddrSpace())
-      AS = SPIRAS_Private;
+      AS = IsAMDGCN ?
+          M->getDataLayout().getProgramAddressSpace() : SPIRAS_Private;
     if (BM->shouldEmitFunctionPtrAddrSpace() &&
         T->getPointerElementType()->getOpCode() == OpTypeFunction)
-      AS = SPIRAS_CodeSectionINTEL;
+      AS = IsAMDGCN ?
+          M->getDataLayout().getProgramAddressSpace() :SPIRAS_CodeSectionINTEL;
     Type *ElementTy = transType(T->getPointerElementType(), UseTPT);
     if (UseTPT)
       return TypedPointerType::get(ElementTy, AS);
     return mapType(T, PointerType::get(ElementTy, AS));
   }
   case OpTypeUntypedPointerKHR: {
-    unsigned AS = SPIRSPIRVAddrSpaceMap::rmap(T->getPointerStorageClass());
+    unsigned AS = IsAMDGCN ?
+        mapSPIRVAddrSpaceToAMDGPU(T->getPointerStorageClass()) :
+        SPIRSPIRVAddrSpaceMap::rmap(T->getPointerStorageClass());
     if (AS == SPIRAS_CodeSectionINTEL && !BM->shouldEmitFunctionPtrAddrSpace())
-      AS = SPIRAS_Private;
+      AS = IsAMDGCN ?
+          M->getDataLayout().getProgramAddressSpace() : SPIRAS_Private;
     return mapType(T, PointerType::get(*Context, AS));
   }
   case OpTypeVector:
@@ -1063,6 +1074,12 @@ Value *SPIRVToLLVM::transConvertInst(SPIRVValue *BV, Function *F,
   case OpFConvert:
     CO = IsExt ? Instruction::FPExt : Instruction::FPTrunc;
     break;
+  case OpBitcast:
+    if (Src->getType()->isPointerTy() && Dst->isPointerTy() &&
+        Src->getType()->getPointerAddressSpace() != Dst->getPointerAddressSpace() &&
+        M->getTargetTriple() == "amdgcn-amd-amdhsa")
+      CO = Instruction::AddrSpaceCast;
+    break;
   default:
     CO = static_cast<CastInst::CastOps>(OpCodeMap::rmap(BC->getOpCode()));
   }
@@ -1158,7 +1175,7 @@ Value *SPIRVToLLVM::transCmpInst(SPIRVValue *BV, BasicBlock *BB, Function *F) {
     OP = OpFOrdNotEqual;
 
   if (BT->isTypeVectorOrScalarInt() || BT->isTypeVectorOrScalarBool() ||
-      BT->isTypePointer())
+      BT->isTypePointer() || BT->isTypeVectorPointer())
     Inst = Builder.CreateICmp(CmpMap::rmap(OP), Op0, Op1);
   else if (BT->isTypeVectorOrScalarFloat())
     Inst = Builder.CreateFCmp(CmpMap::rmap(OP), Op0, Op1);
@@ -1491,8 +1508,9 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
       auto *BCCTy = cast<StructType>(transType(BCC->getType()));
       auto Members = BCCTy->getNumElements();
       auto Constants = CV.size();
-      // if we try to initialize constant TypeStruct, add bitcasts
-      // if src and dst types are both pointers but to different types
+      // if we try to initialize constant TypeStruct, add addrspacecasts
+      // if src and dst types are both pointers but to different address spaces;
+      // with opaque pointers the only possible mismatch can be in the AS.
       if (Members == Constants) {
         for (unsigned I = 0; I < Members; ++I) {
           if (CV[I]->getType() == BCCTy->getElementType(I))
@@ -1542,9 +1560,10 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
         static_cast<SPIRVConstantFunctionPointerINTEL *>(BV);
     SPIRVFunction *F = BC->getFunction();
     BV->setName(F->getName());
-    const unsigned AS = BM->shouldEmitFunctionPtrAddrSpace()
-                            ? SPIRAS_CodeSectionINTEL
-                            : SPIRAS_Private;
+    const unsigned AS = M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+        M->getDataLayout().getProgramAddressSpace() :
+        (BM->shouldEmitFunctionPtrAddrSpace() ? SPIRAS_CodeSectionINTEL
+                                              : SPIRAS_Private);
     return mapValue(BV, transFunction(F, AS));
   }
 
@@ -1579,7 +1598,10 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
 
     if (BS == StorageClassFunction && !Init) {
       assert(BB && "Invalid BB");
-      return mapValue(BV, new AllocaInst(Ty, 0, BV->getName(), BB));
+      return mapValue(BV,
+                      new AllocaInst(Ty,
+                                     M->getDataLayout().getAllocaAddrSpace(),
+                                     BV->getName(), BB));
     }
 
     SPIRAddressSpace AddrSpace;
@@ -1590,7 +1612,8 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
       AddrSpace = VectorComputeUtil::getVCGlobalVarAddressSpace(BS);
       Initializer = UndefValue::get(Ty);
     } else
-      AddrSpace = SPIRSPIRVAddrSpaceMap::rmap(BS);
+      AddrSpace = M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+          mapSPIRVAddrSpaceToAMDGPU(BS) : SPIRSPIRVAddrSpaceMap::rmap(BS);
     // Force SPIRV BuiltIn variable's name to be __spirv_BuiltInXXXX.
     // No matter what BV's linkage name is.
     SPIRVBuiltinVariableKind BVKind;
@@ -1600,7 +1623,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
                                     /*Initializer=*/nullptr, BV->getName(), 0,
                                     GlobalVariable::NotThreadLocal, AddrSpace);
     auto *Res = mapValue(BV, LVar);
-    if (Init)
+    if (Init && BS != SPIRVStorageClassKind::StorageClassWorkgroup)
       Initializer = dyn_cast<Constant>(transValue(Init, F, BB, false));
     else if (LinkageTy == GlobalValue::CommonLinkage)
       // In LLVM, variables with common linkage type must be initialized to 0.
@@ -1617,6 +1640,12 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
                              ? GlobalValue::UnnamedAddr::Global
                              : GlobalValue::UnnamedAddr::None);
     LVar->setInitializer(Initializer);
+    if (BVar->hasDecorate(DecorationUserTypeGOOGLE) &&
+        M->getTargetTriple() == "amdgcn-amd-amdhsa") {
+      const auto Dec = BM->get<SPIRVString>(
+          *BVar->getDecorate(DecorationUserTypeGOOGLE).cbegin());
+      LVar->setExternallyInitialized(Dec->getStr() == "externally_initialized");
+    }
 
     if (IsVectorCompute) {
       LVar->addAttribute(kVCMetadata::VCGlobalVariable);
@@ -1630,6 +1659,11 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
         LVar->addAttribute(SEVAttr.value().getKindAsString(),
                            SEVAttr.value().getValueAsString());
     }
+    if (M->getTargetTriple() == "amdgcn-amd-amdhsa" &&
+        LVar->hasAppendingLinkage() &&
+        (LVar->getName() == "llvm.compiler.used" ||
+        LVar->getName() == "llvm.used"))
+      LVar->setSection("llvm.metadata");
 
     return Res;
   }
@@ -1687,8 +1721,9 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     auto *VLA = static_cast<SPIRVVariableLengthArrayINTEL *>(BV);
     llvm::Type *Ty = transType(BV->getType()->getPointerElementType());
     llvm::Value *ArrSize = transValue(VLA->getOperand(0), F, BB);
-    return mapValue(
-        BV, new AllocaInst(Ty, SPIRAS_Private, ArrSize, BV->getName(), BB));
+    return mapValue(BV, new AllocaInst(Ty,
+                                       M->getDataLayout().getAllocaAddrSpace(),
+                                       ArrSize, BV->getName(), BB));
   }
 
   case OpRestoreMemoryINTEL: {
@@ -1731,6 +1766,13 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     Phi->foreachPair([&](SPIRVValue *IncomingV, SPIRVBasicBlock *IncomingBB,
                          size_t Index) {
       auto *Translated = transValue(IncomingV, F, BB);
+      if (LPhi->getType() != Translated->getType() &&
+          LPhi->getType()->isPointerTy() &&
+          F->getParent()->getTargetTriple() == "amdgcn-amd-amdhsa")
+        // TODO: AMDSPV - due to reverse translating const globals to AS4,
+        //       these mismatches might occur; find a better way to handle it.
+        Translated = ConstantExpr::getAddrSpaceCast(cast<Constant>(Translated),
+                                                    LPhi->getType());
       LPhi->addIncoming(Translated,
                         dyn_cast<BasicBlock>(transValue(IncomingBB, F, BB)));
     });
@@ -1841,11 +1883,18 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     if (BB) {
       Builder.SetInsertPoint(BB);
     }
-    return mapValue(BV,
-                    Builder.CreateSelect(transValue(BS->getCondition(), F, BB),
-                                         transValue(BS->getTrueValue(), F, BB),
-                                         transValue(BS->getFalseValue(), F, BB),
-                                         BV->getName()));
+    auto Cond = transValue(BS->getCondition(), F, BB);
+    auto True = transValue(BS->getTrueValue(), F, BB);
+    auto False = transValue(BS->getFalseValue(), F, BB);
+    if (True->getType() != False->getType() && True->getType()->isPointerTy()) {
+      if (isa<AddrSpaceCastInst>(True))
+        True = True->stripPointerCasts();
+      if (isa<AddrSpaceCastInst>(False))
+        False = False->stripPointerCasts();
+      if (True->getType() != False->getType())
+        llvm_unreachable("Ill-formed Select");
+    }
+    return mapValue(BV, Builder.CreateSelect(Cond, True, False, BV->getName()));
   }
 
   case OpLine:
@@ -2139,7 +2188,8 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
   case OpCopyObject: {
     SPIRVCopyObject *CO = static_cast<SPIRVCopyObject *>(BV);
     auto *Ty = transType(CO->getOperand()->getType());
-    AllocaInst *AI = new AllocaInst(Ty, 0, "", BB);
+    AllocaInst *AI =
+        new AllocaInst(Ty, M->getDataLayout().getAllocaAddrSpace(), "", BB);
     new StoreInst(transValue(CO->getOperand(), F, BB), AI, BB);
     LoadInst *LI = new LoadInst(Ty, AI, "", BB);
     return mapValue(BV, LI);
@@ -2168,7 +2218,8 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
         BaseSPVTy->isTypeVector()
             ? transType(
                   BaseSPVTy->getVectorComponentType()->getPointerElementType())
-            : transType(BaseSPVTy->getPointerElementType());
+            : transType(AC->isUntyped() ? AC->getBaseType()
+                                        : BaseSPVTy->getPointerElementType());
     auto Index = transValue(AC->getIndices(), F, BB);
     if (!AC->hasPtrIndex())
       Index.insert(Index.begin(), getInt32(M, 0));
@@ -2203,6 +2254,10 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
       V = GEP;
     } else {
       auto *CT = cast<Constant>(Base);
+      if (auto CE = dyn_cast<ConstantExpr>(CT))
+        if (CE->isCast() && CE->getOpcode() == Instruction::AddrSpaceCast)
+          if (auto GV = dyn_cast<GlobalValue>(CE->getOperand(0)))
+            BaseTy = GV->getValueType();
       V = ConstantExpr::getGetElementPtr(BaseTy, CT, Index, IsInbound);
     }
     return mapValue(BV, V);
@@ -2264,7 +2319,8 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
       if (!HasRtValues)
         return mapValue(BV, ConstantArray::get(AT, CV));
 
-      AllocaInst *Alloca = new AllocaInst(AT, SPIRAS_Private, "", BB);
+      AllocaInst *Alloca =
+          new AllocaInst(AT, M->getDataLayout().getAllocaAddrSpace(), "", BB);
 
       // get pointer to the element of the array
       // store the result of argument
@@ -2283,7 +2339,8 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
       if (!HasRtValues)
         return mapValue(BV, ConstantStruct::get(ST, CV));
 
-      AllocaInst *Alloca = new AllocaInst(ST, SPIRAS_Private, "", BB);
+      AllocaInst *Alloca =
+          new AllocaInst(ST, M->getDataLayout().getAllocaAddrSpace(), "", BB);
 
       // get pointer to the element of structure
       // store the result of argument
@@ -2434,6 +2491,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
                                   BC->getName(), BB);
     setCallingConv(Call);
     setAttrByCalledFunc(Call);
+    applyFPFastMathModeDecorations(BV, Call);
     return mapValue(BV, Call);
   }
 
@@ -2445,14 +2503,18 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     SPIRVFunctionPointerCallINTEL *BC =
         static_cast<SPIRVFunctionPointerCallINTEL *>(BV);
     auto *V = transValue(BC->getCalledValue(), F, BB);
-    auto *SpirvFnTy = BC->getCalledValue()->getType()->getPointerElementType();
-    auto *FnTy = cast<FunctionType>(transType(SpirvFnTy));
+    auto *RetTy = transType(BC->getType());
+    auto ArgsTy = transTypeVector(BC->getArgumentValueTypes());
+    auto *FnTy = FunctionType::get(RetTy, ArgsTy, false);
     auto *Call = CallInst::Create(
         FnTy, V, transValue(BC->getArgumentValues(), F, BB), BC->getName(), BB);
-    transFunctionPointerCallArgumentAttributes(
-        BV, Call, static_cast<SPIRVTypeFunction *>(SpirvFnTy));
+    if (!BC->getCalledValue()->getType()->getPointerElementType()->isTypeUntypedPointerKHR())
+      transFunctionPointerCallArgumentAttributes(
+          BV, Call,
+          static_cast<SPIRVTypeFunction *>(BC->getCalledValue()->getType()->getPointerElementType()));
     // Assuming we are calling a regular device function
-    Call->setCallingConv(CallingConv::SPIR_FUNC);
+    Call->setCallingConv(M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+        CallingConv::C : CallingConv::SPIR_FUNC);
     // Don't set attributes, because at translation time we don't know which
     // function exactly we are calling.
     return mapValue(BV, Call);
@@ -2825,8 +2887,12 @@ Value *SPIRVToLLVM::transFixedPointInst(SPIRVInstruction *BI, BasicBlock *BB) {
   std::vector<Value *> Args;
   Args.reserve(8);
   if (RetTy->getIntegerBitWidth() > 64) {
-    llvm::PointerType *RetPtrTy = llvm::PointerType::get(RetTy, SPIRAS_Generic);
-    Value *Alloca = new AllocaInst(RetTy, SPIRAS_Private, "", BB);
+    llvm::PointerType *RetPtrTy = llvm::PointerType::get(
+        RetTy,
+        M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+            mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic);
+    Value *Alloca =
+        new AllocaInst(RetTy, M->getDataLayout().getAllocaAddrSpace(), "", BB);
     Value *RetValPtr = new AddrSpaceCastInst(Alloca, RetPtrTy, "", BB);
     ArgTys.emplace_back(RetPtrTy);
     Args.emplace_back(RetValPtr);
@@ -2852,7 +2918,8 @@ Value *SPIRVToLLVM::transFixedPointInst(SPIRVInstruction *BI, BasicBlock *BB) {
   FunctionCallee FCallee = M->getOrInsertFunction(FuncName, FT);
 
   auto *Func = cast<Function>(FCallee.getCallee());
-  Func->setCallingConv(CallingConv::SPIR_FUNC);
+  Func->setCallingConv(M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+      CallingConv::C : CallingConv::SPIR_FUNC);
   if (isFuncNoUnwind())
     Func->addFnAttr(Attribute::NoUnwind);
 
@@ -2948,9 +3015,13 @@ Value *SPIRVToLLVM::transArbFloatInst(SPIRVInstruction *BI, BasicBlock *BB,
   std::vector<Value *> Args;
 
   if (RetTy->getIntegerBitWidth() > 64) {
-    llvm::PointerType *RetPtrTy = llvm::PointerType::get(RetTy, SPIRAS_Generic);
+    llvm::PointerType *RetPtrTy = llvm::PointerType::get(
+        RetTy,
+        M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+            mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic);
     ArgTys.push_back(RetPtrTy);
-    Value *Alloca = new AllocaInst(RetTy, SPIRAS_Private, "", BB);
+    Value *Alloca =
+        new AllocaInst(RetTy, M->getDataLayout().getAllocaAddrSpace(), "", BB);
     Value *RetValPtr = new AddrSpaceCastInst(Alloca, RetPtrTy, "", BB);
     Args.push_back(RetValPtr);
   }
@@ -2995,7 +3066,8 @@ Value *SPIRVToLLVM::transArbFloatInst(SPIRVInstruction *BI, BasicBlock *BB,
   FunctionCallee FCallee = M->getOrInsertFunction(FuncName, FT);
 
   auto *Func = cast<Function>(FCallee.getCallee());
-  Func->setCallingConv(CallingConv::SPIR_FUNC);
+  Func->setCallingConv(M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+      CallingConv::C : CallingConv::SPIR_FUNC);
   if (isFuncNoUnwind())
     Func->addFnAttr(Attribute::NoUnwind);
 
@@ -3128,7 +3200,8 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
       auto BFName = I.getFirst()->getName();
       if (BF->getName() == BFName) {
         auto *F = I.getSecond();
-        F->setCallingConv(CallingConv::SPIR_KERNEL);
+        F->setCallingConv(M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+            CallingConv::AMDGPU_KERNEL : CallingConv::SPIR_KERNEL);
         F->setLinkage(GlobalValue::ExternalLinkage);
         F->setDSOLocal(false);
         F = cast<Function>(mapValue(BF, F));
@@ -3142,6 +3215,21 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
   auto Linkage = IsKernel ? GlobalValue::ExternalLinkage : transLinkageType(BF);
   FunctionType *FT = cast<FunctionType>(transType(BF->getFunctionType()));
   std::string FuncName = BF->getName();
+  if (M->getTargetTriple() == "amdgcn-amd-amdhsa") {
+    if (FuncName == "fprintf" || FuncName == "sprintf" ||
+        FuncName == "snprintf" || FuncName == "__isoc23_fscanf" ||
+        FuncName == "_ZSt24__throw_out_of_range_fmtPKcz" ||
+        FuncName.find("_ZN9__gnu_cxx12__to_xstring") == 0 ||
+        FuncName == "die" || FuncName == "print_and_log" ||
+        FuncName == "print_to_log" || FuncName == "syscall")
+      FT = FunctionType::get(FT->getReturnType(), FT->params(), true);
+    if (FuncName == "llvm.threadlocal.address.p4")
+      FuncName = "llvm.threadlocal.address.p0";
+    if (FuncName == "llvm.va_start.p4")
+      FuncName = "llvm.va_start.p0";
+    if (FuncName == "llvm.va_end.p4")
+      FuncName = "llvm.va_end.p0";
+  }
   StringRef FuncNameRef(FuncName);
   // Transform "@spirv.llvm_memset_p0i8_i32.volatile" to @llvm.memset.p0i8.i32
   // assuming llvm.memset is supported by the device compiler. If this
@@ -3164,11 +3252,12 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
   if (!F)
     F = Function::Create(FT, Linkage, AS, FuncName, M);
   F = cast<Function>(mapValue(BF, F));
-  mapFunction(BF, F);
 
   if (F->isIntrinsic()) {
-    if (F->getIntrinsicID() != Intrinsic::umul_with_overflow)
+    if (F->getIntrinsicID() != Intrinsic::umul_with_overflow) {
+      mapFunction(BF, F);
       return F;
+    }
     std::string Name = F->getName().str();
     auto *ST = cast<StructType>(F->getReturnType());
     auto *FT = F->getFunctionType();
@@ -3177,11 +3266,17 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
     F->setName("old_" + Name);
     auto *NewFn = Function::Create(NewFT, F->getLinkage(), F->getAddressSpace(),
                                    Name, F->getParent());
+    mapFunction(BF, NewFn);
     return NewFn;
   }
 
-  F->setCallingConv(IsKernel ? CallingConv::SPIR_KERNEL
-                             : CallingConv::SPIR_FUNC);
+  mapFunction(BF, F);
+
+  if (M->getTargetTriple() == "amdgcn-amd-amdhsa")
+    F->setCallingConv(IsKernel ? CallingConv::AMDGPU_KERNEL : CallingConv::C);
+  else
+    F->setCallingConv(IsKernel ? CallingConv::SPIR_KERNEL
+                               : CallingConv::SPIR_FUNC);
   transFunctionAttrs(BF, F);
 
   // Creating all basic blocks before creating instructions.
@@ -3198,7 +3293,10 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
     }
   }
 
-  validatePhiPredecessors(F);
+  // TODO: this is temporarily disabled as it breaks some more complex code
+  //       patterns that are otherwise correctly(-ish) handled
+  if (M->getTargetTriple() != "amdgcn-amd-amdhsa")
+    validatePhiPredecessors(F);
   transLLVMLoopMetadata(F);
 
   return F;
@@ -3265,7 +3363,10 @@ SPIRVToLLVM::transOCLBuiltinPostproc(SPIRVInstruction *BI, CallInst *CI,
 
 Value *SPIRVToLLVM::transBlockInvoke(SPIRVValue *Invoke, BasicBlock *BB) {
   auto *TranslatedInvoke = transFunction(static_cast<SPIRVFunction *>(Invoke));
-  auto *Int8PtrTyGen = PointerType::get(*Context, SPIRAS_Generic);
+  auto *Int8PtrTyGen = PointerType::get(
+      *Context,
+      M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+          mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic);
   return CastInst::CreatePointerBitCastOrAddrSpaceCast(TranslatedInvoke,
                                                        Int8PtrTyGen, "", BB);
 }
@@ -3279,7 +3380,10 @@ Instruction *SPIRVToLLVM::transWGSizeQueryBI(SPIRVInstruction *BI,
 
   Function *F = M->getFunction(FName);
   if (!F) {
-    auto *Int8PtrTyGen = PointerType::get(*Context, SPIRAS_Generic);
+    auto *Int8PtrTyGen = PointerType::get(
+        *Context,
+        M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+            mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic);
     FunctionType *FT = FunctionType::get(Type::getInt32Ty(*Context),
                                          {Int8PtrTyGen, Int8PtrTyGen}, false);
     F = Function::Create(FT, GlobalValue::ExternalLinkage, FName, M);
@@ -3304,7 +3408,10 @@ Instruction *SPIRVToLLVM::transSGSizeQueryBI(SPIRVInstruction *BI,
   auto Ops = BI->getOperands();
   Function *F = M->getFunction(FName);
   if (!F) {
-    auto *Int8PtrTyGen = PointerType::get(*Context, SPIRAS_Generic);
+    auto *Int8PtrTyGen = PointerType::get(
+        *Context,
+        M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+            mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic);
     SmallVector<Type *, 3> Tys = {
         transType(Ops[0]->getType()), // ndrange
         Int8PtrTyGen,                 // block_invoke
@@ -3331,6 +3438,11 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
                                                BasicBlock *BB) {
   std::string MangledName;
   auto Ops = BI->getOperands();
+  if ((FuncName == "__spirv_AtomicIIncrement" ||
+       FuncName == "__spirv_AtomicIDecrement") &&
+      M->getTargetTriple() == "amdgcn-amd-amdhsa")
+    Ops.insert(Ops.end(),
+               BM->getValue(*BI->getDecorate(DecorationMaxByteOffsetId).cbegin()));
   Type *RetTy =
       BI->hasType() ? transType(BI->getType()) : Type::getVoidTy(*Context);
   transOCLBuiltinFromInstPreproc(BI, RetTy, Ops);
@@ -3338,12 +3450,28 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
       transTypeVector(SPIRVInstruction::getOperandTypes(Ops), true);
   for (auto &I : ArgTys) {
     if (isa<FunctionType>(I)) {
-      I = TypedPointerType::get(I, SPIRAS_Private);
+      I = TypedPointerType::get(I,
+                                M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+                                    M->getDataLayout().getProgramAddressSpace()
+                                    : SPIRAS_Private);
     }
   }
 
   if (BM->getDesiredBIsRepresentation() != BIsRepresentation::SPIRVFriendlyIR)
-    mangleOpenClBuiltin(FuncName, ArgTys, MangledName);
+    if (M->getTargetTriple() == "amdgcn-amd-amdhsa") {
+      auto TmpTys = ArgTys;
+      for (auto &&Ty : TmpTys) {
+        if (auto TPT = dyn_cast<TypedPointerType>(Ty))
+          Ty = TypedPointerType::get(TPT->getElementType(),
+                                     mapAMDGCNAddrSpaceToSPIRV(TPT->getAddressSpace()));
+        else if (isa<PointerType>(Ty))
+          Ty = PointerType::get(Ty->getContext(),
+                                mapAMDGCNAddrSpaceToSPIRV(Ty->getPointerAddressSpace()));
+      }
+      mangleOpenClBuiltin(FuncName, TmpTys, MangledName);
+    } else {
+      mangleOpenClBuiltin(FuncName, ArgTys, MangledName);
+    }
   else
     MangledName =
         getSPIRVFriendlyIRFunctionName(FuncName, BI->getOpCode(), ArgTys, Ops);
@@ -3366,7 +3494,9 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
   if (!Func || Func->getFunctionType() != FT) {
     LLVM_DEBUG(for (auto &I : ArgTys) { dbgs() << *I << '\n'; });
     Func = Function::Create(FT, GlobalValue::ExternalLinkage, MangledName, M);
-    Func->setCallingConv(CallingConv::SPIR_FUNC);
+    Func->setCallingConv(M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+                                                      CallingConv::C :
+                                                      CallingConv::SPIR_FUNC);
     if (isFuncNoUnwind())
       Func->addFnAttr(Attribute::NoUnwind);
     auto OC = BI->getOpCode();
@@ -3390,6 +3520,7 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
   SPIRVDBG(spvdbgs() << "[transInstToBuiltinCall] " << *BI << " -> ";
            dbgs() << *Call << '\n';)
   Instruction *Inst = transOCLBuiltinPostproc(BI, Call, BB, FuncName);
+  applyFPFastMathModeDecorations(BI, Call);
   return Inst;
 }
 
@@ -3616,10 +3747,49 @@ bool SPIRVToLLVM::translate() {
   DbgTran->addDbgInfoVersion();
   DbgTran->finalize();
 
+  if (M->getTargetTriple() != "amdgcn-amd-amdhsa")
+    return true;
+  // TODO: this is temporary hardcoding, but will ultimately get handled in the
+  // FE.
+  M->addModuleFlag(llvm::Module::Error, "amdhsa_code_object_version", 500);
+  M->addModuleFlag(llvm::Module::Error, "amdgpu_printf_kind",
+                   llvm::MDString::get(M->getContext(), "hostcall"));
+  StringRef Name = "__oclc_ABI_version";
+  llvm::GlobalVariable *OriginalGV = M->getNamedGlobal(Name);
+  if (OriginalGV &&
+      !llvm::GlobalVariable::isExternalLinkage(OriginalGV->getLinkage()))
+    return true;
+
+  auto *Type = llvm::IntegerType::getIntNTy(M->getContext(), 32);
+  llvm::Constant *COV = llvm::ConstantInt::get(Type, 500);
+
+  auto *GV = new llvm::GlobalVariable(
+      *M, Type, true, llvm::GlobalValue::WeakODRLinkage, COV, Name,
+      nullptr, llvm::GlobalValue::ThreadLocalMode::NotThreadLocal,
+      mapSPIRVAddrSpaceToAMDGPU(StorageClassUniformConstant));
+  GV->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Local);
+  GV->setVisibility(llvm::GlobalValue::VisibilityTypes::HiddenVisibility);
+
+  if (OriginalGV) {
+    OriginalGV->replaceAllUsesWith(GV);
+    GV->takeName(OriginalGV);
+    OriginalGV->eraseFromParent();
+  }
+
   return true;
 }
 
 bool SPIRVToLLVM::transAddressingModel() {
+  if (BM->getGeneratorVer() == UINT16_MAX) {
+    // TODO: we should use the Target registry here instead of hardcoding
+    M->setTargetTriple("amdgcn-amd-amdhsa");
+    M->setDataLayout(
+        "e-p:64:64-p1:64:64-p2:32:32-p3:32:32-p4:64:64-p5:32:32-p6:32:32-"
+        "p7:160:256:256:32-p8:128:128-p9:192:256:256:32-i64:64-v16:16-v24:32-"
+        "v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-"
+        "v2048:2048-n32:64-S32-A5-G1-ni:7:8:9");
+    return true;
+  }
   switch (BM->getAddressingModel()) {
   case AddressingModelPhysical64:
     M->setTargetTriple(SPIR_TARGETTRIPLE64);
@@ -4013,7 +4183,10 @@ void SPIRVToLLVM::transUserSemantic(SPIRV::SPIRVFunction *Fun) {
     Constant *C =
         ConstantExpr::getPointerBitCastOrAddrSpaceCast(TransFun, ResType);
 
-    Type *Int8PtrTyPrivate = PointerType::get(*Context, SPIRAS_Private);
+    Type *Int8PtrTyPrivate = PointerType::get(
+      *Context,
+      M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+          mapSPIRVAddrSpaceToAMDGPU(StorageClassFunction) : SPIRAS_Private);
     IntegerType *Int32Ty = Type::getInt32Ty(*Context);
 
     llvm::Constant *Fields[5] = {
@@ -4340,13 +4513,23 @@ bool SPIRVToLLVM::transMetadata() {
         BF->getExecutionMode(internal::ExecutionModeFastCompositeKernelINTEL))
       F->addFnAttr(kVCMetadata::VCFCEntry);
 
-    if (F->getCallingConv() != CallingConv::SPIR_KERNEL)
+    if (F->getCallingConv() != CallingConv::SPIR_KERNEL &&
+        F->getCallingConv() != CallingConv::AMDGPU_KERNEL)
       continue;
+    if (F->getCallingConv() == CallingConv::AMDGPU_KERNEL) {
+      F->addFnAttr("uniform-work-group-size", "true");
+      F->addFnAttr(Attribute::Convergent);
+      F->addFnAttr(Attribute::MustProgress);
+    }
 
     // Generate metadata for reqd_work_group_size
     if (auto *EM = BF->getExecutionMode(ExecutionModeLocalSize)) {
-      F->setMetadata(kSPIR2MD::WGSize,
-                     getMDNodeStringIntVec(Context, EM->getLiterals()));
+      if (M->getTargetTriple() == "amdgcn-amd-amdhsa")
+        F->addFnAttr("amdgpu-flat-work-group-size",
+                     "1," + llvm::utostr(EM->getLiterals().front()));
+      else
+        F->setMetadata(kSPIR2MD::WGSize,
+                       getMDNodeStringIntVec(Context, EM->getLiterals()));
     }
     // Generate metadata for work_group_size_hint
     if (auto *EM = BF->getExecutionMode(ExecutionModeLocalSizeHint)) {
@@ -4506,7 +4689,8 @@ bool SPIRVToLLVM::transMetadata() {
 bool SPIRVToLLVM::transOCLMetadata(SPIRVFunction *BF) {
   Function *F = static_cast<Function *>(getTranslatedValue(BF));
   assert(F && "Invalid translated function");
-  if (F->getCallingConv() != CallingConv::SPIR_KERNEL)
+  if (F->getCallingConv() != CallingConv::SPIR_KERNEL &&
+      F->getCallingConv() != CallingConv::AMDGPU_KERNEL)
     return true;
 
   if (BF->hasDecorate(DecorationVectorComputeFunctionINTEL))
@@ -4517,9 +4701,12 @@ bool SPIRVToLLVM::transOCLMetadata(SPIRVFunction *BF) {
       Context, SPIR_MD_KERNEL_ARG_ADDR_SPACE, BF, F,
       [=](SPIRVFunctionParameter *Arg) {
         SPIRVType *ArgTy = Arg->getType();
-        SPIRAddressSpace AS = SPIRAS_Private;
+        SPIRAddressSpace AS = M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+            mapSPIRVAddrSpaceToAMDGPU(StorageClassFunction) : SPIRAS_Private;
         if (ArgTy->isTypePointer())
-          AS = SPIRSPIRVAddrSpaceMap::rmap(ArgTy->getPointerStorageClass());
+          AS = M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+              mapSPIRVAddrSpaceToAMDGPU(ArgTy->getPointerStorageClass()) :
+              SPIRSPIRVAddrSpaceMap::rmap(ArgTy->getPointerStorageClass());
         else if (ArgTy->isTypeOCLImage() || ArgTy->isTypePipe())
           AS = SPIRAS_Global;
         return ConstantAsMetadata::get(
@@ -4835,6 +5022,254 @@ bool SPIRVToLLVM::transAlign(SPIRVValue *BV, Value *V) {
   return true;
 }
 
+static Instruction *transLLVMFromExtInst(SPIRVToLLVM &Reader, OCLExtOpKind Op,
+                                         SPIRVExtInst *BC, Type *RetTy,
+                                         vector<Type *> ArgTys,
+                                         BasicBlock *BB) {
+  opaquifyTypedPointers(ArgTys);
+
+  Intrinsic::ID ID = Intrinsic::not_intrinsic;
+  ArrayRef Formals(ArgTys);
+  switch (Op) {
+    //   Acos = 0,
+    //   Acosh = 1,
+    //   Acospi = 2,
+    //   Asin = 3,
+    //   Asinh = 4,
+    //   Asinpi = 5,
+    case OpenCLLIB::Atan:
+      ID = Intrinsic::atan;
+      break;
+    //   Atan2 = 7,
+    //   Atanh = 8,
+    //   Atanpi = 9,
+    //   Atan2pi = 10,
+    case OpenCLLIB::Ceil: ID =
+      Intrinsic::ceil;
+      break;
+    case OpenCLLIB::Copysign:
+      ID = Intrinsic::copysign;
+      Formals = ArrayRef(RetTy);
+      break;
+    //   Cos = 14,
+    //   Cosh = 15,
+    //   Cospi = 16,
+    //   Erfc = 17,
+    //   Erf = 18,
+    case OpenCLLIB::Exp:
+    case OpenCLLIB::Native_exp:
+      ID = Intrinsic::exp;
+      break;
+    //   Exp2 = 20,
+    //   Exp10 = 21,
+    //   Expm1 = 22,
+    case OpenCLLIB::Fabs: ID =
+      Intrinsic::fabs;
+      break;
+    //   Fdim = 24,
+    case OpenCLLIB::Floor:
+      ID = Intrinsic::floor;
+      break;
+    case OpenCLLIB::Fma:
+      ID = Intrinsic::fma;
+      Formals = ArrayRef(RetTy);
+      break;
+    case OpenCLLIB::Fmax:
+      ID = Intrinsic::maxnum;
+      Formals = ArrayRef(RetTy);
+      break;
+    case OpenCLLIB::Fmin:
+      ID = Intrinsic::minnum;
+      Formals = ArrayRef(RetTy);
+      break;
+    //   Fmod = 29,
+    //   Fract = 30,
+    case OpenCLLIB::Frexp:
+      ID = Intrinsic::frexp;
+      break;
+    //   Hypot = 32,
+    //   Ilogb = 33,
+    //   Ldexp = 34,
+    //   Lgamma = 35,
+    //   Lgamma_r = 36,
+    case OpenCLLIB::Log:
+    case OpenCLLIB::Native_log:
+      ID = Intrinsic::log;
+      break;
+    case OpenCLLIB::Log2:
+      ID = Intrinsic::log2;
+      break;
+    case OpenCLLIB::Log10:
+      ID = Intrinsic::log10;
+      break;
+    //   Log1p = 40,
+    //   Logb = 41,
+    //   Mad = 42,
+    //   Maxmag = 43,
+    //   Minmag = 44,
+    //   Modf = 45,
+    //   Nan = 46,
+    //   Nextafter = 47,
+    case OpenCLLIB::Pow:
+      ID = Intrinsic::pow;
+      Formals = ArrayRef(RetTy);
+      break;
+    case OpenCLLIB::Pown:
+      ID = Intrinsic::powi;
+      Formals = ArrayRef(RetTy);
+      break;
+    //   Powr = 50,
+    //   Remainder = 51,
+    //   Remquo = 52,
+    case OpenCLLIB::Rint:
+      ID = Intrinsic::rint;
+      break;
+    //   Rootn = 54,
+    case OpenCLLIB::Round:
+      ID = Intrinsic::round;
+      break;
+    //   Rsqrt = 56,
+    case OpenCLLIB::Sin:
+    case OpenCLLIB::Half_sin:
+    case OpenCLLIB::Native_sin:
+      ID = Intrinsic::sin;
+      break;
+    //   Sincos = 58,
+    //   Sinh = 59,
+    //   Sinpi = 60,
+    case OpenCLLIB::Sqrt:
+    case OpenCLLIB::Half_sqrt:
+    case OpenCLLIB::Native_sqrt:
+      ID = Intrinsic::sqrt;
+      break;
+    case OpenCLLIB::Tan:
+    case OpenCLLIB::Half_tan:
+    case OpenCLLIB::Native_tan:
+      ID = Intrinsic::tan;
+      break;
+    //   Tanh = 63,
+    //   Tanpi = 64,
+    //   Tgamma = 65,
+    case OpenCLLIB::Trunc:
+      ID = Intrinsic::trunc;
+      break;
+    //   Half_cos = 67,
+    //   Half_divide = 68,
+    //   Half_exp = 69,
+    //   Half_exp2 = 70,
+    //   Half_exp10 = 71,
+    //   Half_log = 72,
+    //   Half_log2 = 73,
+    //   Half_log10 = 74,
+    //   Half_powr = 75,
+    //   Half_recip = 76,
+    //   Half_rsqrt = 77,
+    //   Half_sin = 78,
+    case OpenCLLIB::Cos:
+    case OpenCLLIB::Half_cos:
+    case OpenCLLIB::Native_cos:
+      ID = Intrinsic::cos;
+      break;
+    //   Native_divide = 82,
+    //   Native_exp2 = 84,
+    //   Native_exp10 = 85,
+    //   Native_log2 = 87,
+    //   Native_log10 = 88,
+    //   Native_powr = 89,
+    //   Native_recip = 90,
+    //   Native_rsqrt = 91,
+    // case OpenCLLIB::Native_sin: ID = Intrinsic::sin; break;
+    case OpenCLLIB::SAbs: ID =
+      Intrinsic::abs;
+      break;
+    case OpenCLLIB::Clz: ID =
+      Intrinsic::ctlz;
+      break;
+    case OpenCLLIB::Ctz:
+      ID = Intrinsic::cttz;
+      break;
+    case OpenCLLIB::USub_sat:
+      ID = Intrinsic::usub_sat;
+      Formals = ArrayRef(RetTy);
+      break;
+    default:
+      break;
+    }
+
+    auto M = BB->getParent()->getParent();
+    Function *F = nullptr;
+    if (ID == Intrinsic::not_intrinsic) {
+      if (Op == OpenCLLIB::Printf) {
+        F = M->getFunction("printf");
+      } else {
+        errs() << "Failed to handle OpenCL Extended Op: " << Op << '\n';
+        std::abort();
+      }
+    } else if (ID == Intrinsic::frexp || ID == Intrinsic::powi) {
+      F = Intrinsic::getDeclaration(
+          M, ID, {Formals[0], IntegerType::getInt32Ty(M->getContext())});
+    } else {
+      F = Intrinsic::getDeclaration(M, ID, Formals);
+    }
+
+    auto Actuals = Reader.transValue(BC->getArgValues(), F, BB);
+
+    if (ID == Intrinsic::frexp) { // TODO: this should've been done in the FE.
+      auto CI = CallInst::Create(F, {Actuals[0]}, BC->getName(), BB);
+      auto Exp = ExtractValueInst::Create(CI, 1, "exponent", BB);
+      new StoreInst(Exp, Actuals[1], BB);
+      return ExtractValueInst::Create(CI, 0, "fraction", BB);
+    }
+
+    if (ID == Intrinsic::abs || ID == Intrinsic::ctlz || ID == Intrinsic::cttz)
+      Actuals.push_back(ConstantInt::getBool(M->getContext(), false));
+
+
+    // Function *F = nullptr;
+    // if (ID == Intrinsic::not_intrinsic) {
+    //   if (ExtOp == OpenCLLIB::Printf)
+    //     MangledName = "printf";
+    //   else if (ExtOp == OpenCLLIB::Cbrt) // TODO: AMDSPV JANK, cbrt is not handled
+    //     std::abort();
+    //   else if (ExtOp != OpenCLLIB::Step) // TODO: AMDSPV JANK, step is not handled
+    //     std::abort();
+
+    //   F = M->getFunction(MangledName);
+    //   if (!F) {
+    //     FunctionType *FT = FunctionType::get(RetTy, ArgTypes, false);
+    //     F = Function::Create(FT, GlobalValue::ExternalLinkage, MangledName, M);
+    //     F->setCallingConv(CallingConv::C);
+    //     if (isFuncNoUnwind())
+    //       F->addFnAttr(Attribute::NoUnwind);
+    //     if (isFuncReadNone(UnmangledName))
+    //       F->setDoesNotAccessMemory();
+    //   }
+    // } else if (ID == Intrinsic::frexp || ID == Intrinsic::powi) {
+    //   F = Intrinsic::getDeclaration(M, ID, {Formals[0],
+    //                                         IntegerType::getInt32Ty(M->getContext())});
+    // } else {
+    //   F = Intrinsic::getDeclaration(M, ID, Formals);
+    // }
+    // auto Args = transValue(BC->getArgValues(), F, BB);
+    // switch (ID) { // TODO: AMDSPV JANK, mismatched signature handling
+    // case (Intrinsic::abs):
+    // case (Intrinsic::ctlz):
+    // case (Intrinsic::cttz):
+    //   Args.push_back(ConstantInt::getBool(M->getContext(), false));
+    //   break;
+    // default: break;
+  // }
+
+    // if (Op)
+      // UnmangledName.find("native") == 0)
+  CallInst *CI = CallInst::Create(F, Actuals, BC->getName(), BB);
+  addFnAttr(CI, Attribute::NoUnwind);
+  applyFPFastMathModeDecorations(BC, CI);
+  // CI->setFast(true);
+
+  return CI;
+}
+
 Instruction *SPIRVToLLVM::transOCLBuiltinFromExtInst(SPIRVExtInst *BC,
                                                      BasicBlock *BB) {
   assert(BB && "Invalid BB");
@@ -4858,6 +5293,9 @@ Instruction *SPIRVToLLVM::transOCLBuiltinFromExtInst(SPIRVExtInst *BC,
   }
 
   Type *RetTy = transType(BC->getType());
+  if (M->getTargetTriple() == "amdgcn-amd-amdhsa")
+    return transLLVMFromExtInst(
+        *this, ExtOp, BC, RetTy, std::move(ArgTypes), BB);
   std::string MangledName =
       getSPIRVFriendlyIRFunctionName(ExtOp, ArgTypes, RetTy);
   opaquifyTypedPointers(ArgTypes);
@@ -4883,6 +5321,7 @@ Instruction *SPIRVToLLVM::transOCLBuiltinFromExtInst(SPIRVExtInst *BC,
   CallInst *CI = CallInst::Create(F, Args, BC->getName(), BB);
   setCallingConv(CI);
   addFnAttr(CI, Attribute::NoUnwind);
+  applyFPFastMathModeDecorations(BC, CI);
   return CI;
 }
 
@@ -5027,7 +5466,12 @@ SPIRVToLLVM::transLinkageType(const SPIRVValue *V) {
   case LinkageTypeExport:
     if (V->getOpCode() == OpVariable ||
         V->getOpCode() == OpUntypedVariableKHR) {
-      if (static_cast<const SPIRVVariableBase *>(V)->getInitializer() == 0)
+      if (static_cast<const SPIRVVariable *>(V)->getStorageClass() ==
+          StorageClassWorkgroup &&
+          (!V->getType()->isTypeArray() ||
+           V->getType()->getArrayLength() != UINT32_MAX))
+        return GlobalValue::InternalLinkage;
+      if (static_cast<const SPIRVVariable *>(V)->getInitializer() == 0)
         // Tentative definition
         return GlobalValue::CommonLinkage;
     }

@@ -651,6 +651,8 @@ protected:
         (getValueType(PtrId)
              ->getPointerElementType()
              ->isTypeUntypedPointerKHR() ||
+         (getValueType(PtrId)->getPointerElementType()->isTypePointer() &&
+          getValueType(ValId)->isTypeUntypedPointerKHR()) ||
          getValueType(PtrId)->getPointerElementType() == getValueType(ValId)) &&
         "Inconsistent operand types");
   }
@@ -762,7 +764,7 @@ protected:
     } else if (isBinaryPtrOpCode(OpCode)) {
       assert((Op1Ty->isTypePointer() && Op2Ty->isTypePointer()) &&
              "Invalid types for PtrEqual, PtrNotEqual, or PtrDiff instruction");
-      if (!Op1Ty->isTypeUntypedPointerKHR() ||
+      if (!Op1Ty->isTypeUntypedPointerKHR() &&
           !Op2Ty->isTypeUntypedPointerKHR())
         assert(
             static_cast<SPIRVTypePointer *>(Op1Ty)->getElementType() ==
@@ -1010,7 +1012,11 @@ public:
     assert(OpCode == OC);
     assert(Pairs.size() % 2 == 0);
     foreachPair([=](SPIRVValue *IncomingV, SPIRVBasicBlock *IncomingBB) {
-      assert(IncomingV->isForward() || IncomingV->getType() == Type);
+      assert(IncomingV->isForward() || IncomingV->getType() == Type ||
+             (IncomingV->getType()->isTypePointer() &&
+              Type->isTypeUntypedPointerKHR()) ||
+             (IncomingV->getType()->isTypeUntypedPointerKHR() &&
+              Type->isTypePointer()));
       assert(IncomingBB->isBasicBlock() || IncomingBB->isForward());
     });
     SPIRVInstruction::validate();
@@ -1132,6 +1138,9 @@ protected:
                            : getValueType(Condition);
     (void)ConTy;
     assert(ConTy->isTypeBool() && "Invalid type");
+    if (getType()->getOpCode() != OpTypeUntypedPointerKHR &&
+        getValueType(Op1)->getOpCode() != OpTypeUntypedPointerKHR &&
+        getValueType(Op2)->getOpCode() != OpTypeUntypedPointerKHR)
     assert(getType() == getValueType(Op1) && getType() == getValueType(Op2) &&
            "Inconsistent type");
   }
@@ -1250,7 +1259,8 @@ public:
     return static_cast<SPIRVBasicBlock *>(getValue(Default));
   }
   size_t getLiteralSize() const {
-    unsigned ByteWidth = getSelect()->getType()->getBitWidth() / 8;
+    unsigned ByteWidth =
+        std::max(getSelect()->getType()->getBitWidth() / 8, 1u);
     unsigned Remainder = (ByteWidth % sizeof(SPIRVWord)) != 0;
     return (ByteWidth / sizeof(SPIRVWord)) + Remainder;
   }

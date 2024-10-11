@@ -231,6 +231,9 @@ void SPIRVToOCLBase::visitCastInst(CastInst &Cast) {
       !isa<UIToFPInst>(Cast) && !isa<SIToFPInst>(Cast))
     return;
 
+  if (M->getTargetTriple() == "amdgcn-amd-amdhsa")
+    return;
+
   Type const *SrcTy = Cast.getSrcTy();
   Type *DstVecTy = Cast.getDestTy();
   // Leave scalar casts as is. Skip boolean vector casts becase there

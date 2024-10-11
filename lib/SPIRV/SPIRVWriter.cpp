@@ -450,7 +450,9 @@ SPIRVType *LLVMToSPIRVBase::transType(Type *T) {
     // SPIR-V 1.3 s3.32.6: Length is the number of elements in the array.
     //                     It must be at least 1.
     const auto ArraySize =
-        T->getArrayNumElements() ? T->getArrayNumElements() : 1;
+        T->getArrayNumElements() ? T->getArrayNumElements() :
+            (M->getTargetTriple() == "spirv64-amd-amdhsa" ? UINT32_MAX : 1);
+
     Type *ElTy = T->getArrayElementType();
     SPIRVType *TransType = BM->addArrayType(
         transType(ElTy),
@@ -755,7 +757,9 @@ SPIRVType *LLVMToSPIRVBase::transPointerType(SPIRVType *ET, unsigned AddrSpc) {
     return transPointerType(ET, SPIRAS_Private);
   if (BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_untyped_pointers) &&
       !(ET->isTypeArray() || ET->isTypeVector() || ET->isTypeStruct() ||
-        ET->isTypeImage() || ET->isTypeSampler() || ET->isTypePipe())) {
+        ET->isTypeImage() || ET->isTypeSampler() || ET->isTypePipe() ||
+        (M->getTargetTriple() == "spirv64-amd-amdhsa" &&
+        ET->getOpCode() == OpTypeFunction))) {
     TranslatedTy = BM->addUntypedPointerKHRType(
         SPIRSPIRVAddrSpaceMap::map(static_cast<SPIRAddressSpace>(AddrSpc)));
   } else {
@@ -843,10 +847,15 @@ SPIRVType *LLVMToSPIRVBase::transScavengedType(Value *V) {
     // error. To be on the safe side, an assertion is added to check printf
     // never reaches this point.
     assert(F->getName() != "printf");
-    BM->getErrorLog().checkError(!FnTy->isVarArg(),
-                                 SPIRVEC_UnsupportedVarArgFunction);
+    if (M->getTargetTriple() != "spirv64-amd-amdhsa")
+      BM->getErrorLog().checkError(!FnTy->isVarArg(),
+                                   SPIRVEC_UnsupportedVarArgFunction);
 
     SPIRVType *RT = transType(FnTy->getReturnType());
+    if (M->getTargetTriple() == "spirv64-amd-amdhsa" &&
+        F->hasName() && F->getName().contains("dispatch.ptr"))
+      RT = transType(PointerType::get(F->getContext(), SPIRAS_Constant));
+
     std::vector<SPIRVType *> PT;
     for (Argument &Arg : F->args()) {
       assert(OCLTypeToSPIRVPtr);
@@ -1550,8 +1559,10 @@ SPIRVInstruction *LLVMToSPIRVBase::transBinaryInst(BinaryOperator *B,
 SPIRVInstruction *LLVMToSPIRVBase::transCmpInst(CmpInst *Cmp,
                                                 SPIRVBasicBlock *BB) {
   auto *Op0 = Cmp->getOperand(0);
-  SPIRVValue *TOp0 = transValue(Op0, BB);
-  SPIRVValue *TOp1 = transValue(Cmp->getOperand(1), BB);
+  SPIRVValue *TOp0 =
+      transValue(Op0, BB, true, FuncTransMode::Pointer);
+  SPIRVValue *TOp1 =
+      transValue(Cmp->getOperand(1), BB, true, FuncTransMode::Pointer);
   if (Op0->getType()->isPointerTy()) {
     auto P = Cmp->getPredicate();
     if (BM->isAllowedToUseVersion(VersionNumber::SPIRV_1_4) &&
@@ -1583,15 +1594,20 @@ SPIRVValue *LLVMToSPIRVBase::transUnaryInst(UnaryInstruction *U,
       return BM->addUndef(ExpectedTy);
     }
   }
+  if (isa<VAArgInst>(U) && M->getTargetTriple() == "spirv64-amd-amdhsa") {
+    SPIRVType *ExpectedTy = transScavengedType(U);
+    return BM->addUndef(ExpectedTy);
+  }
 
   Op BOC = OpNop;
   if (auto *Cast = dyn_cast<AddrSpaceCastInst>(U)) {
     const auto SrcAddrSpace = Cast->getSrcTy()->getPointerAddressSpace();
     const auto DestAddrSpace = Cast->getDestTy()->getPointerAddressSpace();
     if (DestAddrSpace == SPIRAS_Generic) {
-      getErrorLog().checkError(
-          SrcAddrSpace != SPIRAS_Constant, SPIRVEC_InvalidModule, U,
-          "Casts from constant address space to generic are illegal\n");
+      if (M->getTargetTriple() != "spirv64-amd-amdhsa")
+        getErrorLog().checkError(
+            SrcAddrSpace != SPIRAS_Constant, SPIRVEC_InvalidModule, U,
+            "Casts from constant address space to generic are illegal\n");
       BOC = OpPtrCastToGeneric;
       // In SPIR-V only casts to/from generic are allowed. But with
       // SPV_INTEL_usm_storage_classes we can also have casts from global_device
@@ -2109,6 +2125,10 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
                                                 : nullptr,
         GV->isConstant(), transLinkageType(GV), BVarInit, GV->getName().str(),
         StorageClass, nullptr));
+    if (GV->isExternallyInitialized() &&
+        M->getTargetTriple() == "spirv64-amd-amdhsa")
+      BVar->addDecorate(DecorationUserTypeGOOGLE,
+                        BM->getString("externally_initialized")->getId());
 
     if (IsVectorCompute) {
       BVar->addDecorate(DecorationVectorComputeVariableINTEL);
@@ -2153,7 +2173,7 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
     assert(BV);
     // Don't store pointer constants in the map -- they are opaque and thus we
     // might reuse the wrong type (Example: a null value) if we do so.
-    if (V->getType()->isPointerTy())
+    if (V->getType()->isPtrOrPtrVectorTy())
       return BV;
     return mapValue(V, BV);
   }
@@ -2243,7 +2263,11 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
           auto *FrexpResult = transValue(RV, BB);
           SPIRVValue *IntFromFrexpResult =
               static_cast<SPIRVExtInst *>(FrexpResult)->getArgValues()[1];
-          IntFromFrexpResult = BM->addLoadInst(IntFromFrexpResult, {}, BB);
+          IntFromFrexpResult =
+              BM->addLoadInst(IntFromFrexpResult, {}, BB,
+                              BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_untyped_pointers)
+                              ? transType(cast<StructType>(RV->getType())->getTypeAtIndex(1))
+                              : nullptr);
 
           std::vector<SPIRVId> Operands = {FrexpResult->getId(),
                                            IntFromFrexpResult->getId()};
@@ -2280,7 +2304,10 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
             BB));
 
   if (AllocaInst *Alc = dyn_cast<AllocaInst>(V)) {
-    SPIRVType *TranslatedTy = transScavengedType(V);
+    SPIRVType *TranslatedTy = M->getTargetTriple() != "spirv64-amd-amdhsa" ?
+        transScavengedType(V) :
+        BM->addPointerType(StorageClassFunction,
+                           transType(Alc->getAllocatedType()));
     if (Alc->isArrayAllocation()) {
       SPIRVValue *Length = transValue(Alc->getArraySize(), BB);
       assert(Length && "Couldn't translate array size!");
@@ -2462,7 +2489,12 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
         // Idx = 1
         SPIRVValue *IntFromFrexpResult =
             static_cast<SPIRVExtInst *>(Val)->getArgValues()[1];
-        IntFromFrexpResult = BM->addLoadInst(IntFromFrexpResult, {}, BB);
+        IntFromFrexpResult =
+            BM->addLoadInst(
+              IntFromFrexpResult, {}, BB,
+              BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_untyped_pointers)
+                ? transType(Ext->getType())
+                : nullptr);
         return mapValue(V, IntFromFrexpResult);
       }
     }
@@ -2611,6 +2643,15 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
       // Implement FSub through FNegate and AtomicFAddExt
       Ops[3] = BM->addUnaryInst(OpFNegate, Ty, OpVals[3], BB)->getId();
       OC = OpAtomicFAddEXT;
+    } else if (Op == AtomicRMWInst::UIncWrap || Op == AtomicRMWInst::UDecWrap) {
+      OC = LLVMSPIRVAtomicRmwOpCodeMap::map(Op);
+      auto WrapV = Ops.back();
+      Ops.pop_back();
+      auto IncDec = mapValue(V, BM->addInstTemplate(OC, Ops, BB, Ty));
+      IncDec->addDecorate(new SPIRVDecorate(DecorationMaxByteOffsetId, IncDec,
+                                            WrapV));
+      return IncDec;
+      // TODO: figure out handling of saturating val.
     } else
       OC = LLVMSPIRVAtomicRmwOpCodeMap::map(Op);
 
@@ -3061,7 +3102,8 @@ bool LLVMToSPIRVBase::transDecoration(Value *V, SPIRVValue *BV) {
         Opcode == Instruction::FMul || Opcode == Instruction::FDiv ||
         Opcode == Instruction::FRem ||
         ((Opcode == Instruction::FNeg || Opcode == Instruction::FCmp) &&
-         BM->isAllowedToUseVersion(VersionNumber::SPIRV_1_6))) {
+         BM->isAllowedToUseVersion(VersionNumber::SPIRV_1_6)) ||
+        Opcode == Instruction::Call) {
       FastMathFlags FMF = BVF->getFastMathFlags();
       SPIRVWord M{0};
       if (FMF.isFast())
@@ -3136,6 +3178,8 @@ void LLVMToSPIRVBase::transMemAliasingINTELDecorations(Instruction *Inst,
                                                        SPIRVValue *BV) {
   if (!BM->isAllowedToUseExtension(
           ExtensionID::SPV_INTEL_memory_access_aliasing))
+    return;
+  if (!BV->hasId() && M->getTargetTriple() == "spirv64-amd-amdhsa") // Fences
     return;
   if (MDNode *AliasingListMD = Inst->getMetadata(LLVMContext::MD_alias_scope)) {
     auto *MemAliasList = addMemAliasingINTELInstructions(BM, AliasingListMD);
@@ -5826,7 +5870,10 @@ bool isEmptyLLVMModule(Module *M) {
 }
 
 bool LLVMToSPIRVBase::translate() {
-  BM->setGeneratorVer(KTranslatorVer);
+  if (M->getTargetTriple() == "spirv64-amd-amdhsa")
+    BM->setGeneratorVer(UINT16_MAX);
+  else
+    BM->setGeneratorVer(KTranslatorVer);
 
   if (isEmptyLLVMModule(M))
     BM->addCapability(CapabilityLinkage);

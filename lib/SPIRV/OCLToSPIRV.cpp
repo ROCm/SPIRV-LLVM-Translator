@@ -315,6 +315,9 @@ void OCLToSPIRVBase::visitCallInst(CallInst &CI) {
   if (DemangledName == kOCLBuiltinName::WorkGroupBarrier ||
       DemangledName == kOCLBuiltinName::Barrier ||
       DemangledName == kOCLBuiltinName::SubGroupBarrier) {
+    if (F->arg_size() != 1 && F->arg_size() != 2 &&
+        F->getParent()->getTargetTriple() == "spirv64-amd-amdhsa")
+      return; // Somebody used the name.
     visitCallBarrier(&CI);
     return;
   }

@@ -38,6 +38,7 @@
 
 #include "OCLUtil.h"
 #include "SPIRVToOCL.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Verifier.h"
 
 #define DEBUG_TYPE "spvtocl20"
@@ -74,7 +75,118 @@ bool SPIRVToOCL20Base::runSPIRVToOCL(Module &Module) {
   return true;
 }
 
+static SyncScope::ID mapOpenCLScopeToAMDGPU(LLVMContext &Ctx, uint64_t S) {
+  if (S == OCLMS_work_item)
+    return SyncScope::SingleThread;
+  if (S == OCLMS_work_group)
+    return Ctx.getOrInsertSyncScopeID("workgroup");
+  if (S == OCLMS_device)
+    return Ctx.getOrInsertSyncScopeID("agent");
+  if (S == OCLMS_sub_group)
+    return Ctx.getOrInsertSyncScopeID("wavefront");
+  return SyncScope::System;
+}
+
+static void translateSPIRVCmpXchgToLLVM(CallInst *CI, Op OC) {
+  auto Ptr = CI->getOperand(0);
+  auto Cmp = CI->getOperand(1);
+  auto New = CI->getOperand(4);
+
+  assert(isa<ConstantInt>(CI->getArgOperand(CI->arg_size() - 4))); // Skip New.
+  assert(isa<ConstantInt>(CI->getArgOperand(CI->arg_size() - 3))); // Skip New.
+  assert(isa<ConstantInt>(CI->getArgOperand(CI->arg_size() - 1)));
+
+  auto SuccessOrder = // Offset NotAtomic and Unordered
+      static_cast<AtomicOrdering>(getArgAsInt(CI, CI->arg_size() - 4) + 2);
+  auto FailOrder = // Offset NotAtomic and Unordered
+      static_cast<AtomicOrdering>(getArgAsInt(CI, CI->arg_size() - 3) + 2);
+  SyncScope::ID S = mapOpenCLScopeToAMDGPU(CI->getContext(),
+                                           getArgAsInt(CI, CI->arg_size() - 1));
+  IRBuilder<> Builder(CI);
+  auto CmpXchg = Builder.CreateAtomicCmpXchg(Ptr, Cmp, New, {}, SuccessOrder,
+                                             FailOrder, S);
+  // OpAtomicCompareExchangeWeak has been deprecated and subsequently removed
+  // from SPIR-V versions newer than 1.4, and currently there's no way to encode
+  // the weak bit.
+  //CmpXchg->setWeak(OC == OpAtomicCompareExchangeWeak);
+
+  CI->replaceAllUsesWith(
+      Builder.CreateZExt(Builder.CreateExtractValue(CmpXchg, 0), CI->getType()));
+  CI->dropAllReferences();
+  CI->eraseFromParent();
+}
+
+static void translateSPIRVAtomicBuiltinToLLVMAtomicOp(CallInst *CI, Op OC) {
+  if (OC == OpAtomicCompareExchange || OC == OpAtomicCompareExchangeWeak)
+    return translateSPIRVCmpXchgToLLVM(CI, OC);
+
+  static const DenseMap<Op, AtomicRMWInst::BinOp> SPIRVtoLLVM{
+    {OpAtomicAnd, AtomicRMWInst::And},
+    {OpAtomicExchange, AtomicRMWInst::Xchg},
+    {OpAtomicFAddEXT, AtomicRMWInst::FAdd},
+    {OpAtomicFMaxEXT, AtomicRMWInst::FMax},
+    {OpAtomicFMinEXT, AtomicRMWInst::FMin},
+    {OpAtomicIAdd, AtomicRMWInst::Add},
+    {OpAtomicIDecrement, AtomicRMWInst::UDecWrap},
+    {OpAtomicIIncrement, AtomicRMWInst::UIncWrap},
+    {OpAtomicISub, AtomicRMWInst::Sub},
+    {OpAtomicOr, AtomicRMWInst::Or},
+    {OpAtomicSMax, AtomicRMWInst::Max},
+    {OpAtomicSMin, AtomicRMWInst::Min},
+    {OpAtomicUMax, AtomicRMWInst::UMax},
+    {OpAtomicUMin, AtomicRMWInst::UMin},
+    {OpAtomicXor, AtomicRMWInst::Xor}
+  };
+
+  assert(isa<ConstantInt>(CI->getArgOperand(CI->arg_size() - 1)));
+  assert(isa<ConstantInt>(CI->getArgOperand(CI->arg_size() - 2)));
+
+  auto Order = // Offset NotAtomic and Unordered
+      static_cast<AtomicOrdering>(getArgAsInt(CI, CI->arg_size() - 2) + 2);
+  auto S = mapOpenCLScopeToAMDGPU(CI->getContext(),
+                                  getArgAsInt(CI, CI->arg_size() - 1));
+
+  IRBuilder<> Builder(CI);
+  if (OC == OpAtomicLoad) {
+    auto LD = Builder.CreateLoad(CI->getType(), CI->getOperand(0));
+    LD->setAtomic(Order, S);
+    CI->replaceAllUsesWith(LD);
+  } else if (OC == OpAtomicStore) {
+    auto ST = Builder.CreateStore(CI->getOperand(1), CI->getOperand(0));
+    ST->setAtomic(Order, S);
+    CI->replaceAllUsesWith(ST);
+  } else {
+    auto RMW = Builder.CreateAtomicRMW(SPIRVtoLLVM.at(OC), CI->getOperand(0),
+                                       CI->getOperand(1), {}, Order, S);
+    CI->replaceAllUsesWith(RMW);
+  }
+
+  CI->dropAllReferences();
+  CI->eraseFromParent();
+}
+
+static void visitCallLLVMFence(CallInst *CI) { // TODO: AMDSPV JANK, this is incorrect
+  auto MS = transSPIRVMemoryScopeIntoOCLMemoryScope(CI->getArgOperand(0), CI);
+  auto MO = transSPIRVMemorySemanticsIntoOCLMemoryOrder(CI->getArgOperand(1),
+                                                        CI);
+  assert(isa<ConstantInt>(MS));
+  assert(isa<ConstantInt>(MO));
+
+  auto O = static_cast<AtomicOrdering>(cast<ConstantInt>(MO)->getZExtValue() + 2);
+  auto S = mapOpenCLScopeToAMDGPU(CI->getContext(),
+                                  cast<ConstantInt>(MS)->getZExtValue());
+  IRBuilder<> Builder(CI);
+
+  CI->replaceAllUsesWith(Builder.CreateFence(O, S));
+
+  CI->dropAllReferences();
+  CI->eraseFromParent();
+}
+
 void SPIRVToOCL20Base::visitCallSPIRVMemoryBarrier(CallInst *CI) {
+  if (M->getTargetTriple() == "amdgcn-amd-amdhsa")
+    return visitCallLLVMFence(CI);
+
   Value *MemScope =
       SPIRV::transSPIRVMemoryScopeIntoOCLMemoryScope(CI->getArgOperand(0), CI);
   Value *MemFenceFlags = SPIRV::transSPIRVMemorySemanticsIntoOCLMemFenceFlags(
@@ -133,6 +245,9 @@ void SPIRVToOCL20Base::mutateAtomicName(CallInst *CI, Op OC) {
 void SPIRVToOCL20Base::visitCallSPIRVAtomicBuiltin(CallInst *CI, Op OC) {
   CallInst *CIG = mutateCommonAtomicArguments(CI, OC);
 
+  if (M->getTargetTriple() == "amdgcn-amd-amdhsa")
+    return translateSPIRVAtomicBuiltinToLLVMAtomicOp(CIG, OC);
+
   switch (OC) {
   case OpAtomicIIncrement:
   case OpAtomicIDecrement:
@@ -174,12 +289,14 @@ CallInst *SPIRVToOCL20Base::mutateCommonAtomicArguments(CallInst *CI, Op OC) {
 
   Mutator.mapArgs([=](IRBuilder<> &Builder, Value *PtrArg, Type *PtrArgTy) {
     if (auto *TypedPtrTy = dyn_cast<TypedPointerType>(PtrArgTy)) {
-      if (TypedPtrTy->getAddressSpace() != SPIRAS_Generic) {
+      unsigned AS = M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+          mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic;
+      if (TypedPtrTy->getAddressSpace() != AS) {
         Type *ElementTy = TypedPtrTy->getElementType();
-        Type *FixedPtr = PointerType::get(ElementTy, SPIRAS_Generic);
+        Type *FixedPtr = PointerType::get(ElementTy, AS);
         PtrArg = Builder.CreateAddrSpaceCast(PtrArg, FixedPtr,
                                              PtrArg->getName() + ".as");
-        PtrArgTy = TypedPointerType::get(ElementTy, SPIRAS_Generic);
+        PtrArgTy = TypedPointerType::get(ElementTy, AS);
       }
     }
     return std::make_pair(PtrArg, PtrArgTy);
@@ -207,7 +324,8 @@ void SPIRVToOCL20Base::visitCallSPIRVAtomicCmpExchg(CallInst *CI) {
   // value by pointer passed as 2nd argument (aka expected) while SPIR-V
   // instructions returns this new/original value as a resulting value.
   AllocaInst *PExpected = new AllocaInst(
-      MemTy, 0, "expected",
+      MemTy, CI->getParent()->getParent()->getDataLayout().getAllocaAddrSpace(),
+      "expected",
       CI->getParent()->getParent()->getEntryBlock().getFirstInsertionPt());
   PExpected->setAlignment(Align(MemTy->getScalarSizeInBits() / 8));
 
@@ -221,7 +339,9 @@ void SPIRVToOCL20Base::visitCallSPIRVAtomicCmpExchg(CallInst *CI) {
       .mapArg(1,
               [=](IRBuilder<> &Builder, Value *Expected) {
                 Builder.CreateStore(Expected, PExpected);
-                unsigned AddrSpc = SPIRAS_Generic;
+                unsigned AddrSpc = M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+                    mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) :
+                    SPIRAS_Generic;
                 Type *PtrTyAS = PointerType::get(PExpected->getType(), AddrSpc);
                 Value *V = Builder.CreateAddrSpaceCast(
                     PExpected, PtrTyAS, PExpected->getName() + ".as");
@@ -263,10 +383,12 @@ void SPIRVToOCL20Base::visitCallSPIRVEnqueueKernel(CallInst *CI, Op OC) {
 
   auto Mutator = mutateCallInst(CI, FName.str());
   Mutator.mapArg(6, [=](IRBuilder<> &Builder, Value *Invoke) {
+    unsigned AS = M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+        mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic;
     Value *Replace = CastInst::CreatePointerBitCastOrAddrSpaceCast(
-        Invoke, Builder.getPtrTy(SPIRAS_Generic), "", CI->getIterator());
+        Invoke, Builder.getPtrTy(AS), "", CI->getIterator());
     return std::make_pair(
-        Replace, TypedPointerType::get(Builder.getInt8Ty(), SPIRAS_Generic));
+        Replace, TypedPointerType::get(Builder.getInt8Ty(), AS));
   });
 
   if (!HasVaargs) {

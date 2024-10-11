@@ -491,6 +491,43 @@ inline OCLMemOrderKind mapSPIRVMemOrderToOCL(unsigned Sema) {
   return OCLMemOrderMap::rmap(extractSPIRVMemOrderSemantic(Sema));
 }
 
+inline unsigned int mapAMDGCNAddrSpaceToSPIRV(unsigned int AS) {
+  switch (AS) {
+  case 0:
+    return SPIRAS_Generic;
+  case 1:
+    return SPIRAS_Global;
+  case 3:
+    return SPIRAS_Local;
+  case 4:
+    return SPIRAS_Constant;
+  case 5:
+    return SPIRAS_Private;
+  default:
+    llvm_unreachable("Unexpected AMDGCN Address Space");
+    return UINT_MAX;
+  }
+}
+
+inline SPIRAddressSpace mapSPIRVAddrSpaceToAMDGPU(SPIRVStorageClassKind SPVAS) {
+  switch (SPVAS) {
+  case StorageClassCrossWorkgroup:
+    return static_cast<SPIRAddressSpace>(1);
+  case StorageClassUniformConstant:
+    return static_cast<SPIRAddressSpace>(4);
+  case StorageClassWorkgroup:
+    return static_cast<SPIRAddressSpace>(3);
+  case StorageClassPrivate:
+  case StorageClassFunction:
+    return static_cast<SPIRAddressSpace>(5);
+  case StorageClassGeneric:
+    return static_cast<SPIRAddressSpace>(0);
+  default:
+    llvm_unreachable("Unexpected StorageClass");
+    return static_cast<SPIRAddressSpace>(UINT_MAX);
+  }
+}
+
 bool isPipeOrAddressSpaceCastBI(const StringRef MangledName);
 bool isEnqueueKernelBI(const StringRef MangledName);
 bool isKernelQueryBI(const StringRef MangledName);
