@@ -4,7 +4,6 @@
 
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_KHR_untyped_pointers -o %t.spv
-; TODO: enable back once spirv-tools are updated.
 ; R/UN: spirv-val %t.spv
 
 ; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_KHR_untyped_pointers -spirv-text -o %t.spt
