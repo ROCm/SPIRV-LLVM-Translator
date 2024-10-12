@@ -2219,7 +2219,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
             ? transType(
                   BaseSPVTy->getVectorComponentType()->getPointerElementType())
             : transType(AC->isUntyped() ? AC->getBaseType()
-                                        : BaseSPVTy->getPointerElementType());
+                                        : (BaseSPVTy->getPointerElementType()->isTypeUntypedPointerKHR() ? BV->getType()->getPointerElementType() : BaseSPVTy->getPointerElementType()));
     auto Index = transValue(AC->getIndices(), F, BB);
     if (!AC->hasPtrIndex())
       Index.insert(Index.begin(), getInt32(M, 0));
@@ -5224,44 +5224,6 @@ static Instruction *transLLVMFromExtInst(SPIRVToLLVM &Reader, OCLExtOpKind Op,
     if (ID == Intrinsic::abs || ID == Intrinsic::ctlz || ID == Intrinsic::cttz)
       Actuals.push_back(ConstantInt::getBool(M->getContext(), false));
 
-
-    // Function *F = nullptr;
-    // if (ID == Intrinsic::not_intrinsic) {
-    //   if (ExtOp == OpenCLLIB::Printf)
-    //     MangledName = "printf";
-    //   else if (ExtOp == OpenCLLIB::Cbrt) // TODO: AMDSPV JANK, cbrt is not handled
-    //     std::abort();
-    //   else if (ExtOp != OpenCLLIB::Step) // TODO: AMDSPV JANK, step is not handled
-    //     std::abort();
-
-    //   F = M->getFunction(MangledName);
-    //   if (!F) {
-    //     FunctionType *FT = FunctionType::get(RetTy, ArgTypes, false);
-    //     F = Function::Create(FT, GlobalValue::ExternalLinkage, MangledName, M);
-    //     F->setCallingConv(CallingConv::C);
-    //     if (isFuncNoUnwind())
-    //       F->addFnAttr(Attribute::NoUnwind);
-    //     if (isFuncReadNone(UnmangledName))
-    //       F->setDoesNotAccessMemory();
-    //   }
-    // } else if (ID == Intrinsic::frexp || ID == Intrinsic::powi) {
-    //   F = Intrinsic::getDeclaration(M, ID, {Formals[0],
-    //                                         IntegerType::getInt32Ty(M->getContext())});
-    // } else {
-    //   F = Intrinsic::getDeclaration(M, ID, Formals);
-    // }
-    // auto Args = transValue(BC->getArgValues(), F, BB);
-    // switch (ID) { // TODO: AMDSPV JANK, mismatched signature handling
-    // case (Intrinsic::abs):
-    // case (Intrinsic::ctlz):
-    // case (Intrinsic::cttz):
-    //   Args.push_back(ConstantInt::getBool(M->getContext(), false));
-    //   break;
-    // default: break;
-  // }
-
-    // if (Op)
-      // UnmangledName.find("native") == 0)
   CallInst *CI = CallInst::Create(F, Actuals, BC->getName(), BB);
   addFnAttr(CI, Attribute::NoUnwind);
   applyFPFastMathModeDecorations(BC, CI);
