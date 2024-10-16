@@ -5023,7 +5023,7 @@ bool SPIRVToLLVM::transAlign(SPIRVValue *BV, Value *V) {
 
 static Instruction *transLLVMFromExtInst(SPIRVToLLVM &Reader, OCLExtOpKind Op,
                                          SPIRVExtInst *BC, Type *RetTy,
-                                         vector<Type *> ArgTys,
+                                         std::vector<Type *> ArgTys,
                                          BasicBlock *BB) {
   opaquifyTypedPointers(ArgTys);
 
