@@ -2238,13 +2238,19 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
                              MemoryAccessNoAliasINTELMaskMask);
     if (MemoryAccess.front() == 0)
       MemoryAccess.clear();
-    return mapValue(
-        V,
-        BM->addLoadInst(
-            transValue(LD->getPointerOperand(), BB), MemoryAccess, BB,
-            BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_untyped_pointers)
-                ? transType(LD->getType())
-                : nullptr));
+    if (BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_untyped_pointers)) {
+      SPIRVValue *Source = transValue(LD->getPointerOperand(), BB);
+      SPIRVType *LoadTy = transType(LD->getType());
+      // For images do not use explicit load type, but rather use the source
+      // type (calculated in SPIRVLoad constructor)
+      if (LoadTy->isTypeUntypedPointerKHR() &&
+          (Source->getType()->getPointerElementType()->isTypeImage())) {
+        LoadTy = nullptr;
+      }
+      return mapValue(V, BM->addLoadInst(Source, MemoryAccess, BB, LoadTy));
+    }
+    return mapValue(V, BM->addLoadInst(transValue(LD->getPointerOperand(), BB),
+                                       MemoryAccess, BB));
   }
 
   if (BinaryOperator *B = dyn_cast<BinaryOperator>(V)) {
@@ -2263,11 +2269,15 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
           auto *FrexpResult = transValue(RV, BB);
           SPIRVValue *IntFromFrexpResult =
               static_cast<SPIRVExtInst *>(FrexpResult)->getArgValues()[1];
+          SPIRVType *LoadTy = nullptr;
+
+          if (IntFromFrexpResult->isUntypedVariable()) {
+            auto *BV =
+                static_cast<SPIRVUntypedVariableKHR *>(IntFromFrexpResult);
+            LoadTy = BV->getDataType();
+          }
           IntFromFrexpResult =
-              BM->addLoadInst(IntFromFrexpResult, {}, BB,
-                              BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_untyped_pointers)
-                              ? transType(cast<StructType>(RV->getType())->getTypeAtIndex(1))
-                              : nullptr);
+              BM->addLoadInst(IntFromFrexpResult, {}, BB, LoadTy);
 
           std::vector<SPIRVId> Operands = {FrexpResult->getId(),
                                            IntFromFrexpResult->getId()};
@@ -2489,12 +2499,13 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
         // Idx = 1
         SPIRVValue *IntFromFrexpResult =
             static_cast<SPIRVExtInst *>(Val)->getArgValues()[1];
+        SPIRVType *LoadTy = nullptr;
+        if (IntFromFrexpResult->isUntypedVariable()) {
+          auto *BV = static_cast<SPIRVUntypedVariableKHR *>(IntFromFrexpResult);
+          LoadTy = BV->getDataType();
+        }
         IntFromFrexpResult =
-            BM->addLoadInst(
-              IntFromFrexpResult, {}, BB,
-              BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_untyped_pointers)
-                ? transType(Ext->getType())
-                : nullptr);
+            BM->addLoadInst(IntFromFrexpResult, {}, BB, LoadTy);
         return mapValue(V, IntFromFrexpResult);
       }
     }
