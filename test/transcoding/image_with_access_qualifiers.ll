@@ -5,6 +5,12 @@
 ; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
+; RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers %t.bc -spirv-text -o %t.txt
+; RUN: FileCheck < %t.txt %s --check-prefix=CHECK-SPIRV
+; RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers %t.bc -o %t.spv
+; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
+
 ; NOTE: access qualifier infomation is not preserved after round-trip conversion to LLVM
 ; CHECK-LLVM: call spir_func <4 x float> @_Z11read_imagef14ocl_image1d_rw11ocl_sampleri(ptr
 
