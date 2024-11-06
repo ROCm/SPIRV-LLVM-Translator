@@ -5272,10 +5272,10 @@ static Instruction *transLLVMFromExtInst(SPIRVToLLVM &Reader, OCLExtOpKind Op,
         std::abort();
       }
     } else if (ID == Intrinsic::frexp || ID == Intrinsic::powi) {
-      F = Intrinsic::getDeclaration(
+      F = Intrinsic::getOrInsertDeclaration(
           M, ID, {Formals[0], IntegerType::getInt32Ty(M->getContext())});
     } else {
-      F = Intrinsic::getDeclaration(M, ID, Formals);
+      F = Intrinsic::getOrInsertDeclaration(M, ID, Formals);
     }
 
     auto Actuals = Reader.transValue(BC->getArgValues(), F, BB);

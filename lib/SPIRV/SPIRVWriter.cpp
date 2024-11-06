@@ -3115,7 +3115,7 @@ bool LLVMToSPIRVBase::transDecoration(Value *V, SPIRVValue *BV) {
         ((Opcode == Instruction::FNeg || Opcode == Instruction::FCmp ||
           BV->isExtInst()) &&
          BM->isAllowedToUseVersion(VersionNumber::SPIRV_1_6)) ||
-        (M->getTargetTriple() == "spirv64-amd-amdhs" &&
+        (M->getTargetTriple() == "spirv64-amd-amdhsa" &&
          Opcode == Instruction::Call)) {
       FastMathFlags FMF = BVF->getFastMathFlags();
       SPIRVWord M{0};
