@@ -5,6 +5,12 @@
 // RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
 // RUN: not amd-llvm-spirv %t.bc --spirv-max-version=1.0 2>&1 | FileCheck %s --check-prefix=CHECK-SPV10
 
+// RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_KHR_untyped_pointers
+// RUN: spirv-val %t.spv
+// RUN: amd-llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+// RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
+// RUN: not amd-llvm-spirv %t.bc --spirv-max-version=1.0 2>&1 | FileCheck %s --check-prefix=CHECK-SPV10
+
 class Something {
   public:
     Something(int a) : v(a) {}
