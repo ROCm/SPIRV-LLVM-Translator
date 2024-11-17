@@ -3552,8 +3552,11 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
       auto *AI = static_cast<SPIRVAtomicInstBase *>(BI);
       ArgTys[Ptr] = TypedPointerType::get(
           transType(AI->getSemanticType()),
-          SPIRSPIRVAddrSpaceMap::rmap(
-              BI->getValueType(Ops[Ptr]->getId())->getPointerStorageClass()));
+          M->getTargetTriple() == "amdgcn-amd-amdhsa"
+              ? mapSPIRVAddrSpaceToAMDGPU(
+                  BI->getValueType(Ops[Ptr]->getId())->getPointerStorageClass())
+              : SPIRSPIRVAddrSpaceMap::rmap(
+                  BI->getValueType(Ops[Ptr]->getId())->getPointerStorageClass()));
     }
   }
 
@@ -5359,7 +5362,9 @@ Instruction *SPIRVToLLVM::transOCLBuiltinFromExtInst(SPIRVExtInst *BC,
       auto *BVar = static_cast<SPIRVUntypedVariableKHR *>(BC->getArgValue(I));
       ArgTypes[I] = TypedPointerType::get(
           transType(BVar->getDataType()),
-          SPIRSPIRVAddrSpaceMap::rmap(BVar->getStorageClass()));
+          (M->getTargetTriple() == "amdgcn-amd-amdhsa")
+              ? mapSPIRVAddrSpaceToAMDGPU(BVar->getStorageClass())
+              : SPIRSPIRVAddrSpaceMap::rmap(BVar->getStorageClass()));
     }
   }
 
