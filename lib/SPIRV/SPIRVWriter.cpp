@@ -756,8 +756,7 @@ SPIRVType *LLVMToSPIRVBase::transPointerType(SPIRVType *ET, unsigned AddrSpc) {
       !BM->shouldEmitFunctionPtrAddrSpace())
     return transPointerType(ET, SPIRAS_Private);
   if (BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_untyped_pointers) &&
-      !(ET->isTypeArray() || ET->isTypeVector() || ET->isTypeStruct() ||
-        ET->isSPIRVOpaqueType() ||
+      !(ET->isTypeArray() || ET->isTypeVector() || ET->isSPIRVOpaqueType() ||
         (M->getTargetTriple() == "spirv64-amd-amdhsa" &&
          ET->getOpCode() == OpTypeFunction))) {
     TranslatedTy = BM->addUntypedPointerKHRType(
