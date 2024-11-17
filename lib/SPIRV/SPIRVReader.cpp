@@ -3226,7 +3226,7 @@ void SPIRVToLLVM::transFunctionAttrs(SPIRVFunction *BF, Function *F) {
     if (BA->hasDecorate(DecorationMaxByteOffset, 0, &MaxOffset))
       Builder.addDereferenceableAttr(MaxOffset);
     SPIRVWord AlignmentBytes = 0;
-    if (BA->hasDecorate(DecorationAlignment, 0, &AlignmentBytes))
+    if (BA->hasAlignment(&AlignmentBytes))
       Builder.addAlignmentAttr(AlignmentBytes);
     I->addAttrs(Builder);
   }
@@ -3291,7 +3291,7 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
     // search for a previous function with the same name
     // upgrade it to a kernel and drop this if it's found
     for (auto &I : FuncMap) {
-      auto BFName = I.getFirst()->getName();
+      const auto &BFName = I.getFirst()->getName();
       if (BF->getName() == BFName) {
         auto *F = I.getSecond();
         F->setCallingConv(M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
