@@ -2535,7 +2535,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     auto *BR = static_cast<SPIRVUnary *>(BV);
     auto *Ty = transType(BV->getType());
     Function *intr =
-        Intrinsic::getOrInsertDeclaration(M, llvm::Intrinsic::bitreverse, Ty);
+        Intrinsic::getDeclaration(M, llvm::Intrinsic::bitreverse, Ty);
     auto *Call = CallInst::Create(intr, transValue(BR->getOperand(0), F, BB),
                                   BR->getName(), BB);
     return mapValue(BV, Call);
@@ -3197,7 +3197,7 @@ void SPIRVToLLVM::transFunctionAttrs(SPIRVFunction *BF, Function *F) {
     mapValue(BA, &(*I));
     setName(&(*I), BA);
     AttributeMask IllegalAttrs =
-        AttributeFuncs::typeIncompatible(I->getType(), I->getAttributes());
+        AttributeFuncs::typeIncompatible(I->getType());
     BA->foreachAttr([&](SPIRVFuncParamAttrKind Kind) {
       // Skip this function parameter attribute as it will translated among
       // OpenCL metadata
@@ -3333,7 +3333,7 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
     // We can't guarantee that the name is correctly mangled due to opaque
     // pointers. Derive the correct name from the function type.
     FuncName =
-        Intrinsic::getOrInsertDeclaration(
+        Intrinsic::getDeclaration(
             M, Intrinsic::memset, {FT->getParamType(0), FT->getParamType(2)})
             ->getName();
   }
@@ -4138,7 +4138,7 @@ void SPIRVToLLVM::transIntelFPGADecorations(SPIRVValue *BV, Value *V) {
             IntTy = PtrAnnFirstArg->getType();
           }
 
-          auto *AnnotationFn = llvm::Intrinsic::getOrInsertDeclaration(
+          auto *AnnotationFn = llvm::Intrinsic::getDeclaration(
               M, Intrinsic::ptr_annotation, {IntTy, Int8PtrTyPrivate});
 
           llvm::Value *Args[] = {
@@ -4183,7 +4183,7 @@ void SPIRVToLLVM::transIntelFPGADecorations(SPIRVValue *BV, Value *V) {
         Inst = dyn_cast<Instruction>(Inst->getOperand(0));
         isStaticMemoryAttribute = (Inst && isa<AllocaInst>(Inst));
       }
-      auto *AnnotationFn = llvm::Intrinsic::getOrInsertDeclaration(
+      auto *AnnotationFn = llvm::Intrinsic::getDeclaration(
           M,
           isStaticMemoryAttribute ? Intrinsic::var_annotation
                                   : Intrinsic::ptr_annotation,
@@ -5318,10 +5318,10 @@ static Instruction *transLLVMFromExtInst(SPIRVToLLVM &Reader, OCLExtOpKind Op,
         std::abort();
       }
     } else if (ID == Intrinsic::frexp || ID == Intrinsic::powi) {
-      F = Intrinsic::getOrInsertDeclaration(
+      F = Intrinsic::getDeclaration(
           M, ID, {Formals[0], IntegerType::getInt32Ty(M->getContext())});
     } else {
-      F = Intrinsic::getOrInsertDeclaration(M, ID, Formals);
+      F = Intrinsic::getDeclaration(M, ID, Formals);
     }
 
     auto Actuals = Reader.transValue(BC->getArgValues(), F, BB);

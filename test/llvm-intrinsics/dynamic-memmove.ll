@@ -25,6 +25,6 @@ entry:
 ; CHECK-LLVM:  [[SRC_CMP:%.*]] = ptrtoint ptr addrspace(1) [[SRC]] to i64
 ; CHECK-LLVM:  [[DST_CMP:%.*]] = ptrtoint ptr addrspace(1) [[DST]] to i64
 ; CHECK-LLVM: [[COMPARE_SRC_DST:%.*]] = icmp ult i64 [[SRC_CMP]], [[DST_CMP]]
-; CHECK-LLVM-NEXT: br i1 [[COMPARE_SRC_DST]], label %[[COPY_BACKWARDS:.*]], label %[[COPY_FORWARD:.*]]
+; CHECK-LLVM-DAG: br i1 [[COMPARE_SRC_DST]], label %[[COPY_BACKWARDS:.*]], label %[[COPY_FORWARD:.*]]
 ; CHECK-LLVM: [[COPY_BACKWARDS]]:
 }
