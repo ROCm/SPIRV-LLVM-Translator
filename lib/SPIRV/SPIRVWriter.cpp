@@ -1647,9 +1647,10 @@ SPIRVValue *LLVMToSPIRVBase::transUnaryInst(UnaryInstruction *U,
           SrcAddrSpace == SPIRAS_Generic, SPIRVEC_InvalidModule, U,
           "Casts from private/local/global address space are allowed only to "
           "generic\n");
-      getErrorLog().checkError(
-          DestAddrSpace != SPIRAS_Constant, SPIRVEC_InvalidModule, U,
-          "Casts from generic address space to constant are illegal\n");
+      if (M->getTargetTriple() != "spirv64-amd-amdhsa")
+        getErrorLog().checkError(
+            DestAddrSpace != SPIRAS_Constant, SPIRVEC_InvalidModule, U,
+            "Casts from generic address space to constant are illegal\n");
       BOC = OpGenericCastToPtr;
     }
   } else {
