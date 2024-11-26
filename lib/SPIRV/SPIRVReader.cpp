@@ -4636,12 +4636,8 @@ bool SPIRVToLLVM::transMetadata() {
 
     // Generate metadata for reqd_work_group_size
     if (auto *EM = BF->getExecutionMode(ExecutionModeLocalSize)) {
-      if (M->getTargetTriple() == "amdgcn-amd-amdhsa")
-        F->addFnAttr("amdgpu-flat-work-group-size",
-                     "1," + llvm::utostr(EM->getLiterals().front()));
-      else
-        F->setMetadata(kSPIR2MD::WGSize,
-                       getMDNodeStringIntVec(Context, EM->getLiterals()));
+      F->setMetadata(kSPIR2MD::WGSize,
+                     getMDNodeStringIntVec(Context, EM->getLiterals()));
     }
     // Generate metadata for work_group_size_hint
     if (auto *EM = BF->getExecutionMode(ExecutionModeLocalSizeHint)) {
@@ -4682,8 +4678,12 @@ bool SPIRVToLLVM::transMetadata() {
     }
     // Generate metadata for max_work_group_size
     if (auto *EM = BF->getExecutionMode(ExecutionModeMaxWorkgroupSizeINTEL)) {
-      F->setMetadata(kSPIR2MD::MaxWGSize,
-                     getMDNodeStringIntVec(Context, EM->getLiterals()));
+      if (M->getTargetTriple() == "amdgcn-amd-amdhsa")
+        F->addFnAttr("amdgpu-flat-work-group-size",
+                     "1," + llvm::utostr(EM->getLiterals().front()));
+      else
+        F->setMetadata(kSPIR2MD::MaxWGSize,
+                       getMDNodeStringIntVec(Context, EM->getLiterals()));
     }
     // Generate metadata for no_global_work_offset
     if (BF->getExecutionMode(ExecutionModeNoGlobalOffsetINTEL)) {
