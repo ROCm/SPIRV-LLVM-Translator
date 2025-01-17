@@ -2705,11 +2705,11 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     case SPIRVEIS_NonSemantic_Shader_DebugInfo_200:
       if (!M->IsNewDbgInfoFormat) {
         return mapValue(
-            BV, DbgTran->transDebugIntrinsic(ExtInst, BB).get<Instruction *>());
+            BV, cast<Instruction *>(DbgTran->transDebugIntrinsic(ExtInst, BB)));
       } else {
         auto MaybeRecord = DbgTran->transDebugIntrinsic(ExtInst, BB);
         if (!MaybeRecord.isNull()) {
-          auto *Record = MaybeRecord.get<DbgRecord *>();
+          auto *Record = cast<DbgRecord *>(MaybeRecord);
           Record->setDebugLoc(
               DbgTran->transDebugScope(static_cast<SPIRVInstruction *>(BV)));
         }
@@ -3756,8 +3756,7 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
       Func->addFnAttr(Attribute::Convergent);
   }
   CallInst *Call;
-  if (OC == OpCooperativeMatrixLengthKHR &&
-      Ops[0]->getOpCode() == OpTypeCooperativeMatrixKHR) {
+  if (OC == OpCooperativeMatrixLengthKHR) {
     // OpCooperativeMatrixLengthKHR needs special handling as its operand is
     // a Type instead of a Value.
     llvm::Type *MatTy = transType(reinterpret_cast<SPIRVType *>(Ops[0]));
