@@ -964,7 +964,7 @@ void OCLToSPIRVBase::transBuiltin(CallInst *CI, OCLBuiltinTransInfo &Info) {
           if (Info.RetTy->isIntegerTy() && OldRetTy->isIntegerTy()) {
             return Builder.CreateIntCast(NewCI, OldRetTy, false);
           }
-          return Builder.CreatePointerBitCastOrAddrSpaceCast(NewCI, OldRetTy);
+          return Builder.CreateAddrSpaceCast(NewCI, OldRetTy);
         });
   }
 }
@@ -1896,7 +1896,7 @@ void OCLToSPIRVBase::visitCallConvertBFloat16AsUshort(CallInst *CI,
     }
   }
 
-  mutateCallInst(CI, internal::OpConvertFToBF16INTEL);
+  mutateCallInst(CI, OpConvertFToBF16INTEL);
 }
 
 void OCLToSPIRVBase::visitCallConvertAsBFloat16Float(CallInst *CI,
@@ -1939,7 +1939,7 @@ void OCLToSPIRVBase::visitCallConvertAsBFloat16Float(CallInst *CI,
     }
   }
 
-  mutateCallInst(CI, internal::OpConvertBF16ToFINTEL);
+  mutateCallInst(CI, OpConvertBF16ToFINTEL);
 }
 } // namespace SPIRV
 
