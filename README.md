@@ -1,3 +1,5 @@
+# DO NOT SUBMIT #
+
 # LLVM/SPIR-V Bi-Directional Translator
 
 [![Out-of-tree build & tests](https://github.com/KhronosGroup/SPIRV-LLVM-Translator/actions/workflows/check-out-of-tree-build.yml/badge.svg?branch=main&event=schedule)](https://github.com/KhronosGroup/SPIRV-LLVM-Translator/actions?query=workflow%3A%22Out-of-tree+build+%26+tests%22+event%3Aschedule)
