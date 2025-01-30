@@ -2776,7 +2776,9 @@ void addFuncPointerCallArgumentAttributes(CallInst *CI,
     for (const auto &I : CI->getAttributes().getParamAttrs(ArgNo)) {
       spv::FunctionParameterAttribute Attr = spv::FunctionParameterAttributeMax;
       SPIRSPIRVFuncParamAttrMap::find(I.getKindAsEnum(), &Attr);
-      if (Attr != spv::FunctionParameterAttributeMax)
+      if (Attr != spv::FunctionParameterAttributeMax &&
+          (I.getKindAsEnum() != Attribute::Captures ||
+           capturesNothing(I.getCaptureInfo())))
         FuncPtrCall->addDecorate(
             new SPIRVDecorate(spv::internal::DecorationArgumentAttributeINTEL,
                               FuncPtrCall, ArgNo, Attr));
