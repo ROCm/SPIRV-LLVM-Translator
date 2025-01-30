@@ -3311,7 +3311,7 @@ void SPIRVToLLVM::transFunctionAttrs(SPIRVFunction *BF, Function *F) {
       }
       // Make sure to use a correct constructor for a typed/typeless attribute
       auto A = AttrTy ? Attribute::get(*Context, LLVMKind, AttrTy)
-                      : (LLVMKind == Attribute::Captures)
+                      : (LLVMKind != Attribute::Captures)
                           ? Attribute::get(*Context, LLVMKind)
                           : Attribute::getWithCaptureInfo(*Context,
                                                           CaptureInfo::none());
