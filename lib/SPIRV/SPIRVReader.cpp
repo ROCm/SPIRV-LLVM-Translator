@@ -1417,7 +1417,10 @@ void SPIRVToLLVM::transFunctionPointerCallArgumentAttributes(
             ? Attribute::get(CI->getContext(), LlvmAttrKind,
                              transType(CalledFnTy->getParameterType(ArgNo)
                                            ->getPointerElementType()))
-            : Attribute::get(CI->getContext(), LlvmAttrKind);
+            : (LlvmAttrKind != Attribute::Captures)
+                  ? Attribute::get(CI->getContext(), LlvmAttrKind)
+                  : Attribute::getWithCaptureInfo(CI->getContext(),
+                                                  CaptureInfo::none());
     CI->addParamAttr(ArgNo, LlvmAttr);
   }
 }
@@ -3308,7 +3311,10 @@ void SPIRVToLLVM::transFunctionAttrs(SPIRVFunction *BF, Function *F) {
       }
       // Make sure to use a correct constructor for a typed/typeless attribute
       auto A = AttrTy ? Attribute::get(*Context, LLVMKind, AttrTy)
-                      : Attribute::get(*Context, LLVMKind);
+                      : (LLVMKind == Attribute::Captures)
+                          ? Attribute::get(*Context, LLVMKind)
+                          : Attribute::getWithCaptureInfo(*Context,
+                                                          CaptureInfo::none());
       I->addAttr(A);
     });
 
