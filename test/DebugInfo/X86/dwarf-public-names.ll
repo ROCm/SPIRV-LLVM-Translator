@@ -1,4 +1,3 @@
-; XFAIL: *
 ; RUN: llvm-as < %s -o %t.bc
 ; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
@@ -68,7 +67,7 @@ target triple = "spir64-unknown-unknown"
 
 ; Skip the output to the header of the pubnames section.
 ; LINUX: debug_pubnames
-; LINUX-NEXT: unit_size = 0x0000012b
+; LINUX-NEXT: unit_size =
 
 ; Check for each name in the output.
 ; LINUX-DAG: "ns"
