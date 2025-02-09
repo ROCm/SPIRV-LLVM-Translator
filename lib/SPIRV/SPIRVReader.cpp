@@ -1112,7 +1112,7 @@ Value *SPIRVToLLVM::transConvertInst(SPIRVValue *BV, Function *F,
           unsigned TotalBitWidth =
               DstVecTy->getElementType()->getIntegerBitWidth() *
               DstVecTy->getNumElements();
-          auto *IntTy = Type::getIntNTy(BB->getContext(), TotalBitWidth);
+          auto *IntTy = Type::getIntNTy(Src->getContext(), TotalBitWidth);
           if (BB) {
             Src = CastInst::CreatePointerCast(Src, IntTy, "", BB);
           } else {
@@ -1126,7 +1126,7 @@ Value *SPIRVToLLVM::transConvertInst(SPIRVValue *BV, Function *F,
           unsigned TotalBitWidth =
               SrcVecTy->getElementType()->getIntegerBitWidth() *
               SrcVecTy->getNumElements();
-          auto *IntTy = Type::getIntNTy(BB->getContext(), TotalBitWidth);
+          auto *IntTy = Type::getIntNTy(Src->getContext(), TotalBitWidth);
           if (BB) {
             Src = CastInst::Create(Instruction::BitCast, Src, IntTy, "", BB);
           } else {
@@ -1680,12 +1680,18 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
       return transValue(Init, F, BB);
     }
 
-    if (BS == StorageClassFunction && !Init) {
-      assert(BB && "Invalid BB");
-      return mapValue(BV,
-                      new AllocaInst(Ty,
-                                     M->getDataLayout().getAllocaAddrSpace(),
-                                     BV->getName(), BB));
+    if (BS == StorageClassFunction) {
+      // A Function storage class variable needs storage for each dynamic
+      // execution instance, so emit an alloca instead of a global.
+      assert(BB && "OpVariable with Function storage class requires BB");
+      IRBuilder<> Builder(BB);
+      AllocaInst *AI = Builder.CreateAlloca(Ty, nullptr, BV->getName());
+      if (Init) {
+        auto *Src = transValue(Init, F, BB);
+        const bool IsVolatile = BVar->hasDecorate(DecorationVolatile);
+        Builder.CreateStore(Src, AI, IsVolatile);
+      }
+      return mapValue(BV, AI);
     }
 
     SPIRAddressSpace AddrSpace;
