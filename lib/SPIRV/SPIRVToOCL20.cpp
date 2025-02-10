@@ -324,8 +324,7 @@ void SPIRVToOCL20Base::visitCallSPIRVAtomicCmpExchg(CallInst *CI) {
   // value by pointer passed as 2nd argument (aka expected) while SPIR-V
   // instructions returns this new/original value as a resulting value.
   AllocaInst *PExpected = new AllocaInst(
-      MemTy, CI->getParent()->getParent()->getDataLayout().getAllocaAddrSpace(),
-      "expected",
+      MemTy, M->getDataLayout().getAllocaAddrSpace(), "expected",
       CI->getParent()->getParent()->getEntryBlock().getFirstInsertionPt());
   PExpected->setAlignment(Align(MemTy->getScalarSizeInBits() / 8));
 
