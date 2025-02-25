@@ -2081,7 +2081,8 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
           }
         }
       }
-      if (BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_untyped_pointers)) {
+      if (BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_untyped_pointers) &&
+          !Init->getType()->isArrayTy()) {
         BVarInit = transConstantUse(Init, transType(Init->getType()));
       } else {
         SPIRVType *TransTy = transType(Ty);
