@@ -303,7 +303,7 @@ Function *getOrCreateFunction(Module *M, Type *RetTy, ArrayRef<Type *> ArgTypes,
     if (F)
       NewF->setDSOLocal(F->isDSOLocal());
     F = NewF;
-    if (M->getTargetTriple() == "amdgcn-amd-amdhsa")
+    if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
       F->setCallingConv(CallingConv::C);
     else
       F->setCallingConv(CallingConv::SPIR_FUNC);

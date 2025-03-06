@@ -184,7 +184,7 @@ static void visitCallLLVMFence(CallInst *CI) { // TODO: AMDSPV JANK, this is inc
 }
 
 void SPIRVToOCL20Base::visitCallSPIRVMemoryBarrier(CallInst *CI) {
-  if (M->getTargetTriple() == "amdgcn-amd-amdhsa")
+  if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
     return visitCallLLVMFence(CI);
 
   Value *MemScope =
@@ -245,7 +245,7 @@ void SPIRVToOCL20Base::mutateAtomicName(CallInst *CI, Op OC) {
 void SPIRVToOCL20Base::visitCallSPIRVAtomicBuiltin(CallInst *CI, Op OC) {
   CallInst *CIG = mutateCommonAtomicArguments(CI, OC);
 
-  if (M->getTargetTriple() == "amdgcn-amd-amdhsa")
+  if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
     return translateSPIRVAtomicBuiltinToLLVMAtomicOp(CIG, OC);
 
   switch (OC) {
@@ -289,8 +289,9 @@ CallInst *SPIRVToOCL20Base::mutateCommonAtomicArguments(CallInst *CI, Op OC) {
 
   Mutator.mapArgs([=](IRBuilder<> &Builder, Value *PtrArg, Type *PtrArgTy) {
     if (auto *TypedPtrTy = dyn_cast<TypedPointerType>(PtrArgTy)) {
-      unsigned AS = M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
-          mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic;
+      unsigned AS = M->getTargetTriple().getVendor() == Triple::VendorType::AMD
+          ? mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric)
+          : SPIRAS_Generic;
       if (TypedPtrTy->getAddressSpace() != AS) {
         Type *ElementTy = TypedPtrTy->getElementType();
         Type *FixedPtr = PointerType::get(ElementTy, AS);
@@ -338,9 +339,10 @@ void SPIRVToOCL20Base::visitCallSPIRVAtomicCmpExchg(CallInst *CI) {
       .mapArg(1,
               [=](IRBuilder<> &Builder, Value *Expected) {
                 Builder.CreateStore(Expected, PExpected);
-                unsigned AddrSpc = M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
-                    mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) :
-                    SPIRAS_Generic;
+                unsigned AddrSpc =
+                    M->getTargetTriple().getVendor() == Triple::VendorType::AMD
+                      ? mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric)
+                      : SPIRAS_Generic;
                 Type *PtrTyAS = PointerType::get(PExpected->getType(), AddrSpc);
                 Value *V = Builder.CreateAddrSpaceCast(
                     PExpected, PtrTyAS, PExpected->getName() + ".as");
@@ -382,7 +384,7 @@ void SPIRVToOCL20Base::visitCallSPIRVEnqueueKernel(CallInst *CI, Op OC) {
 
   auto Mutator = mutateCallInst(CI, FName.str());
   Mutator.mapArg(6, [=](IRBuilder<> &Builder, Value *Invoke) {
-    unsigned AS = M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+    unsigned AS = M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
         mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic;
     Value *Replace = CastInst::CreatePointerBitCastOrAddrSpaceCast(
         Invoke, Builder.getPtrTy(AS), "", CI->getIterator());

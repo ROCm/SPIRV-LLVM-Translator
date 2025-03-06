@@ -351,7 +351,7 @@ Type *SPIRVToLLVM::transType(SPIRVType *T, bool UseTPT) {
 
   SPIRVDBG(spvdbgs() << "[transType] " << *T << " -> ";)
   T->validate();
-  auto IsAMDGCN = M->getTargetTriple() == "amdgcn-amd-amdhsa";
+  auto IsAMDGCN = M->getTargetTriple().getVendor() == Triple::VendorType::AMD;
   switch (static_cast<SPIRVWord>(T->getOpCode())) {
   case OpTypeVoid:
     return mapType(T, Type::getVoidTy(*Context));
@@ -1097,10 +1097,13 @@ Value *SPIRVToLLVM::transConvertInst(SPIRVValue *BV, Function *F,
     CO = IsExt ? Instruction::FPExt : Instruction::FPTrunc;
     break;
   case OpBitcast:
-    if (Src->getType()->isPointerTy() && Dst->isPointerTy() &&
-        Src->getType()->getPointerAddressSpace() != Dst->getPointerAddressSpace() &&
-        M->getTargetTriple() == "amdgcn-amd-amdhsa") {
-      CO = Instruction::AddrSpaceCast;
+    if (Src->getType()->isPointerTy() && Dst->isPointerTy()) {
+      if ((Src->getType()->getPointerAddressSpace() !=
+           Dst->getPointerAddressSpace()) &&
+          M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
+        CO = Instruction::AddrSpaceCast;
+      else
+        return Src;
     } else {
       // OpBitcast need to be handled as a special-case when the source is a
       // pointer and the destination is not a pointer, and where the source is not
@@ -1643,10 +1646,11 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
         static_cast<SPIRVConstantFunctionPointerINTEL *>(BV);
     SPIRVFunction *F = BC->getFunction();
     BV->setName(F->getName());
-    const unsigned AS = M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
-        M->getDataLayout().getProgramAddressSpace() :
-        (BM->shouldEmitFunctionPtrAddrSpace() ? SPIRAS_CodeSectionINTEL
-                                              : SPIRAS_Private);
+    const unsigned AS =
+        M->getTargetTriple().getVendor() == Triple::VendorType::AMD
+          ? M->getDataLayout().getProgramAddressSpace()
+          : (BM->shouldEmitFunctionPtrAddrSpace() ? SPIRAS_CodeSectionINTEL
+                                                  : SPIRAS_Private);
     return mapValue(BV, transFunction(F, AS));
   }
 
@@ -1710,7 +1714,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
       AddrSpace = VectorComputeUtil::getVCGlobalVarAddressSpace(BS);
       Initializer = PoisonValue::get(Ty);
     } else
-      AddrSpace = M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+      AddrSpace = M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
           mapSPIRVAddrSpaceToAMDGPU(BS) : SPIRSPIRVAddrSpaceMap::rmap(BS);
     // Force SPIRV BuiltIn variable's name to be __spirv_BuiltInXXXX.
     // No matter what BV's linkage name is.
@@ -1739,7 +1743,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
                              : GlobalValue::UnnamedAddr::None);
     LVar->setInitializer(Initializer);
     if (BVar->hasDecorate(DecorationUserTypeGOOGLE) &&
-        M->getTargetTriple() == "amdgcn-amd-amdhsa") {
+        M->getTargetTriple().getVendor() == Triple::VendorType::AMD) {
       const auto Dec = BM->get<SPIRVString>(
           *BVar->getDecorate(DecorationUserTypeGOOGLE).cbegin());
       LVar->setExternallyInitialized(Dec->getStr() == "externally_initialized");
@@ -1757,7 +1761,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
         LVar->addAttribute(SEVAttr.value().getKindAsString(),
                            SEVAttr.value().getValueAsString());
     }
-    if (M->getTargetTriple() == "amdgcn-amd-amdhsa" &&
+    if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
         LVar->hasAppendingLinkage() &&
         (LVar->getName() == "llvm.compiler.used" ||
         LVar->getName() == "llvm.used"))
@@ -1866,7 +1870,8 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
       auto *Translated = transValue(IncomingV, F, BB);
       if (LPhi->getType() != Translated->getType() &&
           LPhi->getType()->isPointerTy() &&
-          F->getParent()->getTargetTriple() == "amdgcn-amd-amdhsa")
+          F->getParent()->getTargetTriple().getVendor() ==
+            Triple::VendorType::AMD)
         // TODO: AMDSPV - due to reverse translating const globals to AS4,
         //       these mismatches might occur; find a better way to handle it.
         Translated = ConstantExpr::getAddrSpaceCast(cast<Constant>(Translated),
@@ -2654,8 +2659,10 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
           BV, Call,
           static_cast<SPIRVTypeFunction *>(BC->getCalledValue()->getType()->getPointerElementType()));
     // Assuming we are calling a regular device function
-    Call->setCallingConv(M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
-        CallingConv::C : CallingConv::SPIR_FUNC);
+    Call->setCallingConv(
+        M->getTargetTriple().getVendor() == Triple::VendorType::AMD
+          ? CallingConv::C
+          : CallingConv::SPIR_FUNC);
     // Don't set attributes, because at translation time we don't know which
     // function exactly we are calling.
     return mapValue(BV, Call);
@@ -3087,7 +3094,7 @@ Value *SPIRVToLLVM::transFixedPointInst(SPIRVInstruction *BI, BasicBlock *BB) {
   if (RetTy->getIntegerBitWidth() > 64) {
     llvm::PointerType *RetPtrTy = llvm::PointerType::get(
         RetTy,
-        M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+        M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
             mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic);
     Value *Alloca =
         new AllocaInst(RetTy, M->getDataLayout().getAllocaAddrSpace(), "", BB);
@@ -3116,8 +3123,10 @@ Value *SPIRVToLLVM::transFixedPointInst(SPIRVInstruction *BI, BasicBlock *BB) {
   FunctionCallee FCallee = M->getOrInsertFunction(FuncName, FT);
 
   auto *Func = cast<Function>(FCallee.getCallee());
-  Func->setCallingConv(M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
-      CallingConv::C : CallingConv::SPIR_FUNC);
+  Func->setCallingConv(
+      M->getTargetTriple().getVendor() == Triple::VendorType::AMD
+        ? CallingConv::C
+        : CallingConv::SPIR_FUNC);
   if (isFuncNoUnwind())
     Func->addFnAttr(Attribute::NoUnwind);
 
@@ -3215,7 +3224,7 @@ Value *SPIRVToLLVM::transArbFloatInst(SPIRVInstruction *BI, BasicBlock *BB,
   if (RetTy->getIntegerBitWidth() > 64) {
     llvm::PointerType *RetPtrTy = llvm::PointerType::get(
         RetTy,
-        M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+        M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
             mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic);
     ArgTys.push_back(RetPtrTy);
     Value *Alloca =
@@ -3264,8 +3273,9 @@ Value *SPIRVToLLVM::transArbFloatInst(SPIRVInstruction *BI, BasicBlock *BB,
   FunctionCallee FCallee = M->getOrInsertFunction(FuncName, FT);
 
   auto *Func = cast<Function>(FCallee.getCallee());
-  Func->setCallingConv(M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
-      CallingConv::C : CallingConv::SPIR_FUNC);
+  Func->setCallingConv(
+      M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
+        CallingConv::C : CallingConv::SPIR_FUNC);
   if (isFuncNoUnwind())
     Func->addFnAttr(Attribute::NoUnwind);
 
@@ -3418,8 +3428,9 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
       const auto &BFName = I.getFirst()->getName();
       if (BF->getName() == BFName) {
         auto *F = I.getSecond();
-        F->setCallingConv(M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
-            CallingConv::AMDGPU_KERNEL : CallingConv::SPIR_KERNEL);
+        F->setCallingConv(
+            M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
+              CallingConv::AMDGPU_KERNEL : CallingConv::SPIR_KERNEL);
         F->setLinkage(GlobalValue::ExternalLinkage);
         F->setDSOLocal(false);
         F = cast<Function>(mapValue(BF, F));
@@ -3433,7 +3444,7 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
   auto Linkage = IsKernel ? GlobalValue::ExternalLinkage : transLinkageType(BF);
   FunctionType *FT = cast<FunctionType>(transType(BF->getFunctionType()));
   std::string FuncName = BF->getName();
-  if (M->getTargetTriple() == "amdgcn-amd-amdhsa") {
+  if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD) {
     if (FuncName == "fprintf" || FuncName == "sprintf" ||
         FuncName == "snprintf" || FuncName == "__isoc23_fscanf" ||
         FuncName == "_ZSt24__throw_out_of_range_fmtPKcz" ||
@@ -3490,7 +3501,7 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
 
   mapFunction(BF, F);
 
-  if (M->getTargetTriple() == "amdgcn-amd-amdhsa")
+  if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
     F->setCallingConv(IsKernel ? CallingConv::AMDGPU_KERNEL : CallingConv::C);
   else
     F->setCallingConv(IsKernel ? CallingConv::SPIR_KERNEL
@@ -3513,7 +3524,7 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
 
   // TODO: this is temporarily disabled as it breaks some more complex code
   //       patterns that are otherwise correctly(-ish) handled
-  if (M->getTargetTriple() != "amdgcn-amd-amdhsa")
+  if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
     validatePhiPredecessors(F);
   transLLVMLoopMetadata(F);
 
@@ -3583,7 +3594,7 @@ Value *SPIRVToLLVM::transBlockInvoke(SPIRVValue *Invoke, BasicBlock *BB) {
   auto *TranslatedInvoke = transFunction(static_cast<SPIRVFunction *>(Invoke));
   auto *Int8PtrTyGen = PointerType::get(
       *Context,
-      M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+      M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
           mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic);
   return CastInst::CreatePointerBitCastOrAddrSpaceCast(TranslatedInvoke,
                                                        Int8PtrTyGen, "", BB);
@@ -3600,7 +3611,7 @@ Instruction *SPIRVToLLVM::transWGSizeQueryBI(SPIRVInstruction *BI,
   if (!F) {
     auto *Int8PtrTyGen = PointerType::get(
         *Context,
-        M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+        M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
             mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic);
     FunctionType *FT = FunctionType::get(Type::getInt32Ty(*Context),
                                          {Int8PtrTyGen, Int8PtrTyGen}, false);
@@ -3628,7 +3639,7 @@ Instruction *SPIRVToLLVM::transSGSizeQueryBI(SPIRVInstruction *BI,
   if (!F) {
     auto *Int8PtrTyGen = PointerType::get(
         *Context,
-        M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+        M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
             mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic);
     SmallVector<Type *, 3> Tys = {
         transType(Ops[0]->getType()), // ndrange
@@ -3658,7 +3669,7 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
   auto Ops = BI->getOperands();
   if ((FuncName == "__spirv_AtomicIIncrement" ||
        FuncName == "__spirv_AtomicIDecrement") &&
-      M->getTargetTriple() == "amdgcn-amd-amdhsa")
+       M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
     Ops.insert(Ops.end(),
                BM->getValue(*BI->getDecorate(DecorationMaxByteOffsetId).cbegin()));
   Op OC = BI->getOpCode();
@@ -3682,7 +3693,7 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
       auto *AI = static_cast<SPIRVAtomicInstBase *>(BI);
       ArgTys[Ptr] = TypedPointerType::get(
           transType(AI->getSemanticType()),
-          M->getTargetTriple() == "amdgcn-amd-amdhsa"
+          M->getTargetTriple().getVendor() == Triple::VendorType::AMD
               ? mapSPIRVAddrSpaceToAMDGPU(
                   BI->getValueType(Ops[Ptr]->getId())->getPointerStorageClass())
               : SPIRSPIRVAddrSpaceMap::rmap(
@@ -3752,15 +3763,15 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
 
   for (auto &I : ArgTys) {
     if (isa<FunctionType>(I)) {
-      I = TypedPointerType::get(I,
-                                M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
-                                    M->getDataLayout().getProgramAddressSpace()
-                                    : SPIRAS_Private);
+      I = TypedPointerType::get(
+        I,
+        M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
+          M->getDataLayout().getProgramAddressSpace() : SPIRAS_Private);
     }
   }
 
   if (BM->getDesiredBIsRepresentation() != BIsRepresentation::SPIRVFriendlyIR)
-    if (M->getTargetTriple() == "amdgcn-amd-amdhsa") {
+    if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD) {
       auto TmpTys = ArgTys;
       for (auto &&Ty : TmpTys) {
         if (auto TPT = dyn_cast<TypedPointerType>(Ty))
@@ -3795,9 +3806,9 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
   if (!Func || Func->getFunctionType() != FT) {
     LLVM_DEBUG(for (auto &I : ArgTys) { dbgs() << *I << '\n'; });
     Func = Function::Create(FT, GlobalValue::ExternalLinkage, MangledName, M);
-    Func->setCallingConv(M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
-                                                      CallingConv::C :
-                                                      CallingConv::SPIR_FUNC);
+    Func->setCallingConv(
+        M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
+          CallingConv::C : CallingConv::SPIR_FUNC);
     if (isFuncNoUnwind())
       Func->addFnAttr(Attribute::NoUnwind);
     if (isGroupOpCode(OC) || isGroupNonUniformOpcode(OC) ||
@@ -4049,7 +4060,7 @@ bool SPIRVToLLVM::translate() {
   DbgTran->addDbgInfoVersion();
   DbgTran->finalize();
 
-  if (M->getTargetTriple() != "amdgcn-amd-amdhsa")
+  if (M->getTargetTriple().getVendor() != Triple::VendorType::AMD)
     return true;
   // TODO: this is temporary hardcoding, but will ultimately get handled in the
   // FE.
@@ -4084,7 +4095,7 @@ bool SPIRVToLLVM::translate() {
 bool SPIRVToLLVM::transAddressingModel() {
   if (BM->getGeneratorVer() == UINT16_MAX) {
     // TODO: we should use the Target registry here instead of hardcoding
-    M->setTargetTriple("amdgcn-amd-amdhsa");
+    M->setTargetTriple(Triple("amdgcn-amd-amdhsa"));
     M->setDataLayout(
         "e-p:64:64-p1:64:64-p2:32:32-p3:32:32-p4:64:64-p5:32:32-p6:32:32-"
         "p7:160:256:256:32-p8:128:128-p9:192:256:256:32-i64:64-v16:16-v24:32-"
@@ -4094,11 +4105,11 @@ bool SPIRVToLLVM::transAddressingModel() {
   }
   switch (BM->getAddressingModel()) {
   case AddressingModelPhysical64:
-    M->setTargetTriple(SPIR_TARGETTRIPLE64);
+    M->setTargetTriple(Triple(SPIR_TARGETTRIPLE64));
     M->setDataLayout(SPIR_DATALAYOUT64);
     break;
   case AddressingModelPhysical32:
-    M->setTargetTriple(SPIR_TARGETTRIPLE32);
+    M->setTargetTriple(Triple(SPIR_TARGETTRIPLE32));
     M->setDataLayout(SPIR_DATALAYOUT32);
     break;
   case AddressingModelLogical:
@@ -4487,7 +4498,7 @@ void SPIRVToLLVM::transUserSemantic(SPIRV::SPIRVFunction *Fun) {
 
     Type *Int8PtrTyPrivate = PointerType::get(
       *Context,
-      M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+      M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
           mapSPIRVAddrSpaceToAMDGPU(StorageClassFunction) : SPIRAS_Private);
     IntegerType *Int32Ty = Type::getInt32Ty(*Context);
 
@@ -4905,7 +4916,7 @@ bool SPIRVToLLVM::transMetadata() {
     }
     // Generate metadata for max_work_group_size
     if (auto *EM = BF->getExecutionMode(ExecutionModeMaxWorkgroupSizeINTEL)) {
-      if (M->getTargetTriple() == "amdgcn-amd-amdhsa")
+      if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
         F->addFnAttr("amdgpu-flat-work-group-size",
                      "1," + llvm::utostr(EM->getLiterals().front()));
       else
@@ -5040,10 +5051,11 @@ bool SPIRVToLLVM::transOCLMetadata(SPIRVFunction *BF) {
       Context, SPIR_MD_KERNEL_ARG_ADDR_SPACE, BF, F,
       [=](SPIRVFunctionParameter *Arg) {
         SPIRVType *ArgTy = Arg->getType();
-        SPIRAddressSpace AS = M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+        SPIRAddressSpace AS =
+          M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
             mapSPIRVAddrSpaceToAMDGPU(StorageClassFunction) : SPIRAS_Private;
         if (ArgTy->isTypePointer())
-          AS = M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+          AS = M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
               mapSPIRVAddrSpaceToAMDGPU(ArgTy->getPointerStorageClass()) :
               SPIRSPIRVAddrSpaceMap::rmap(ArgTy->getPointerStorageClass());
         else if (ArgTy->isTypeOCLImage() || ArgTy->isTypePipe())
@@ -5587,14 +5599,14 @@ Instruction *SPIRVToLLVM::transOCLBuiltinFromExtInst(SPIRVExtInst *BC,
       auto *BVar = static_cast<SPIRVUntypedVariableKHR *>(BC->getArgValue(I));
       ArgTypes[I] = TypedPointerType::get(
           transType(BVar->getDataType()),
-          (M->getTargetTriple() == "amdgcn-amd-amdhsa")
+          (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
               ? mapSPIRVAddrSpaceToAMDGPU(BVar->getStorageClass())
               : SPIRSPIRVAddrSpaceMap::rmap(BVar->getStorageClass()));
     }
   }
 
   Type *RetTy = transType(BC->getType());
-  if (M->getTargetTriple() == "amdgcn-amd-amdhsa")
+  if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
     return transLLVMFromExtInst(
         *this, ExtOp, BC, RetTy, std::move(ArgTypes), BB);
   std::string MangledName =

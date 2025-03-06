@@ -441,7 +441,8 @@ SPIRVType *LLVMToSPIRVBase::transType(Type *T) {
     //                     It must be at least 1.
     const auto ArraySize =
         T->getArrayNumElements() ? T->getArrayNumElements() :
-            (M->getTargetTriple() == "spirv64-amd-amdhsa" ? UINT32_MAX : 1);
+            (M->getTargetTriple().getVendor() == Triple::VendorType::AMD
+              ? UINT32_MAX : 1);
 
     Type *ElTy = T->getArrayElementType();
     SPIRVType *TransType = BM->addArrayType(
@@ -753,7 +754,7 @@ SPIRVType *LLVMToSPIRVBase::transPointerType(SPIRVType *ET, unsigned AddrSpc) {
     return transPointerType(ET, SPIRAS_Private);
   if (BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_untyped_pointers) &&
       !(ET->isTypeArray() || ET->isTypeVector() || ET->isSPIRVOpaqueType() ||
-        (M->getTargetTriple() == "spirv64-amd-amdhsa" &&
+        (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
          ET->getOpCode() == OpTypeFunction))) {
     TranslatedTy = BM->addUntypedPointerKHRType(
         SPIRSPIRVAddrSpaceMap::map(static_cast<SPIRAddressSpace>(AddrSpc)));
@@ -842,12 +843,12 @@ SPIRVType *LLVMToSPIRVBase::transScavengedType(Value *V) {
     // error. To be on the safe side, an assertion is added to check printf
     // never reaches this point.
     assert(F->getName() != "printf");
-    if (M->getTargetTriple() != "spirv64-amd-amdhsa")
+    if (M->getTargetTriple().getVendor() != Triple::VendorType::AMD)
       BM->getErrorLog().checkError(!FnTy->isVarArg(),
                                    SPIRVEC_UnsupportedVarArgFunction);
 
     SPIRVType *RT = transType(FnTy->getReturnType());
-    if (M->getTargetTriple() == "spirv64-amd-amdhsa" &&
+    if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
         F->hasName() && F->getName().contains("dispatch.ptr"))
       RT = transType(PointerType::get(F->getContext(), SPIRAS_Constant));
 
@@ -1596,7 +1597,8 @@ SPIRVValue *LLVMToSPIRVBase::transUnaryInst(UnaryInstruction *U,
       return BM->addUndef(ExpectedTy);
     }
   }
-  if (isa<VAArgInst>(U) && M->getTargetTriple() == "spirv64-amd-amdhsa") {
+  if (isa<VAArgInst>(U) &&
+      M->getTargetTriple().getVendor() == Triple::VendorType::AMD) {
     SPIRVType *ExpectedTy = transScavengedType(U);
     return BM->addUndef(ExpectedTy);
   }
@@ -1606,7 +1608,7 @@ SPIRVValue *LLVMToSPIRVBase::transUnaryInst(UnaryInstruction *U,
     const auto SrcAddrSpace = Cast->getSrcTy()->getPointerAddressSpace();
     const auto DestAddrSpace = Cast->getDestTy()->getPointerAddressSpace();
     if (DestAddrSpace == SPIRAS_Generic) {
-      if (M->getTargetTriple() != "spirv64-amd-amdhsa")
+      if (M->getTargetTriple().getVendor() != Triple::VendorType::AMD)
         getErrorLog().checkError(
             SrcAddrSpace != SPIRAS_Constant, SPIRVEC_InvalidModule, U,
             "Casts from constant address space to generic are illegal\n");
@@ -1649,7 +1651,7 @@ SPIRVValue *LLVMToSPIRVBase::transUnaryInst(UnaryInstruction *U,
           SrcAddrSpace == SPIRAS_Generic, SPIRVEC_InvalidModule, U,
           "Casts from private/local/global address space are allowed only to "
           "generic\n");
-      if (M->getTargetTriple() != "spirv64-amd-amdhsa")
+      if (M->getTargetTriple().getVendor() != Triple::VendorType::AMD)
         getErrorLog().checkError(
             DestAddrSpace != SPIRAS_Constant, SPIRVEC_InvalidModule, U,
             "Casts from generic address space to constant are illegal\n");
@@ -2131,7 +2133,7 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
         GV->isConstant(), transLinkageType(GV), BVarInit, GV->getName().str(),
         StorageClass, nullptr));
     if (GV->isExternallyInitialized() &&
-        M->getTargetTriple() == "spirv64-amd-amdhsa")
+        M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
       BVar->addDecorate(DecorationUserTypeGOOGLE,
                         BM->getString("externally_initialized")->getId());
 
@@ -2320,10 +2322,11 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
             BB));
 
   if (AllocaInst *Alc = dyn_cast<AllocaInst>(V)) {
-    SPIRVType *TranslatedTy = M->getTargetTriple() != "spirv64-amd-amdhsa" ?
-        transScavengedType(V) :
-        BM->addPointerType(StorageClassFunction,
-                           transType(Alc->getAllocatedType()));
+    SPIRVType *TranslatedTy =
+        M->getTargetTriple().getVendor() != Triple::VendorType::AMD
+          ? transScavengedType(V)
+          : BM->addPointerType(StorageClassFunction,
+                               transType(Alc->getAllocatedType()));
     if (Alc->isArrayAllocation()) {
       SPIRVValue *Length = transValue(Alc->getArraySize(), BB);
       assert(Length && "Couldn't translate array size!");
@@ -3140,7 +3143,7 @@ bool LLVMToSPIRVBase::transDecoration(Value *V, SPIRVValue *BV) {
         ((Opcode == Instruction::FNeg || Opcode == Instruction::FCmp ||
           BV->isExtInst()) &&
          BM->isAllowedToUseVersion(VersionNumber::SPIRV_1_6)) ||
-        (M->getTargetTriple() == "spirv64-amd-amdhsa" &&
+        (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
          Opcode == Instruction::Call)) {
       FastMathFlags FMF = BVF->getFastMathFlags();
       SPIRVWord M{0};
@@ -3260,7 +3263,8 @@ void LLVMToSPIRVBase::transMemAliasingINTELDecorations(Instruction *Inst,
   if (!BM->isAllowedToUseExtension(
           ExtensionID::SPV_INTEL_memory_access_aliasing))
     return;
-  if (!BV->hasId() && M->getTargetTriple() == "spirv64-amd-amdhsa") // Fences
+  if (!BV->hasId() &&
+      M->getTargetTriple().getVendor() == Triple::VendorType::AMD) // Fences
     return;
   if (MDNode *AliasingListMD = Inst->getMetadata(LLVMContext::MD_alias_scope)) {
     auto *MemAliasList = addMemAliasingINTELInstructions(BM, AliasingListMD);
@@ -5529,7 +5533,7 @@ SPIRVValue *LLVMToSPIRVBase::transAsmINTEL(InlineAsm *IA) {
   // TODO: intention here is to provide information about actual target
   //       but in fact spir-64 is substituted as triple when translator works
   //       eventually we need to fix it (not urgent)
-  StringRef TripleStr(M->getTargetTriple());
+  StringRef TripleStr(M->getTargetTriple().str());
   auto *AsmTarget = static_cast<SPIRVAsmTargetINTEL *>(
       BM->getOrAddAsmTargetINTEL(TripleStr.str()));
   auto *SIA = BM->addAsmINTEL(
@@ -5980,7 +5984,7 @@ bool isEmptyLLVMModule(Module *M) {
 }
 
 bool LLVMToSPIRVBase::translate() {
-  if (M->getTargetTriple() == "spirv64-amd-amdhsa")
+  if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
     BM->setGeneratorVer(UINT16_MAX);
   else
     BM->setGeneratorVer(KTranslatorVer);
@@ -7043,7 +7047,8 @@ bool isValidLLVMModule(Module *M, SPIRVErrorLog &ErrorLog) {
 
   Triple TT(M->getTargetTriple());
   if (!ErrorLog.checkError(isSupportedTriple(TT), SPIRVEC_InvalidTargetTriple,
-                           "Actual target triple is " + M->getTargetTriple()))
+                           "Actual target triple is " +
+                           M->getTargetTriple().str()))
     return false;
 
   return true;

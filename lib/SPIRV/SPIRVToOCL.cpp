@@ -239,7 +239,7 @@ void SPIRVToOCLBase::visitCastInst(CastInst &Cast) {
       !isa<UIToFPInst>(Cast) && !isa<SIToFPInst>(Cast))
     return;
 
-  if (M->getTargetTriple() == "amdgcn-amd-amdhsa")
+  if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
     return;
 
   Type const *SrcTy = Cast.getSrcTy();

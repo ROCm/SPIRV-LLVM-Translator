@@ -316,7 +316,8 @@ void OCLToSPIRVBase::visitCallInst(CallInst &CI) {
       DemangledName == kOCLBuiltinName::Barrier ||
       DemangledName == kOCLBuiltinName::SubGroupBarrier) {
     if (F->arg_size() != 1 && F->arg_size() != 2 &&
-        F->getParent()->getTargetTriple() == "spirv64-amd-amdhsa")
+        F->getParent()->getTargetTriple().getVendor()
+          == Triple::VendorType::AMD)
       return; // Somebody used the name.
     visitCallBarrier(&CI);
     return;
