@@ -178,6 +178,10 @@ private:
 
   DINode *transModule(const SPIRVExtInst *DebugInst);
 
+  template <class OperTy>
+  OperTy transDIOpOperand(const SPIRVExtInst *DbgOpInst, unsigned Idx);
+  MDNode *tryTransDIOpDIExpression(const SPIRVExtInst *DebugInst);
+
   MDNode *transExpression(const SPIRVExtInst *DebugInst);
 
   SPIRVModule *BM;
