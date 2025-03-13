@@ -1102,8 +1102,6 @@ Value *SPIRVToLLVM::transConvertInst(SPIRVValue *BV, Function *F,
            Dst->getPointerAddressSpace()) &&
           M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
         CO = Instruction::AddrSpaceCast;
-      else
-        return Src;
     } else {
       // OpBitcast need to be handled as a special-case when the source is a
       // pointer and the destination is not a pointer, and where the source is not
@@ -3524,7 +3522,7 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
 
   // TODO: this is temporarily disabled as it breaks some more complex code
   //       patterns that are otherwise correctly(-ish) handled
-  if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
+  if (M->getTargetTriple().getVendor() != Triple::VendorType::AMD)
     validatePhiPredecessors(F);
   transLLVMLoopMetadata(F);
 
