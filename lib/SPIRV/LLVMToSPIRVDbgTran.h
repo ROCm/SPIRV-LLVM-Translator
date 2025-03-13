@@ -159,6 +159,9 @@ private:
   // DWARF expressions
   SPIRVEntry *transDbgExpression(const DIExpression *Expr);
 
+  template <class OperandTy>
+  void transDIOpOperand(SPIRVWordVec &Vec, unsigned Idx, OperandTy Operand);
+
   // Imported declarations and modules
   SPIRVEntry *transDbgImportedEntry(const DIImportedEntity *IE);
 

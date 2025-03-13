@@ -1206,7 +1206,7 @@ LLVMToSPIRVDbgTran::transDbgGlobalVariable(const DIGlobalVariable *GV) {
     Ops.push_back(transDbgEntry(StaticMember)->getId());
 
   // Check if Ops[VariableIdx] has no information
-  if (isNonSemanticDebugInfo() && Ops[VariableIdx] == getDebugInfoNoneId()) {
+  if (isNonSemanticDebugInfo()) {
     // Check if GV has an associated GVE with a non-empty DIExpression.
     // The non-empty DIExpression gives the initial value of the GV.
     for (const DIGlobalVariableExpression *GVE : DIF.global_variables()) {
@@ -1214,6 +1214,14 @@ LLVMToSPIRVDbgTran::transDbgGlobalVariable(const DIGlobalVariable *GV) {
           GVE->getVariable() == GV &&
           // DIExpression is non-empty
           GVE->getExpression()->getNumElements()) {
+        if (Ops[VariableIdx] != getDebugInfoNoneId()) {
+          if (GVE->getExpression()->holdsNewElements()) {
+            Ops.resize(MaxOperandCount, getDebugInfoNoneId());
+            Ops[DIOpBasedExprIdx] =
+              transDbgExpression(GVE->getExpression())->getId();
+          }
+          break;
+        }
         // Repurpose VariableIdx operand to hold the initial value held in the
         // GVE's DIExpression
         Ops[VariableIdx] = transDbgExpression(GVE->getExpression())->getId();
@@ -1606,8 +1614,82 @@ LLVMToSPIRVDbgTran::transDbgLocalVariable(const DILocalVariable *Var) {
 
 // DWARF Operations and expressions
 
+template <>
+void LLVMToSPIRVDbgTran::transDIOpOperand(SPIRVWordVec &Vec, unsigned Idx,
+                                          llvm::Type *Ty) {
+  Vec[Idx] = SPIRVWriter->transType(Ty)->getId();
+}
+
+template <>
+void LLVMToSPIRVDbgTran::transDIOpOperand(SPIRVWordVec &Vec, unsigned Idx,
+                                          uint32_t UInt) {
+  Vec[Idx] = UInt;
+  if (isNonSemanticDebugInfo())
+    transformToConstant(Vec, {Idx});
+}
+
+template <>
+void LLVMToSPIRVDbgTran::transDIOpOperand(SPIRVWordVec &Vec, unsigned Idx,
+                                          llvm::ConstantData *Data) {
+  Vec[Idx] = SPIRVWriter->transConstant(Data)->getId();
+}
+
 SPIRVEntry *LLVMToSPIRVDbgTran::transDbgExpression(const DIExpression *Expr) {
   SPIRVWordVec Operations;
+
+  if (auto NewElems = Expr->getNewElementsRef()) {
+    if (!(BM->allowExtraDIExpressions() ||
+          BM->getDebugInfoEIS() == SPIRVEIS_NonSemantic_Shader_DebugInfo_200))
+      report_fatal_error(
+          llvm::Twine("unsupported DIOp-based opcode found in DIExpression"));
+
+    for (DIOp::Variant DIOp : *NewElems) {
+      using namespace SPIRVDebug::Operand::Operation;
+
+      unsigned BitcodeID = llvm::DIOp::getBitcodeID(DIOp);
+      SPIRVDebug::ExpressionOpCode OC =
+          SPIRV::DbgExpressionDIOpBasedOpCodeMap::map(BitcodeID);
+      if (OpCountMap.find(OC) == OpCountMap.end())
+        report_fatal_error(
+            llvm::Twine("unknown DIOp-based opcode found in DIExpression"));
+
+      unsigned OpCount = OpCountMap[OC];
+      SPIRVWordVec Op(OpCount);
+      Op[OpCodeIdx] = OC;
+      if (isNonSemanticDebugInfo())
+        transformToConstant(Op, {OpCodeIdx});
+
+#define HANDLE_OP1(Name, OpType, OpName)                                       \
+  case llvm::DIOp::Name::getBitcodeID():                                       \
+    assert(OpCount == 2);                                                      \
+    transDIOpOperand<OpType>(Op, 1,                                            \
+                             std::get<llvm::DIOp::Name>(DIOp).get##OpName());  \
+    break;
+#define HANDLE_OP2(Name, OpType1, OpName1, OpType2, OpName2)                   \
+  case llvm::DIOp::Name::getBitcodeID():                                       \
+    assert(OpCount == 3);                                                      \
+    transDIOpOperand<OpType1>(                                                 \
+        Op, 1, std::get<llvm::DIOp::Name>(DIOp).get##OpName1());               \
+    transDIOpOperand<OpType2>(                                                 \
+        Op, 2, std::get<llvm::DIOp::Name>(DIOp).get##OpName2());               \
+    break;
+
+      switch (BitcodeID) {
+#include "llvm/IR/DIExprOps.def"
+      default:
+        // This is the OP0 case.
+        assert(OpCount == 1);
+        break;
+      }
+
+      auto *Operation =
+          BM->addDebugInfo(SPIRVDebug::Operation, getVoidTy(), Op);
+      Operations.push_back(Operation->getId());
+    }
+
+    return BM->addDebugInfo(SPIRVDebug::Expression, getVoidTy(), Operations);
+  }
+
   for (unsigned I = 0, N = Expr->getNumElements(); I < N; ++I) {
     using namespace SPIRVDebug::Operand::Operation;
     auto DWARFOpCode = static_cast<dwarf::LocationAtom>(Expr->getElement(I));
@@ -1615,12 +1697,11 @@ SPIRVEntry *LLVMToSPIRVDbgTran::transDbgExpression(const DIExpression *Expr) {
     SPIRVDebug::ExpressionOpCode OC =
         SPIRV::DbgExpressionOpCodeMap::map(DWARFOpCode);
     if (OpCountMap.find(OC) == OpCountMap.end())
-      report_fatal_error(llvm::Twine("unknown opcode found in DIExpression"));
+      report_fatal_error("unknown opcode found in DIExpression");
     if (OC > SPIRVDebug::Fragment &&
         !(BM->allowExtraDIExpressions() ||
           BM->getDebugInfoEIS() == SPIRVEIS_NonSemantic_Shader_DebugInfo_200))
-      report_fatal_error(
-          llvm::Twine("unsupported opcode found in DIExpression"));
+      report_fatal_error("unsupported opcode found in DIExpression");
 
     unsigned OpCount = OpCountMap[OC];
     SPIRVWordVec Op(OpCount);
