@@ -1,4 +1,3 @@
-; XFAIL: *
 ; RUN: llvm-as < %s -o %t.bc
 ; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_INTEL_variable_length_array
 ; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll

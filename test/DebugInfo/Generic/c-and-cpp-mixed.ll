@@ -1,7 +1,6 @@
 ;; This test checks that two DICompileUnits resulted in a link of C and C++
 ;; object files are being translated correctly
 
-; XFAIL: *
 ; RUN: llvm-as < %s -o %t.bc
 ; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: amd-llvm-spirv --to-text %t.spv -o - | FileCheck %s --check-prefix=CHECK-SPIRV

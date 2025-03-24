@@ -1,4 +1,3 @@
-; XFAIL: *
 ; RUN: llvm-as < %s -o %t.bc
 ; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
@@ -25,7 +24,7 @@
 ;     A a;
 ;     int b = 48;
 ;   };
-;
+;    
 ;   B *getB() { return new B(); }
 ;
 ; The inlined A::this pointer has the same location as B::this, but it may not be
