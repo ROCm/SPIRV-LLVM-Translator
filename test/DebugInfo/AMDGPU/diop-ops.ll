@@ -6,12 +6,16 @@
 
 ; CHECK: %struct.OnlyInExpr = type { ptr addrspace(5) }
 ; CHECK: !DIExpression(DIOpArg(0, %struct.OnlyInExpr), DIOpConvert(i32))
-; CHECK: !DIExpression(DIOpArg(0, ptr addrspace(5)), DIOpConvert(i64), DIOpConstant(i64 10), DIOpSub())
-; CHECK: !DIExpression(DIOpArg(0, ptr addrspace(5)), DIOpConvert(i64), DIOpFragment(11, 12))
-; CHECK: !DIExpression(DIOpArg(0, ptr addrspace(5)), DIOpConvert(i64), DIOpConstant(i64 13), DIOpBitOffset(i64))
-; CHECK: !DIExpression(DIOpArg(0, ptr addrspace(5)), DIOpConvert(i64), DIOpPushLane(i64), DIOpByteOffset(i64))
+; CHECK: !DIExpression(DIOpArg(0, ptr addrspace(5)), DIOpConvert(i32), DIOpConstant(i32 10), DIOpSub())
+; CHECK: !DIExpression(DIOpArg(0, ptr addrspace(5)), DIOpFragment(11, 12))
+; CHECK: !DIExpression(DIOpArg(0, ptr addrspace(5)), DIOpConstant(i64 13), DIOpBitOffset(i32))
+; CHECK: !DIExpression(DIOpArg(0, ptr addrspace(5)), DIOpPushLane(i64), DIOpByteOffset(i64))
 ; CHECK: !DIExpression(DIOpArg(0, i8), DIOpSExt(i64))
 ; CHECK: !DIExpression(DIOpArg(0, i32), DIOpConstant(i32 15), DIOpComposite(2, i64))
+; CHECK: !DIExpression(DW_OP_LLVM_poisoned)
+; CHECK: !DIExpression(DW_OP_LLVM_poisoned)
+; CHECK: !DIExpression(DW_OP_LLVM_poisoned)
+; CHECK: !DIExpression(DW_OP_LLVM_poisoned)
 ; CHECK: !DIExpression(DW_OP_LLVM_poisoned)
 
 target triple = "spirv64-amd-amdhsa"
@@ -22,13 +26,18 @@ define hidden spir_kernel void @_Z6kernelv() addrspace(4) !dbg !11 !max_work_gro
   %1 = alloca i32, align 4
   %2 = addrspacecast ptr %1 to ptr addrspace(4)
     #dbg_declare(ptr %1, !15, !DIExpression(DIOpArg(0, %struct.OnlyInExpr), DIOpConvert(i32)), !18)
-    #dbg_declare(ptr %1, !15, !DIExpression(DIOpArg(0, ptr), DIOpConvert(i64), DIOpConstant(i64 10), DIOpSub()), !18)
-    #dbg_declare(ptr %1, !15, !DIExpression(DIOpArg(0, ptr), DIOpConvert(i64), DIOpFragment(11, 12)), !18)
-    #dbg_declare(ptr %1, !15, !DIExpression(DIOpArg(0, ptr), DIOpConvert(i64), DIOpConstant(i64 13), DIOpBitOffset(i64)), !18)
-    #dbg_declare(ptr %1, !15, !DIExpression(DIOpArg(0, ptr), DIOpConvert(i64), DIOpPushLane(i64), DIOpByteOffset(i64)), !18)
+    #dbg_declare(ptr %1, !15, !DIExpression(DIOpArg(0, ptr), DIOpConvert(i32), DIOpConstant(i32 10), DIOpSub()), !18)
+    #dbg_declare(ptr %1, !15, !DIExpression(DIOpArg(0, ptr), DIOpFragment(11, 12)), !18)
+    #dbg_declare(ptr %1, !15, !DIExpression(DIOpArg(0, ptr), DIOpConstant(i64 13), DIOpBitOffset(i32)), !18)
+    #dbg_declare(ptr %1, !15, !DIExpression(DIOpArg(0, ptr), DIOpPushLane(i64), DIOpByteOffset(i64)), !18)
     #dbg_declare(i8 -1, !15, !DIExpression(DIOpArg(0, i8), DIOpSExt(i64)), !18)
     #dbg_declare(i32 14, !15, !DIExpression(DIOpArg(0, i32), DIOpConstant(i32 15), DIOpComposite(2, i64)), !18)
     #dbg_declare(i32 14, !15, !DIExpression(DW_OP_LLVM_poisoned), !18)
+    ; Next four should be poisoned after converting to addrspace(5) since they are invalid.
+    #dbg_declare(ptr %1, !15, !DIExpression(DIOpArg(0, ptr), DIOpReinterpret(i64), DIOpConvert(i32)), !18)
+    #dbg_value(ptr %1, !15, !DIExpression(DIOpArg(0, ptr), DIOpReinterpret(i64), DIOpConvert(i32)), !18)
+    #dbg_value(ptr %1, !15, !DIExpression(DIOpArg(0, i64), DIOpConvert(i32)), !18)
+    #dbg_value(!DIArgList(i32 1, i32 2), !15, !DIExpression(DIOpArg(0, i32), DIOpArg(1, i32), DIOpAdd()), !18)
   store i32 43, ptr addrspace(4) %2, align 4, !dbg !18
   ret void, !dbg !18
 }
