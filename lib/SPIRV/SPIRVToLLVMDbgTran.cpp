@@ -1146,6 +1146,8 @@ MDNode *SPIRVToLLVMDbgTran::transGlobalVariable(const SPIRVExtInst *DebugInst) {
   bool IsDefinition = Flags & SPIRVDebug::FlagIsDefinition;
   MDNode *VarDecl = nullptr;
   if (IsDefinition) {
+    if (DIExpr && DIExpr->holdsNewElements() && !DIExpr->isValid())
+      DIExpr = DIExpr->getPoisoned();
     VarDecl = getDIBuilder(DebugInst).createGlobalVariableExpression(
         Parent, Name, LinkageName, File, LineNo, Ty, IsLocal, IsDefinition,
         DIExpr, StaticMemberDecl);
@@ -1644,6 +1646,17 @@ SPIRVToLLVMDbgTran::transDebugIntrinsic(const SPIRVExtInst *DebugInst,
   auto GetExpression = [&](SPIRVId Id) -> DIExpression * {
     return transDebugInst<DIExpression>(BM->get<SPIRVExtInst>(Id));
   };
+  auto PoisonInvalidExpr = [&](DIExpression *Expr, DILocalVariable *Var,
+                               Value *Op) {
+    if (!Expr->holdsNewElements())
+      return Expr;
+    DIExpressionEnv Env{Var, Op, BB->getParent()->getParent()->getDataLayout()};
+    // FIXME: The variadic expression handling for dbg.value below is broken,
+    // just poison.
+    if (Expr->getNewNumLocationOperands() > 1 || !Expr->isValid(Env))
+      return Expr->getPoisoned();
+    return Expr;
+  };
   SPIRVWordVec Ops = DebugInst->getArguments();
   switch (DebugInst->getExtOp()) {
   case SPIRVDebug::Scope:
@@ -1665,21 +1678,25 @@ SPIRVToLLVMDbgTran::transDebugIntrinsic(const SPIRVExtInst *DebugInst,
       auto *AI = new AllocaInst(Type::getInt8Ty(M->getContext()),
                                 BB->getParent()->getParent()->getDataLayout().getAllocaAddrSpace(),
                                 "tmp", BB);
-      DbgInstPtr DbgDeclare = DIB.insertDeclare(
-          AI, LocalVar.first, GetExpression(Ops[ExpressionIdx]),
-          LocalVar.second, BB);
+      auto *Expr = PoisonInvalidExpr(GetExpression(Ops[ExpressionIdx]),
+                                     LocalVar.first, AI);
+      DbgInstPtr DbgDeclare =
+          DIB.insertDeclare(AI, LocalVar.first, Expr, LocalVar.second, BB);
       AI->eraseFromParent();
       return DbgDeclare;
     }
-    return DIB.insertDeclare(GetValue(Ops[VariableIdx]), LocalVar.first,
-                             GetExpression(Ops[ExpressionIdx]), LocalVar.second,
-                             BB);
+
+    Value *Val = GetValue(Ops[VariableIdx]);
+    auto *Expr = PoisonInvalidExpr(GetExpression(Ops[ExpressionIdx]),
+                                   LocalVar.first, Val);
+    return DIB.insertDeclare(Val, LocalVar.first, Expr, LocalVar.second, BB);
   }
   case SPIRVDebug::Value: {
     using namespace SPIRVDebug::Operand::DebugValue;
     auto LocalVar = GetLocalVar(Ops[DebugLocalVarIdx]);
     Value *Val = GetValue(Ops[ValueIdx]);
     DIExpression *Expr = GetExpression(Ops[ExpressionIdx]);
+    Expr = PoisonInvalidExpr(Expr, LocalVar.first, Val);
     DbgInstPtr DbgValIntr = getDIBuilder(DebugInst).insertDbgValueIntrinsic(
         Val, LocalVar.first, Expr, LocalVar.second, BB);
 
