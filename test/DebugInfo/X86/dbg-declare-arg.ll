@@ -1,4 +1,3 @@
-; XFAIL: *
 ; RUN: llvm-as < %s -o %t.bc
 ; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
@@ -18,7 +17,7 @@ target triple = "spir64-unknown-unknown"
 
 ; C++ source:
 ; class A { public: int x; int y; int z; int o; ~A() { x = 1; }};
-;
+; 
 ; A foo(int i) {
 ;   int j = 0;
 ;   if (i == 42) {
@@ -30,7 +29,7 @@ target triple = "spir64-unknown-unknown"
 ; }
 
 ; CHECK: DW_AT_name {{.*}}"j"
-; CHECK: DW_TAG_variable
+; CHECK: DW_TAG_variable  
 ; CHECK-NEXT:   DW_AT_location [DW_FORM_sec_offset] (
 ; CHECK-NEXT:     0x{{.*}}, 0x{{.*}}: DW_OP_breg7 RSP+8, DW_OP_deref)
 ; CHECK-NEXT:   DW_AT_name {{.*}}"my_a"

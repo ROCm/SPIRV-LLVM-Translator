@@ -1,7 +1,6 @@
 ; This test checks that DW_OP_LLVM_arg operation goes through round trip translation correctly.
 ; DW_OP_LLVM_arg is mapped on 165 in SPIR-V
 
-; XFAIL:*
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-allow-extra-diexpressions
 ; RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
