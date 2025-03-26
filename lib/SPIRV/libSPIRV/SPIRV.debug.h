@@ -7,6 +7,12 @@
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 
+#ifdef __has_include
+#if __has_include("llvm/IR/DIExprOps.def")
+#define SPIRV_HAS_DIOP_DIEXPRESSION
+#endif
+#endif
+
 namespace SPIRVDebug {
 
 const unsigned int DebugInfoVersion = 0x00010000;
@@ -288,6 +294,7 @@ enum ExpressionOpCode {
   ImplicitPointerTag = 166,
   TagOffset          = 167,
 
+#ifdef SPIRV_HAS_DIOP_DIEXPRESSION
   // AMD-specific debug operations, padded.
   Poisoned           = 10000,
 
@@ -296,6 +303,9 @@ enum ExpressionOpCode {
 #define HANDLE_OP_NAME(Name)                                  \
   DIOp##Name = DIOp_Begin + llvm::DIOp::Name::getBitcodeID(),
 #include "llvm/IR/DIExprOps.def"
+#else
+  AMDExtensions_Begin = 10000,
+#endif
 };
 
 enum ImportedEntityTag {
@@ -951,12 +961,14 @@ static std::unordered_map<ExpressionOpCode, unsigned> OpCountMap {
   { ImplicitPointerTag, 2 },
   { TagOffset,          2 },
 
+#ifdef SPIRV_HAS_DIOP_DIEXPRESSION
   { Poisoned,           1 },
 
 #define HANDLE_OP0(NAME) { DIOp##NAME, 1 },
 #define HANDLE_OP1(NAME, T1, N1) { DIOp##NAME, 2 },
 #define HANDLE_OP2(NAME, T1, N1, T2, N2) { DIOp##NAME, 3 },
 #include "llvm/IR/DIExprOps.def"
+#endif
 };
 }
 
@@ -1450,16 +1462,20 @@ inline void DbgExpressionOpCodeMap::init() {
   add(dwarf::DW_OP_LLVM_implicit_pointer, SPIRVDebug::ImplicitPointerTag);
   add(dwarf::DW_OP_LLVM_tag_offset,       SPIRVDebug::TagOffset);
 
+#ifdef SPIRV_HAS_DIOP_DIEXPRESSION
   add(dwarf::DW_OP_LLVM_poisoned,         SPIRVDebug::Poisoned);
+#endif
 }
 
 typedef SPIRVMap<unsigned, SPIRVDebug::ExpressionOpCode>
   DbgExpressionDIOpBasedOpCodeMap;
 template <>
 inline void DbgExpressionDIOpBasedOpCodeMap::init() {
+#ifdef SPIRV_HAS_DIOP_DIEXPRESSION
 #define HANDLE_OP_NAME(NAME)                                      \
   add(llvm::DIOp::NAME::getBitcodeID(), SPIRVDebug::DIOp##NAME);
 #include "llvm/IR/DIExprOps.def"
+#endif
 }
 
 typedef SPIRVMap<dwarf::Tag, SPIRVDebug::ImportedEntityTag>
