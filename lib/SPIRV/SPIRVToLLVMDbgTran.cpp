@@ -1099,6 +1099,10 @@ MDNode *SPIRVToLLVMDbgTran::transEntryPoint(const SPIRVExtInst *DebugInst) {
   assert(Ops.size() == OperandCount && "Invalid number of operands");
 
   SPIRVExtInst *EP = BM->get<SPIRVExtInst>(Ops[EntryPointIdx]);
+  if (isNonSemanticDebugInfo(DebugInst->getExtSetKind()) &&
+      EP->getArguments().size() <
+          SPIRVDebug::Operand::Function::MinOperandCountNonSem)
+  EP = BM->get<SPIRVExtInst>(EP->getArguments().front());
   SPIRVExtInst *CU = BM->get<SPIRVExtInst>(Ops[CompilationUnitIdx]);
   std::string Producer = getString(Ops[CompilerSignatureIdx]);
   std::string CLArgs = getString(Ops[CommandLineArgsIdx]);
