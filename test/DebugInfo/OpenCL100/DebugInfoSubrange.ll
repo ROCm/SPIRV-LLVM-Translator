@@ -1,4 +1,3 @@
-; XFAIL: *
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: amd-llvm-spirv -spirv-text %t.bc -o %t.spt
 ; RUN: FileCheck < %t.spt %s -check-prefix=CHECK-SPIRV

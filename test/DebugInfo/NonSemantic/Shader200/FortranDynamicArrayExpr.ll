@@ -1,4 +1,3 @@
-; XFAIL: *
 ;; The test checks, that Fortran dynamic arrays are being correctly represented
 ;; by SPIR-V debug information
 ;; Unlike 'static' arrays dynamic can have following parameters of

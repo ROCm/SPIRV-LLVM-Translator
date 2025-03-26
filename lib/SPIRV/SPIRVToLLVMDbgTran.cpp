@@ -1123,7 +1123,8 @@ MDNode *SPIRVToLLVMDbgTran::transGlobalVariable(const SPIRVExtInst *DebugInst) {
   StringRef LinkageName = getString(Ops[LinkageNameIdx]);
 
   DIDerivedType *StaticMemberDecl = nullptr;
-  if (Ops.size() > MinOperandCount) {
+  if (Ops.size() > MinOperandCount &&
+      !getDbgInst<SPIRVDebug::DebugInfoNone>(Ops[StaticMemberDeclarationIdx])) {
     StaticMemberDecl = transDebugInst<DIDerivedType>(
         BM->get<SPIRVExtInst>(Ops[StaticMemberDeclarationIdx]));
   }
@@ -1135,6 +1136,9 @@ MDNode *SPIRVToLLVMDbgTran::transGlobalVariable(const SPIRVExtInst *DebugInst) {
   if (getDbgInst<SPIRVDebug::Expression>(Ops[VariableIdx]))
     DIExpr =
         transDebugInst<DIExpression>(BM->get<SPIRVExtInst>(Ops[VariableIdx]));
+  else if (Ops.size() > DIOpBasedExprIdx)
+    DIExpr = transDebugInst<DIExpression>(
+        BM->get<SPIRVExtInst>(Ops[DIOpBasedExprIdx]));
 
   SPIRVWord Flags =
       getConstantValueOrLiteral(Ops, FlagsIdx, DebugInst->getExtSetKind());
@@ -1142,6 +1146,8 @@ MDNode *SPIRVToLLVMDbgTran::transGlobalVariable(const SPIRVExtInst *DebugInst) {
   bool IsDefinition = Flags & SPIRVDebug::FlagIsDefinition;
   MDNode *VarDecl = nullptr;
   if (IsDefinition) {
+    if (DIExpr && DIExpr->holdsNewElements() && !DIExpr->isValid())
+      DIExpr = DIExpr->getPoisoned();
     VarDecl = getDIBuilder(DebugInst).createGlobalVariableExpression(
         Parent, Name, LinkageName, File, LineNo, Ty, IsLocal, IsDefinition,
         DIExpr, StaticMemberDecl);
@@ -1156,7 +1162,7 @@ MDNode *SPIRVToLLVMDbgTran::transGlobalVariable(const SPIRVExtInst *DebugInst) {
 
   // Ops[VariableIdx] was not used to hold an Expression with the initial value
   // for the GlobalVariable
-  if (!DIExpr) {
+  if (!DIExpr || Ops.size() > DIOpBasedExprIdx) {
     // If the variable has no initializer Ops[VariableIdx] is OpDebugInfoNone.
     // Otherwise Ops[VariableIdx] may be a global variable or a constant(C++
     // static const).
@@ -1406,7 +1412,84 @@ DINode *SPIRVToLLVMDbgTran::transModule(const SPIRVExtInst *DebugInst) {
       Scope, Name, ConfigMacros, IncludePath, ApiNotes, File, Line, IsDecl);
 }
 
+template <>
+Type *SPIRVToLLVMDbgTran::transDIOpOperand(const SPIRVExtInst *DbgOpInst,
+                                           unsigned Idx) {
+  const SPIRVWordVec &Operands = DbgOpInst->getArguments();
+  SPIRVType *Ty = BM->get<SPIRVType>(Operands[Idx]);
+  return SPIRVReader->transType(Ty);
+}
+
+template <>
+uint32_t SPIRVToLLVMDbgTran::transDIOpOperand(const SPIRVExtInst *DbgOpInst,
+                                              unsigned Idx) {
+  const SPIRVWordVec &Operands = DbgOpInst->getArguments();
+  return getConstantValueOrLiteral(Operands, Idx, DbgOpInst->getExtSetKind());
+}
+
+template <>
+ConstantData *
+SPIRVToLLVMDbgTran::transDIOpOperand(const SPIRVExtInst *DbgOpInst,
+                                     unsigned Idx) {
+  const SPIRVWordVec &Operands = DbgOpInst->getArguments();
+  SPIRVValue *Val = BM->get<SPIRVValue>(Operands[Idx]);
+  return cast<ConstantData>(SPIRVReader->transValue(Val, nullptr, nullptr));
+}
+
+MDNode *
+SPIRVToLLVMDbgTran::tryTransDIOpDIExpression(const SPIRVExtInst *DebugInst) {
+  using namespace SPIRVDebug::Operand::Operation;
+
+  auto getOpcodeFromInst = [this](const SPIRVExtInst *OpInst) {
+    return static_cast<SPIRVDebug::ExpressionOpCode>(getConstantValueOrLiteral(
+        OpInst->getArguments(), OpCodeIdx, OpInst->getExtSetKind()));
+  };
+
+  const SPIRVWordVec &Args = DebugInst->getArguments();
+
+  // DIOp-based DIExpressions can't be empty.
+  if (Args.empty())
+    return nullptr;
+  const SPIRVExtInst *FirstOp = BM->get<SPIRVExtInst>(Args[0]);
+  // Check if this is a DW_OP-based expression.
+  if (getOpcodeFromInst(FirstOp) < SPIRVDebug::DIOp_Begin)
+    return nullptr;
+
+  std::vector<llvm::DIOp::Variant> DIOps;
+  for (SPIRVId A : Args) {
+    SPIRVExtInst *DbgOpInst = BM->get<SPIRVExtInst>(A);
+    auto Opcode = getOpcodeFromInst(DbgOpInst);
+    auto BitcodeID = SPIRV::DbgExpressionDIOpBasedOpCodeMap::rmap(Opcode);
+
+#define HANDLE_OP0(Name)                                                       \
+  case DIOp::Name::getBitcodeID():                                             \
+    DIOps.push_back(DIOp::Name());                                             \
+    break;
+#define HANDLE_OP1(Name, OpType, OpName)                                       \
+  case DIOp::Name::getBitcodeID():                                             \
+    DIOps.push_back(DIOp::Name(transDIOpOperand<OpType>(DbgOpInst, 1)));       \
+    break;
+#define HANDLE_OP2(Name, OpType1, OpName1, OpType2, OpName2)                   \
+  case DIOp::Name::getBitcodeID(): {                                           \
+    OpType1 First = transDIOpOperand<OpType1>(DbgOpInst, 1);                   \
+    OpType2 Second = transDIOpOperand<OpType2>(DbgOpInst, 2);                  \
+    DIOps.push_back(DIOp::Name(First, Second));                                \
+    break;                                                                     \
+  }
+
+    switch (BitcodeID) {
+    default:
+      llvm_unreachable("translating unknown DIOp!");
+#include "llvm/IR/DIExprOps.def"
+    }
+  }
+  return DIExpression::get(M->getContext(), bool(), DIOps);
+}
+
 MDNode *SPIRVToLLVMDbgTran::transExpression(const SPIRVExtInst *DebugInst) {
+  if (MDNode *N = tryTransDIOpDIExpression(DebugInst))
+    return N;
+
   const SPIRVWordVec &Args = DebugInst->getArguments();
   std::vector<uint64_t> Ops;
   for (SPIRVId A : Args) {
@@ -1563,6 +1646,17 @@ SPIRVToLLVMDbgTran::transDebugIntrinsic(const SPIRVExtInst *DebugInst,
   auto GetExpression = [&](SPIRVId Id) -> DIExpression * {
     return transDebugInst<DIExpression>(BM->get<SPIRVExtInst>(Id));
   };
+  auto PoisonInvalidExpr = [&](DIExpression *Expr, DILocalVariable *Var,
+                               Value *Op) {
+    if (!Expr->holdsNewElements())
+      return Expr;
+    DIExpressionEnv Env{Var, Op, BB->getParent()->getParent()->getDataLayout()};
+    // FIXME: The variadic expression handling for dbg.value below is broken,
+    // just poison.
+    if (Expr->getNewNumLocationOperands() > 1 || !Expr->isValid(Env))
+      return Expr->getPoisoned();
+    return Expr;
+  };
   SPIRVWordVec Ops = DebugInst->getArguments();
   switch (DebugInst->getExtOp()) {
   case SPIRVDebug::Scope:
@@ -1584,21 +1678,25 @@ SPIRVToLLVMDbgTran::transDebugIntrinsic(const SPIRVExtInst *DebugInst,
       auto *AI = new AllocaInst(Type::getInt8Ty(M->getContext()),
                                 BB->getParent()->getParent()->getDataLayout().getAllocaAddrSpace(),
                                 "tmp", BB);
-      DbgInstPtr DbgDeclare = DIB.insertDeclare(
-          AI, LocalVar.first, GetExpression(Ops[ExpressionIdx]),
-          LocalVar.second, BB);
+      auto *Expr = PoisonInvalidExpr(GetExpression(Ops[ExpressionIdx]),
+                                     LocalVar.first, AI);
+      DbgInstPtr DbgDeclare =
+          DIB.insertDeclare(AI, LocalVar.first, Expr, LocalVar.second, BB);
       AI->eraseFromParent();
       return DbgDeclare;
     }
-    return DIB.insertDeclare(GetValue(Ops[VariableIdx]), LocalVar.first,
-                             GetExpression(Ops[ExpressionIdx]), LocalVar.second,
-                             BB);
+
+    Value *Val = GetValue(Ops[VariableIdx]);
+    auto *Expr = PoisonInvalidExpr(GetExpression(Ops[ExpressionIdx]),
+                                   LocalVar.first, Val);
+    return DIB.insertDeclare(Val, LocalVar.first, Expr, LocalVar.second, BB);
   }
   case SPIRVDebug::Value: {
     using namespace SPIRVDebug::Operand::DebugValue;
     auto LocalVar = GetLocalVar(Ops[DebugLocalVarIdx]);
     Value *Val = GetValue(Ops[ValueIdx]);
     DIExpression *Expr = GetExpression(Ops[ExpressionIdx]);
+    Expr = PoisonInvalidExpr(Expr, LocalVar.first, Val);
     DbgInstPtr DbgValIntr = getDIBuilder(DebugInst).insertDbgValueIntrinsic(
         Val, LocalVar.first, Expr, LocalVar.second, BB);
 
