@@ -4,6 +4,8 @@
 ; RUN: llc -mcpu=gfx1030 -mtriple=amdgcn-amd-amdhsa -O0 -filetype=obj -o %t %t.ll
 ; RUN: llvm-dwarfdump -debug-info %t | FileCheck %s
 
+; REQUIRES: diop-diexpressions
+
 ;; Verify that we can produce valid dwarf from DIOp-based DIExpressions in a
 ;; simple program with a global and local variable.
 

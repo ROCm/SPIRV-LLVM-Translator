@@ -2,6 +2,8 @@
 ; RUN: amd-llvm-spirv --spirv-debug-info-version=nonsemantic-shader-200 %t.bc -o %t.spv
 ; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s
 
+; REQUIRES: diop-diexpressions
+
 ;; Verify that we can convert various DIOps back and forth from SPIRV.
 
 ; CHECK: %struct.OnlyInExpr = type { ptr addrspace(5) }
