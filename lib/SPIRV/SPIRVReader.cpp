@@ -3288,7 +3288,7 @@ void SPIRVToLLVM::transFunctionAttrs(SPIRVFunction *BF, Function *F) {
     mapValue(BA, &(*I));
     setName(&(*I), BA);
     AttributeMask IllegalAttrs =
-        AttributeFuncs::typeIncompatible(I->getType());
+        AttributeFuncs::typeIncompatible(I->getType(), I->getAttributes());
     BA->foreachAttr([&](SPIRVFuncParamAttrKind Kind) {
       // Skip this function parameter attribute as it will translated among
       // OpenCL metadata
