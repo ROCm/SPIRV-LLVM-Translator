@@ -329,7 +329,7 @@ void SPIRVToOCLBase::visitCallSPIRVImageQuerySize(CallInst *CI) {
       assert(ImgQuerySizeRetEls == 2 &&
              "OpImageQuerySize[Lod] must return <2 x iN> vector type");
       GetImageSize = InsertElementInst::Create(
-          UndefValue::get(VecTy), GetImageSize, ConstantInt::get(Int32Ty, 0),
+          PoisonValue::get(VecTy), GetImageSize, ConstantInt::get(Int32Ty, 0),
           CI->getName(), CI->getIterator());
     } else {
       // get_image_dim and OpImageQuerySize returns different vector
@@ -340,7 +340,7 @@ void SPIRVToOCLBase::visitCallSPIRVImageQuerySize(CallInst *CI) {
       Constant *Mask = ConstantVector::get(MaskEls);
 
       GetImageSize = new ShuffleVectorInst(
-          GetImageSize, UndefValue::get(GetImageSize->getType()), Mask,
+          GetImageSize, PoisonValue::get(GetImageSize->getType()), Mask,
           CI->getName(), CI->getIterator());
     }
   }
@@ -782,7 +782,7 @@ void SPIRVToOCLBase::visitCallSPIRVImageSampleExplicitLodBuiltIn(CallInst *CI,
 
     if (CallSampledImg->hasOneUse()) {
       CallSampledImg->replaceAllUsesWith(
-          UndefValue::get(CallSampledImg->getType()));
+          PoisonValue::get(CallSampledImg->getType()));
       CallSampledImg->dropAllReferences();
       CallSampledImg->eraseFromParent();
     }
@@ -874,7 +874,7 @@ void SPIRVToOCLBase::visitCallSPIRVAvcINTELEvaluateBuiltIn(CallInst *CI,
 
   auto EraseVmeImageCall = [](CallInst *CI) {
     if (CI->hasOneUse()) {
-      CI->replaceAllUsesWith(UndefValue::get(CI->getType()));
+      CI->replaceAllUsesWith(PoisonValue::get(CI->getType()));
       CI->dropAllReferences();
       CI->eraseFromParent();
     }
