@@ -21,7 +21,7 @@ jobs:
         input_pr_url: ${{ github.event.pull_request.html_url != '' && github.event.pull_request.html_url || '' }}
         input_pr_title: ${{ github.event.pull_request.title != '' && github.event.pull_request.title || '' }}
         # set the pipeline name here based on branch name
-        pipeline_name:  ${{secrets.CI_JENKINS_JOB_NAME}}
+        pipeline_name:  ${{secrets.CI_JENKINS_MAINLINE_JOB_NAME}}
         JENKINS_URL: ${{secrets.CI_JENKINS_URL}}
         CONTAINER_IMAGE: ${{ secrets.JENKINS_TRIGGER_DOCKER_IMAGE }}
 
