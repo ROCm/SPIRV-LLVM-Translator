@@ -1101,6 +1101,8 @@ Value *SPIRVToLLVM::transConvertInst(SPIRVValue *BV, Function *F,
         Src->getType()->getPointerAddressSpace() != Dst->getPointerAddressSpace() &&
         M->getTargetTriple() == "amdgcn-amd-amdhsa") {
       CO = Instruction::AddrSpaceCast;
+    } else if (Src->getType() == Dst) { // Spuriously inserted BC
+      return Src;
     } else {
       // OpBitcast need to be handled as a special-case when the source is a
       // pointer and the destination is not a pointer, and where the source is not
@@ -3459,6 +3461,7 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
     F->setName("old_" + Name);
     auto *NewFn = Function::Create(NewFT, F->getLinkage(), F->getAddressSpace(),
                                    Name, F->getParent());
+    F->replaceAllUsesWith(NewFn);
     mapFunction(BF, NewFn);
     return NewFn;
   }

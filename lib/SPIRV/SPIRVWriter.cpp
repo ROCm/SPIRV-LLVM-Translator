@@ -756,9 +756,7 @@ SPIRVType *LLVMToSPIRVBase::transPointerType(SPIRVType *ET, unsigned AddrSpc) {
       !BM->shouldEmitFunctionPtrAddrSpace())
     return transPointerType(ET, SPIRAS_Private);
   if (BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_untyped_pointers) &&
-      !(ET->isTypeArray() || ET->isTypeVector() || ET->isSPIRVOpaqueType() ||
-        (M->getTargetTriple() == "spirv64-amd-amdhsa" &&
-         ET->getOpCode() == OpTypeFunction))) {
+      !(ET->isTypeArray() || ET->isTypeVector() || ET->isSPIRVOpaqueType())) {
     TranslatedTy = BM->addUntypedPointerKHRType(
         SPIRSPIRVAddrSpaceMap::map(static_cast<SPIRAddressSpace>(AddrSpc)));
   } else {
@@ -2089,8 +2087,7 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
           }
         }
       }
-      if (BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_untyped_pointers) &&
-          !Init->getType()->isArrayTy()) {
+      if (BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_untyped_pointers)) {
         BVarInit = transConstantUse(Init, transType(Init->getType()));
       } else {
         SPIRVType *TransTy = transType(Ty);
