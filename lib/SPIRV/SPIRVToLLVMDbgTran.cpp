@@ -159,8 +159,10 @@ void SPIRVToLLVMDbgTran::transDbgInfo(const SPIRVValue *SV, Value *V) {
     return;
 
   if (Instruction *I = dyn_cast<Instruction>(V)) {
-    const SPIRVInstruction *SI = static_cast<const SPIRVInstruction *>(SV);
-    I->setDebugLoc(transDebugScope(SI));
+    if (SV->isInst()) {
+      const SPIRVInstruction *SI = static_cast<const SPIRVInstruction *>(SV);
+      I->setDebugLoc(transDebugScope(SI));
+    }
   }
 }
 
@@ -1099,6 +1101,10 @@ MDNode *SPIRVToLLVMDbgTran::transEntryPoint(const SPIRVExtInst *DebugInst) {
   assert(Ops.size() == OperandCount && "Invalid number of operands");
 
   SPIRVExtInst *EP = BM->get<SPIRVExtInst>(Ops[EntryPointIdx]);
+  if (isNonSemanticDebugInfo(DebugInst->getExtSetKind()) &&
+      EP->getArguments().size() <
+          SPIRVDebug::Operand::Function::MinOperandCountNonSem)
+  EP = BM->get<SPIRVExtInst>(EP->getArguments().front());
   SPIRVExtInst *CU = BM->get<SPIRVExtInst>(Ops[CompilationUnitIdx]);
   std::string Producer = getString(Ops[CompilerSignatureIdx]);
   std::string CLArgs = getString(Ops[CommandLineArgsIdx]);
@@ -1678,39 +1684,29 @@ SPIRVToLLVMDbgTran::transDebugIntrinsic(const SPIRVExtInst *DebugInst,
   case SPIRVDebug::Declare: {
     using namespace SPIRVDebug::Operand::DebugDeclare;
     auto LocalVar = GetLocalVar(Ops[DebugLocalVarIdx]);
+    DebugLoc Loc = transDebugScope(DebugInst);
+    if (!Loc)
+      Loc = LocalVar.second;
     DIBuilder &DIB = getDIBuilder(DebugInst);
     if (getDbgInst<SPIRVDebug::DebugInfoNone>(Ops[VariableIdx])) {
-      // If we don't have the variable(e.g. alloca might be promoted by mem2reg)
-      // we should generate the following IR:
-      // call void @llvm.dbg.declare(metadata !4, metadata !14, metadata !5)
-      // !4 = !{}
-      // DIBuilder::insertDeclare doesn't allow to pass nullptr for the Storage
-      // parameter. To work around this limitation we create a dummy temp
-      // alloca, use it to create llvm.dbg.declare, and then remove the alloca.
-      auto *AI = new AllocaInst(Type::getInt8Ty(M->getContext()),
-                                BB->getParent()->getParent()->getDataLayout().getAllocaAddrSpace(),
-                                "tmp", BB);
-      auto *Expr = PoisonInvalidExpr(GetExpression(Ops[ExpressionIdx]),
-                                     LocalVar.first, AI);
-      DbgInstPtr DbgDeclare =
-          DIB.insertDeclare(AI, LocalVar.first, Expr, LocalVar.second, BB);
-      AI->eraseFromParent();
+      auto *Null =
+          ConstantPointerNull::get(PointerType::get(M->getContext(), 0));
+      DbgInstPtr DbgDeclare = DIB.insertDeclare(
+          Null, LocalVar.first, GetExpression(Ops[ExpressionIdx]), Loc, BB);
       return DbgDeclare;
     }
-
-    Value *Val = GetValue(Ops[VariableIdx]);
-    auto *Expr = PoisonInvalidExpr(GetExpression(Ops[ExpressionIdx]),
-                                   LocalVar.first, Val);
-    return DIB.insertDeclare(Val, LocalVar.first, Expr, LocalVar.second, BB);
+    return DIB.insertDeclare(GetValue(Ops[VariableIdx]), LocalVar.first,
+                             GetExpression(Ops[ExpressionIdx]), Loc,
+                             BB);
   }
   case SPIRVDebug::Value: {
     using namespace SPIRVDebug::Operand::DebugValue;
     auto LocalVar = GetLocalVar(Ops[DebugLocalVarIdx]);
     Value *Val = GetValue(Ops[ValueIdx]);
     DIExpression *Expr = GetExpression(Ops[ExpressionIdx]);
-    Expr = PoisonInvalidExpr(Expr, LocalVar.first, Val);
+    DebugLoc Loc = transDebugScope(DebugInst);
     DbgInstPtr DbgValIntr = getDIBuilder(DebugInst).insertDbgValueIntrinsic(
-        Val, LocalVar.first, Expr, LocalVar.second, BB);
+        Val, LocalVar.first, Expr, Loc, BB);
 
     std::vector<ValueAsMetadata *> MDs;
     for (size_t I = 0; I != Expr->getNumLocationOperands(); ++I) {
@@ -1718,13 +1714,8 @@ SPIRVToLLVMDbgTran::transDebugIntrinsic(const SPIRVExtInst *DebugInst,
     }
     if (!MDs.empty()) {
       DIArgList *AL = DIArgList::get(M->getContext(), MDs);
-      if (M->IsNewDbgInfoFormat) {
-        cast<DbgVariableRecord>(cast<DbgRecord *>(DbgValIntr))
-            ->setRawLocation(AL);
-      } else {
-        cast<DbgVariableIntrinsic>(cast<Instruction *>(DbgValIntr))
-            ->setRawLocation(AL);
-      }
+      cast<DbgVariableRecord>(cast<DbgRecord *>(DbgValIntr))
+          ->setRawLocation(AL);
     }
     return DbgValIntr;
   }

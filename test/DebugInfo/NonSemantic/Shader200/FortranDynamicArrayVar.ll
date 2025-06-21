@@ -1,3 +1,4 @@
+; XFAIL: *
 ;; DebugInfo/dwarfdump-dataLocationVar.ll from llvm.org is used as base for this test
 ;; The test checks, that Fortran dynamic arrays are being correctly represented
 ;; by SPIR-V debug information

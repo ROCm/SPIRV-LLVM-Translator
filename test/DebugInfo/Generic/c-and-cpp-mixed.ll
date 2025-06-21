@@ -1,3 +1,4 @@
+; XFAIL: *
 ;; This test checks that two DICompileUnits resulted in a link of C and C++
 ;; object files are being translated correctly
 

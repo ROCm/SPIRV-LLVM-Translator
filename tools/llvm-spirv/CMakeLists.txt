@@ -14,10 +14,18 @@ if(SPIRV_BACKEND_FOUND)
   list(APPEND LLVM_LINK_COMPONENTS "SPIRVCodeGen")
 endif()
 
+# llvm_setup_rpath messes with the rpath making llvm-spirv not
+# executable from the build directory in out-of-tree builds
+set(add_llvm_tool_options)
+if(LLVM_SPIRV_BUILD_EXTERNAL)
+  set(add_llvm_tool_options
+    NO_INSTALL_RPATH
+  )
+endif()
+
 add_llvm_tool(amd-llvm-spirv
   llvm-spirv.cpp
-  # llvm_setup_rpath messes with the rpath making llvm-spirv not executable from the build directory
-  NO_INSTALL_RPATH
+  ${add_llvm_tool_options}
 )
 
 setup_host_tool(amd-llvm-spirv LLVM_SPIRV amd-llvm-spirv_exe amd-llvm-spirv_target)

@@ -8,7 +8,7 @@
 
 ; CHECK: %struct.OnlyInExpr = type { ptr addrspace(5) }
 ; CHECK: !DIExpression(DIOpArg(0, %struct.OnlyInExpr), DIOpConvert(i32))
-; CHECK: !DIExpression(DIOpArg(0, ptr addrspace(5)), DIOpConvert(i32), DIOpConstant(i32 10), DIOpSub())
+; CHECK: !DIExpression(DIOpArg(0, ptr addrspace(5)), DIOpConvert(i32), DIOpConstant(i32 10), DIOpAnd())
 ; CHECK: !DIExpression(DIOpArg(0, ptr addrspace(5)), DIOpFragment(11, 12))
 ; CHECK: !DIExpression(DIOpArg(0, ptr addrspace(5)), DIOpConstant(i64 13), DIOpBitOffset(i32))
 ; CHECK: !DIExpression(DIOpArg(0, ptr addrspace(5)), DIOpPushLane(i64), DIOpByteOffset(i64))
@@ -28,7 +28,7 @@ define hidden spir_kernel void @_Z6kernelv() addrspace(4) !dbg !11 !max_work_gro
   %1 = alloca i32, align 4
   %2 = addrspacecast ptr %1 to ptr addrspace(4)
     #dbg_declare(ptr %1, !15, !DIExpression(DIOpArg(0, %struct.OnlyInExpr), DIOpConvert(i32)), !18)
-    #dbg_declare(ptr %1, !15, !DIExpression(DIOpArg(0, ptr), DIOpConvert(i32), DIOpConstant(i32 10), DIOpSub()), !18)
+    #dbg_declare(ptr %1, !15, !DIExpression(DIOpArg(0, ptr), DIOpConvert(i32), DIOpConstant(i32 10), DIOpAnd()), !18)
     #dbg_declare(ptr %1, !15, !DIExpression(DIOpArg(0, ptr), DIOpFragment(11, 12)), !18)
     #dbg_declare(ptr %1, !15, !DIExpression(DIOpArg(0, ptr), DIOpConstant(i64 13), DIOpBitOffset(i32)), !18)
     #dbg_declare(ptr %1, !15, !DIExpression(DIOpArg(0, ptr), DIOpPushLane(i64), DIOpByteOffset(i64)), !18)

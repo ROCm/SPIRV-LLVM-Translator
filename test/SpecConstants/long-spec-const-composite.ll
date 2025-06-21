@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_INTEL_long_constant_composite %t.bc -o %t.spv
+; RUN: amd-llvm-spirv --spirv-ext=+SPV_INTEL_long_composites %t.bc -o %t.spv
 ; RUN: amd-llvm-spirv %t.spv --to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
 ; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
@@ -12,7 +12,7 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "spir64-unknown-unknown"
 
 ; CHECK-SPIRV: Capability LongCompositesINTEL
-; CHECK-SPIRV: Extension "SPV_INTEL_long_constant_composite"
+; CHECK-SPIRV: Extension "SPV_INTEL_long_composites"
 ; CHECK-SPIRV-DAG: Decorate [[First:[0-9]+]] SpecId  0
 ; CHECK-SPIRV-DAG: Decorate [[Last:[0-9]+]] SpecId 65548
 ; CHECK-SPIRV: TypeInt [[TInt:[0-9]+]] 8
