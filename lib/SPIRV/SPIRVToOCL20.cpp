@@ -293,7 +293,7 @@ CallInst *SPIRVToOCL20Base::mutateCommonAtomicArguments(CallInst *CI, Op OC) {
           mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic;
       if (TypedPtrTy->getAddressSpace() != AS) {
         Type *ElementTy = TypedPtrTy->getElementType();
-        Type *FixedPtr = PointerType::get(ElementTy, AS);
+        Type *FixedPtr = PointerType::get(CI->getContext(), AS);
         PtrArg = Builder.CreateAddrSpaceCast(PtrArg, FixedPtr,
                                              PtrArg->getName() + ".as");
         PtrArgTy = TypedPointerType::get(ElementTy, AS);
@@ -324,8 +324,7 @@ void SPIRVToOCL20Base::visitCallSPIRVAtomicCmpExchg(CallInst *CI) {
   // value by pointer passed as 2nd argument (aka expected) while SPIR-V
   // instructions returns this new/original value as a resulting value.
   AllocaInst *PExpected = new AllocaInst(
-      MemTy, CI->getParent()->getParent()->getDataLayout().getAllocaAddrSpace(),
-      "expected",
+      MemTy, M->getDataLayout().getAllocaAddrSpace(), "expected",
       CI->getParent()->getParent()->getEntryBlock().getFirstInsertionPt());
   PExpected->setAlignment(Align(MemTy->getScalarSizeInBits() / 8));
 
@@ -342,7 +341,8 @@ void SPIRVToOCL20Base::visitCallSPIRVAtomicCmpExchg(CallInst *CI) {
                 unsigned AddrSpc = M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
                     mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) :
                     SPIRAS_Generic;
-                Type *PtrTyAS = PointerType::get(PExpected->getType(), AddrSpc);
+                Type *PtrTyAS =
+                    PointerType::get(Expected->getContext(), AddrSpc);
                 Value *V = Builder.CreateAddrSpaceCast(
                     PExpected, PtrTyAS, PExpected->getName() + ".as");
                 return std::make_pair(V, TypedPointerType::get(MemTy, AddrSpc));

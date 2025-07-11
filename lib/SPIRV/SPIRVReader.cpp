@@ -315,6 +315,8 @@ std::optional<uint64_t> SPIRVToLLVM::getAlignment(SPIRVValue *V) {
 Type *SPIRVToLLVM::transFPType(SPIRVType *T) {
   switch (T->getFloatBitWidth()) {
   case 16:
+    if (T->isTypeFloat(16, FPEncodingBFloat16KHR))
+      return Type::getBFloatTy(*Context);
     return Type::getHalfTy(*Context);
   case 32:
     return Type::getFloatTy(*Context);
@@ -387,7 +389,7 @@ Type *SPIRVToLLVM::transType(SPIRVType *T, bool UseTPT) {
     Type *ElementTy = transType(T->getPointerElementType(), UseTPT);
     if (UseTPT)
       return TypedPointerType::get(ElementTy, AS);
-    return mapType(T, PointerType::get(ElementTy, AS));
+    return mapType(T, PointerType::get(*Context, AS));
   }
   case OpTypeUntypedPointerKHR: {
     unsigned AS = IsAMDGCN ?
@@ -470,7 +472,7 @@ Type *SPIRVToLLVM::transType(SPIRVType *T, bool UseTPT) {
     if (UseTPT) {
       return mapType(T, TypedPointerType::get(STy, 1));
     }
-    return mapType(T, PointerType::get(STy, 1));
+    return mapType(T, PointerType::get(*Context, 1));
   }
   case OpTypeVmeImageINTEL: {
     auto *VT = static_cast<SPIRVTypeVmeImageINTEL *>(T)->getImageType();
@@ -480,15 +482,20 @@ Type *SPIRVToLLVM::transType(SPIRVType *T, bool UseTPT) {
   }
   case OpTypeBufferSurfaceINTEL: {
     auto *PST = static_cast<SPIRVTypeBufferSurfaceINTEL *>(T);
-    Type *StructTy = getOrCreateOpaqueStructType(M, transVCTypeName(PST));
-    Type *PointerTy;
-    if (UseTPT)
-      PointerTy = TypedPointerType::get(StructTy, SPIRAS_Global);
-    else
-      PointerTy = PointerType::get(StructTy, SPIRAS_Global);
-    return mapType(T, PointerTy);
+    Type *Ty = nullptr;
+    if (UseTPT) {
+      Type *StructTy = getOrCreateOpaqueStructType(M, transVCTypeName(PST));
+      Ty = TypedPointerType::get(StructTy, SPIRAS_Global);
+    } else {
+      std::vector<unsigned> Params;
+      if (PST->hasAccessQualifier()) {
+        unsigned Access = static_cast<unsigned>(PST->getAccessQualifier());
+        Params.push_back(Access);
+      }
+      Ty = TargetExtType::get(*Context, "spirv.BufferSurfaceINTEL", {}, Params);
+    }
+    return mapType(T, Ty);
   }
-
   case internal::OpTypeJointMatrixINTEL: {
     auto *MT = static_cast<SPIRVTypeJointMatrixINTEL *>(T);
     auto R = static_cast<SPIRVConstant *>(MT->getRows())->getZExtIntValue();
@@ -650,8 +657,7 @@ SPIRVToLLVM::transTypeVector(const std::vector<SPIRVType *> &BT, bool UseTPT) {
 
 static Type *opaquifyType(Type *Ty) {
   if (auto *TPT = dyn_cast<TypedPointerType>(Ty)) {
-    Ty = PointerType::get(opaquifyType(TPT->getElementType()),
-                          TPT->getAddressSpace());
+    Ty = PointerType::get(Ty->getContext(), TPT->getAddressSpace());
   }
   return Ty;
 }
@@ -1097,10 +1103,11 @@ Value *SPIRVToLLVM::transConvertInst(SPIRVValue *BV, Function *F,
     CO = IsExt ? Instruction::FPExt : Instruction::FPTrunc;
     break;
   case OpBitcast:
-    if (Src->getType()->isPointerTy() && Dst->isPointerTy() &&
-        Src->getType()->getPointerAddressSpace() != Dst->getPointerAddressSpace() &&
-        M->getTargetTriple() == "amdgcn-amd-amdhsa") {
-      CO = Instruction::AddrSpaceCast;
+    if (Src->getType()->isPointerTy() && Dst->isPointerTy()) {
+      if ((Src->getType()->getPointerAddressSpace() !=
+           Dst->getPointerAddressSpace()) &&
+          M->getTargetTriple() == "amdgcn-amd-amdhsa")
+        CO = Instruction::AddrSpaceCast;
     } else if (Src->getType() == Dst) { // Spuriously inserted BC
       return Src;
     } else {
@@ -1114,7 +1121,7 @@ Value *SPIRVToLLVM::transConvertInst(SPIRVValue *BV, Function *F,
           unsigned TotalBitWidth =
               DstVecTy->getElementType()->getIntegerBitWidth() *
               DstVecTy->getNumElements();
-          auto *IntTy = Type::getIntNTy(BB->getContext(), TotalBitWidth);
+          auto *IntTy = Type::getIntNTy(Src->getContext(), TotalBitWidth);
           if (BB) {
             Src = CastInst::CreatePointerCast(Src, IntTy, "", BB);
           } else {
@@ -1128,7 +1135,7 @@ Value *SPIRVToLLVM::transConvertInst(SPIRVValue *BV, Function *F,
           unsigned TotalBitWidth =
               SrcVecTy->getElementType()->getIntegerBitWidth() *
               SrcVecTy->getNumElements();
-          auto *IntTy = Type::getIntNTy(BB->getContext(), TotalBitWidth);
+          auto *IntTy = Type::getIntNTy(Src->getContext(), TotalBitWidth);
           if (BB) {
             Src = CastInst::Create(Instruction::BitCast, Src, IntTy, "", BB);
           } else {
@@ -1239,6 +1246,7 @@ Value *SPIRVToLLVM::transCmpInst(SPIRVValue *BV, BasicBlock *BB, Function *F) {
   else if (BT->isTypeVectorOrScalarFloat())
     Inst = Builder.CreateFCmp(CmpMap::rmap(OP), Op0, Op1);
   assert(Inst && "not implemented");
+  applyFPFastMathModeDecorations(BV, static_cast<Instruction *>(Inst));
   return Inst;
 }
 
@@ -1489,7 +1497,9 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
       const llvm::fltSemantics *FS = nullptr;
       switch (BT->getFloatBitWidth()) {
       case 16:
-        FS = &APFloat::IEEEhalf();
+        FS =
+            (BT->isTypeFloat(16, FPEncodingBFloat16KHR) ? &APFloat::BFloat()
+                                                        : &APFloat::IEEEhalf());
         break;
       case 32:
         FS = &APFloat::IEEEsingle();
@@ -1679,12 +1689,18 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
       return transValue(Init, F, BB);
     }
 
-    if (BS == StorageClassFunction && !Init) {
-      assert(BB && "Invalid BB");
-      return mapValue(BV,
-                      new AllocaInst(Ty,
-                                     M->getDataLayout().getAllocaAddrSpace(),
-                                     BV->getName(), BB));
+    if (BS == StorageClassFunction) {
+      // A Function storage class variable needs storage for each dynamic
+      // execution instance, so emit an alloca instead of a global.
+      assert(BB && "OpVariable with Function storage class requires BB");
+      IRBuilder<> Builder(BB);
+      AllocaInst *AI = Builder.CreateAlloca(Ty, nullptr, BV->getName());
+      if (Init) {
+        auto *Src = transValue(Init, F, BB);
+        const bool IsVolatile = BVar->hasDecorate(DecorationVolatile);
+        Builder.CreateStore(Src, AI, IsVolatile);
+      }
+      return mapValue(BV, AI);
     }
 
     SPIRAddressSpace AddrSpace;
@@ -1745,7 +1761,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     if (M->getTargetTriple() == "amdgcn-amd-amdhsa" &&
         LVar->hasAppendingLinkage() &&
         (LVar->getName() == "llvm.compiler.used" ||
-        LVar->getName() == "llvm.used"))
+         LVar->getName() == "llvm.used"))
       LVar->setSection("llvm.metadata");
 
     return Res;
@@ -1804,9 +1820,9 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     auto *VLA = static_cast<SPIRVVariableLengthArrayINTEL *>(BV);
     llvm::Type *Ty = transType(BV->getType()->getPointerElementType());
     llvm::Value *ArrSize = transValue(VLA->getOperand(0), F, BB);
-    return mapValue(BV, new AllocaInst(Ty,
-                                       M->getDataLayout().getAllocaAddrSpace(),
-                                       ArrSize, BV->getName(), BB));
+    return mapValue(BV,
+                    new AllocaInst(Ty, M->getDataLayout().getAllocaAddrSpace(),
+                                   ArrSize, BV->getName(), BB));
   }
 
   case OpRestoreMemoryINTEL: {
@@ -2604,7 +2620,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     auto *BR = static_cast<SPIRVUnary *>(BV);
     auto *Ty = transType(BV->getType());
     Function *intr =
-        Intrinsic::getDeclaration(M, llvm::Intrinsic::bitreverse, Ty);
+        Intrinsic::getOrInsertDeclaration(M, llvm::Intrinsic::bitreverse, Ty);
     auto *Call = CallInst::Create(intr, transValue(BR->getOperand(0), F, BB),
                                   BR->getName(), BB);
     return mapValue(BV, Call);
@@ -2705,18 +2721,8 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     case SPIRVEIS_OpenCL_DebugInfo_100:
     case SPIRVEIS_NonSemantic_Shader_DebugInfo_100:
     case SPIRVEIS_NonSemantic_Shader_DebugInfo_200:
-      if (!M->IsNewDbgInfoFormat) {
-        return mapValue(
-            BV, cast<Instruction *>(DbgTran->transDebugIntrinsic(ExtInst, BB)));
-      } else {
-        auto MaybeRecord = DbgTran->transDebugIntrinsic(ExtInst, BB);
-        if (!MaybeRecord.isNull()) {
-          auto *Record = cast<DbgRecord *>(MaybeRecord);
-          Record->setDebugLoc(
-              DbgTran->transDebugScope(static_cast<SPIRVInstruction *>(BV)));
-        }
-        return mapValue(BV, nullptr);
-      }
+      DbgTran->transDebugIntrinsic(ExtInst, BB);
+      return mapValue(BV, nullptr);
     default:
       llvm_unreachable("Unknown extended instruction set!");
     }
@@ -3020,7 +3026,8 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     if (isCvtOpCode(OC) && OC != OpGenericCastToPtrExplicit) {
       auto *BI = static_cast<SPIRVInstruction *>(BV);
       Value *Inst = nullptr;
-      if (BI->hasFPRoundingMode() || BI->isSaturatedConversion())
+      if (BI->hasFPRoundingMode() || BI->isSaturatedConversion() ||
+          BI->getType()->isTypeCooperativeMatrixKHR())
         Inst = transSPIRVBuiltinFromInst(BI, BB);
       else
         Inst = transConvertInst(BV, F, BB);
@@ -3070,10 +3077,11 @@ Value *SPIRVToLLVM::transFixedPointInst(SPIRVInstruction *BI, BasicBlock *BB) {
   std::vector<Value *> Args;
   Args.reserve(8);
   if (RetTy->getIntegerBitWidth() > 64) {
-    llvm::PointerType *RetPtrTy = llvm::PointerType::get(
-        RetTy,
-        M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
-            mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic);
+    llvm::PointerType *RetPtrTy =
+        llvm::PointerType::get(
+          *Context,
+          M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+              mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic);
     Value *Alloca =
         new AllocaInst(RetTy, M->getDataLayout().getAllocaAddrSpace(), "", BB);
     Value *RetValPtr = new AddrSpaceCastInst(Alloca, RetPtrTy, "", BB);
@@ -3198,10 +3206,11 @@ Value *SPIRVToLLVM::transArbFloatInst(SPIRVInstruction *BI, BasicBlock *BB,
   std::vector<Value *> Args;
 
   if (RetTy->getIntegerBitWidth() > 64) {
-    llvm::PointerType *RetPtrTy = llvm::PointerType::get(
-        RetTy,
-        M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
-            mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic);
+    llvm::PointerType *RetPtrTy =
+        llvm::PointerType::get(
+          *Context,
+          M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+              mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic);
     ArgTys.push_back(RetPtrTy);
     Value *Alloca =
         new AllocaInst(RetTy, M->getDataLayout().getAllocaAddrSpace(), "", BB);
@@ -3434,7 +3443,7 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
     // We can't guarantee that the name is correctly mangled due to opaque
     // pointers. Derive the correct name from the function type.
     FuncName =
-        Intrinsic::getDeclaration(
+        Intrinsic::getOrInsertDeclaration(
             M, Intrinsic::memset, {FT->getParamType(0), FT->getParamType(2)})
             ->getName();
   }
@@ -3665,50 +3674,75 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
                   BI->getValueType(Ops[Ptr]->getId())->getPointerStorageClass())
               : SPIRSPIRVAddrSpaceMap::rmap(
                   BI->getValueType(Ops[Ptr]->getId())->getPointerStorageClass()));
-    } else if (OC == spv::OpCooperativeMatrixStoreKHR ||
-               OC == spv::internal::OpJointMatrixStoreINTEL ||
-               OC == spv::internal::OpCooperativeMatrixStoreCheckedINTEL ||
-               OC == spv::internal::OpJointMatrixLoadINTEL ||
-               OC == spv::OpCompositeConstruct ||
-               OC == spv::internal::OpCooperativeMatrixApplyFunctionINTEL) {
-      auto *Val = transValue(Ops[Ptr], BB->getParent(), BB);
-      Val = Val->stripPointerCasts();
-      if (auto *GEP = dyn_cast<GetElementPtrInst>(Val))
-        ArgTys[Ptr] = TypedPointerType::get(
-            GEP->getSourceElementType(),
-            SPIRSPIRVAddrSpaceMap::rmap(
-                BI->getValueType(Ops[Ptr]->getId())->getPointerStorageClass()));
-      else if (auto *AI = dyn_cast<AllocaInst>(Val))
-        ArgTys[Ptr] = TypedPointerType::get(
-            AI->getAllocatedType(),
-            SPIRSPIRVAddrSpaceMap::rmap(
-                BI->getValueType(Ops[Ptr]->getId())->getPointerStorageClass()));
-      else if (isa<Argument>(Val) && !RetTy->isVoidTy()) {
-        // Pointer could be a function parameter. Assume that the type of the
-        // pointer is the same as the return type.
-        Type *Ty = nullptr;
-        // it return type is array type, assign its element type to Ty
-        if (RetTy->isArrayTy())
-          Ty = RetTy->getArrayElementType();
-        else if (RetTy->isVectorTy())
-          Ty = cast<VectorType>(RetTy)->getElementType();
-        else
-          Ty = RetTy;
+    }
+  }
 
-        ArgTys[Ptr] = TypedPointerType::get(
-            Ty,
-            SPIRSPIRVAddrSpaceMap::rmap(
-                BI->getValueType(Ops[Ptr]->getId())->getPointerStorageClass()));
+  for (unsigned I = 0; I < ArgTys.size(); I++) {
+    if (isa<PointerType>(ArgTys[I])) {
+      SPIRVType *OpTy = BI->getValueType(Ops[I]->getId());
+      // `Param` must be a pointer to an 8-bit integer type scalar.
+      // Avoid demangling for this argument if it's a pointer to get `Pc`
+      // mangling.
+      if (OC == OpEnqueueKernel && I == 7) {
+        if (ArgTys[I]->isPointerTy())
+          continue;
+      }
+      if (OpTy->isTypeUntypedPointerKHR()) {
+        auto *Val = transValue(Ops[I], BB->getParent(), BB);
+        Val = Val->stripPointerCasts();
+        if (isUntypedAccessChainOpCode(Ops[I]->getOpCode())) {
+          SPIRVType *BaseTy =
+              reinterpret_cast<SPIRVAccessChainBase *>(Ops[I])->getBaseType();
+
+          Type *Ty = nullptr;
+          if (BaseTy->isTypeArray())
+            Ty = transType(BaseTy->getArrayElementType());
+          else if (BaseTy->isTypeVector())
+            Ty = transType(BaseTy->getVectorComponentType());
+          else
+            Ty = transType(BaseTy);
+          ArgTys[I] = TypedPointerType::get(
+              Ty, SPIRSPIRVAddrSpaceMap::rmap(OpTy->getPointerStorageClass()));
+        } else if (auto *GEP = dyn_cast<GetElementPtrInst>(Val)) {
+          ArgTys[I] = TypedPointerType::get(
+              GEP->getSourceElementType(),
+              SPIRSPIRVAddrSpaceMap::rmap(OpTy->getPointerStorageClass()));
+        } else if (Ops[I]->getOpCode() == OpUntypedVariableKHR) {
+          SPIRVUntypedVariableKHR *UV =
+              static_cast<SPIRVUntypedVariableKHR *>(Ops[I]);
+          Type *Ty = transType(UV->getDataType());
+          ArgTys[I] = TypedPointerType::get(
+              Ty, SPIRSPIRVAddrSpaceMap::rmap(OpTy->getPointerStorageClass()));
+        } else if (auto *AI = dyn_cast<AllocaInst>(Val)) {
+          ArgTys[I] = TypedPointerType::get(
+              AI->getAllocatedType(),
+              SPIRSPIRVAddrSpaceMap::rmap(OpTy->getPointerStorageClass()));
+        } else if (Ops[I]->getOpCode() == OpFunctionParameter &&
+                   !RetTy->isVoidTy()) {
+          // Pointer could be a function parameter. Assume that the type of
+          // the pointer is the same as the return type.
+          Type *Ty = nullptr;
+          // it return type is array type, assign its element type to Ty
+          if (RetTy->isArrayTy())
+            Ty = RetTy->getArrayElementType();
+          else if (RetTy->isVectorTy())
+            Ty = cast<VectorType>(RetTy)->getElementType();
+          else
+            Ty = RetTy;
+
+          ArgTys[I] = TypedPointerType::get(
+              Ty, SPIRSPIRVAddrSpaceMap::rmap(OpTy->getPointerStorageClass()));
+        }
       }
     }
   }
 
   for (auto &I : ArgTys) {
     if (isa<FunctionType>(I)) {
-      I = TypedPointerType::get(I,
-                                M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
-                                    M->getDataLayout().getProgramAddressSpace()
-                                    : SPIRAS_Private);
+      I = TypedPointerType::get(
+        I,
+        M->getTargetTriple() == "amdgcn-amd-amdhsa" ?
+          M->getDataLayout().getProgramAddressSpace() : SPIRAS_Private);
     }
   }
 
@@ -3759,7 +3793,9 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
       Func->addFnAttr(Attribute::Convergent);
   }
   CallInst *Call;
-  if (OC == OpCooperativeMatrixLengthKHR) {
+  // TODO: Remove the check for matrix type once drivers are updated.
+  if (OC == OpCooperativeMatrixLengthKHR &&
+      Ops[0]->getOpCode() == OpTypeCooperativeMatrixKHR) {
     // OpCooperativeMatrixLengthKHR needs special handling as its operand is
     // a Type instead of a Value.
     llvm::Type *MatTy = transType(reinterpret_cast<SPIRVType *>(Ops[0]));
@@ -4004,7 +4040,7 @@ bool SPIRVToLLVM::translate() {
     return true;
   // TODO: this is temporary hardcoding, but will ultimately get handled in the
   // FE.
-  M->addModuleFlag(llvm::Module::Error, "amdhsa_code_object_version", 500);
+  M->addModuleFlag(llvm::Module::Error, "amdhsa_code_object_version", 600);
   M->addModuleFlag(llvm::Module::Error, "amdgpu_printf_kind",
                    llvm::MDString::get(M->getContext(), "hostcall"));
   StringRef Name = "__oclc_ABI_version";
@@ -4014,7 +4050,7 @@ bool SPIRVToLLVM::translate() {
     return true;
 
   auto *Type = llvm::IntegerType::getIntNTy(M->getContext(), 32);
-  llvm::Constant *COV = llvm::ConstantInt::get(Type, 500);
+  llvm::Constant *COV = llvm::ConstantInt::get(Type, 600);
 
   auto *GV = new llvm::GlobalVariable(
       *M, Type, true, llvm::GlobalValue::WeakODRLinkage, COV, Name,
@@ -4279,7 +4315,7 @@ void SPIRVToLLVM::transIntelFPGADecorations(SPIRVValue *BV, Value *V) {
             IntTy = PtrAnnFirstArg->getType();
           }
 
-          auto *AnnotationFn = llvm::Intrinsic::getDeclaration(
+          auto *AnnotationFn = llvm::Intrinsic::getOrInsertDeclaration(
               M, Intrinsic::ptr_annotation, {IntTy, Int8PtrTyPrivate});
 
           llvm::Value *Args[] = {
@@ -4324,7 +4360,7 @@ void SPIRVToLLVM::transIntelFPGADecorations(SPIRVValue *BV, Value *V) {
         Inst = dyn_cast<Instruction>(Inst->getOperand(0));
         isStaticMemoryAttribute = (Inst && isa<AllocaInst>(Inst));
       }
-      auto *AnnotationFn = llvm::Intrinsic::getDeclaration(
+      auto *AnnotationFn = llvm::Intrinsic::getOrInsertDeclaration(
           M,
           isStaticMemoryAttribute ? Intrinsic::var_annotation
                                   : Intrinsic::ptr_annotation,
@@ -4622,8 +4658,7 @@ void SPIRVToLLVM::createCXXStructor(const char *ListName,
 
   // Type of a structor entry: { i32, void ()*, i8* }
   Type *PriorityTy = Type::getInt32Ty(*Context);
-  PointerType *CtorTy = PointerType::getUnqual(
-      FunctionType::get(Type::getVoidTy(*Context), false));
+  PointerType *CtorTy = PointerType::getUnqual(*Context);
   PointerType *ComdatTy = PointerType::getUnqual(*Context);
   StructType *StructorTy = StructType::get(PriorityTy, CtorTy, ComdatTy);
 
@@ -4759,12 +4794,6 @@ bool SPIRVToLLVM::transMetadata() {
     // Decoration metadata is only enabled in SPIR-V friendly mode
     if (BM->getDesiredBIsRepresentation() == BIsRepresentation::SPIRVFriendlyIR)
       transFunctionDecorationsToMetadata(BF, F);
-
-    if (BF->hasDecorate(internal::DecorationCallableFunctionINTEL))
-      F->addFnAttr(kVCMetadata::VCCallable);
-    if (isKernel(BF) &&
-        BF->getExecutionMode(internal::ExecutionModeFastCompositeKernelINTEL))
-      F->addFnAttr(kVCMetadata::VCFCEntry);
 
     if (F->getCallingConv() != CallingConv::SPIR_KERNEL &&
         F->getCallingConv() != CallingConv::AMDGPU_KERNEL)
@@ -5494,10 +5523,10 @@ static Instruction *transLLVMFromExtInst(SPIRVToLLVM &Reader, OCLExtOpKind Op,
         std::abort();
       }
     } else if (ID == Intrinsic::frexp || ID == Intrinsic::powi) {
-      F = Intrinsic::getDeclaration(
+      F = Intrinsic::getOrInsertDeclaration(
           M, ID, {Formals[0], IntegerType::getInt32Ty(M->getContext())});
     } else {
-      F = Intrinsic::getDeclaration(M, ID, Formals);
+      F = Intrinsic::getOrInsertDeclaration(M, ID, Formals);
     }
 
     auto Actuals = Reader.transValue(BC->getArgValues(), F, BB);
