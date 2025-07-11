@@ -1691,19 +1691,23 @@ SPIRVToLLVMDbgTran::transDebugIntrinsic(const SPIRVExtInst *DebugInst,
     if (getDbgInst<SPIRVDebug::DebugInfoNone>(Ops[VariableIdx])) {
       auto *Null =
           ConstantPointerNull::get(PointerType::get(M->getContext(), 0));
-      DbgInstPtr DbgDeclare = DIB.insertDeclare(
-          Null, LocalVar.first, GetExpression(Ops[ExpressionIdx]), Loc, BB);
+      auto *Expr = PoisonInvalidExpr(GetExpression(Ops[ExpressionIdx]),
+                                     LocalVar.first, Null);
+      DbgInstPtr DbgDeclare =
+          DIB.insertDeclare(Null, LocalVar.first, Expr, Loc, BB);
       return DbgDeclare;
     }
-    return DIB.insertDeclare(GetValue(Ops[VariableIdx]), LocalVar.first,
-                             GetExpression(Ops[ExpressionIdx]), Loc,
-                             BB);
+    Value *Val = GetValue(Ops[VariableIdx]);
+    auto *Expr = PoisonInvalidExpr(GetExpression(Ops[ExpressionIdx]),
+                                   LocalVar.first, Val);
+    return DIB.insertDeclare(Val, LocalVar.first, Expr, Loc, BB);
   }
   case SPIRVDebug::Value: {
     using namespace SPIRVDebug::Operand::DebugValue;
     auto LocalVar = GetLocalVar(Ops[DebugLocalVarIdx]);
     Value *Val = GetValue(Ops[ValueIdx]);
     DIExpression *Expr = GetExpression(Ops[ExpressionIdx]);
+    Expr = PoisonInvalidExpr(Expr, LocalVar.first, Val);
     DebugLoc Loc = transDebugScope(DebugInst);
     DbgInstPtr DbgValIntr = getDIBuilder(DebugInst).insertDbgValueIntrinsic(
         Val, LocalVar.first, Expr, Loc, BB);

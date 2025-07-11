@@ -1,4 +1,3 @@
-; XFAIL: *
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: amd-llvm-spirv -spirv-text %t.bc -o %t.spt --spirv-debug-info-version=nonsemantic-shader-200
 ; RUN: FileCheck < %t.spt %s -check-prefix=CHECK-SPIRV

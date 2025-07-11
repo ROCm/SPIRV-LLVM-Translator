@@ -1,4 +1,3 @@
-; XFAIL: *
 ; This test checks that DW_OP_LLVM_arg operation goes through round trip translation correctly.
 ; DW_OP_LLVM_arg is mapped on 165 in SPIR-V
 

@@ -1,4 +1,3 @@
-; XFAIL: *
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: amd-llvm-spirv %t.bc -o %t.spv
 ; RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
