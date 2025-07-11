@@ -1773,7 +1773,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
         LVar->hasAppendingLinkage() &&
         (LVar->getName() == "llvm.compiler.used" ||
-        LVar->getName() == "llvm.used"))
+         LVar->getName() == "llvm.used"))
       LVar->setSection("llvm.metadata");
 
     return Res;
@@ -4067,7 +4067,7 @@ bool SPIRVToLLVM::translate() {
     return true;
   // TODO: this is temporary hardcoding, but will ultimately get handled in the
   // FE.
-  M->addModuleFlag(llvm::Module::Error, "amdhsa_code_object_version", 500);
+  M->addModuleFlag(llvm::Module::Error, "amdhsa_code_object_version", 600);
   M->addModuleFlag(llvm::Module::Error, "amdgpu_printf_kind",
                    llvm::MDString::get(M->getContext(), "hostcall"));
   StringRef Name = "__oclc_ABI_version";
@@ -4077,7 +4077,7 @@ bool SPIRVToLLVM::translate() {
     return true;
 
   auto *Type = llvm::IntegerType::getIntNTy(M->getContext(), 32);
-  llvm::Constant *COV = llvm::ConstantInt::get(Type, 500);
+  llvm::Constant *COV = llvm::ConstantInt::get(Type, 600);
 
   auto *GV = new llvm::GlobalVariable(
       *M, Type, true, llvm::GlobalValue::WeakODRLinkage, COV, Name,

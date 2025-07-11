@@ -8,20 +8,20 @@
 // CHECK-SPIRV-DAG: TypeBool [[bool:[0-9]+]]
 // CHECK-SPIRV-DAG: TypeVector [[bool2:[0-9]+]] [[bool]] 2
 
-// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testUGreaterThan:]] "__clang_ocl_kern_imp_testUGreaterThan"
-// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testSGreaterThan:]] "__clang_ocl_kern_imp_testSGreaterThan"
-// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testUGreaterThanEqual:]] "__clang_ocl_kern_imp_testUGreaterThanEqual"
-// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testSGreaterThanEqual:]] "__clang_ocl_kern_imp_testSGreaterThanEqual"
-// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testULessThan:]] "__clang_ocl_kern_imp_testULessThan"
-// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testSLessThan:]] "__clang_ocl_kern_imp_testSLessThan"
-// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testULessThanEqual:]] "__clang_ocl_kern_imp_testULessThanEqual"
-// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testSLessThanEqual:]] "__clang_ocl_kern_imp_testSLessThanEqual"
-// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testFOrdEqual:]] "__clang_ocl_kern_imp_testFOrdEqual"
-// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testFUnordNotEqual:]] "__clang_ocl_kern_imp_testFUnordNotEqual"
-// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testFOrdGreaterThan:]] "__clang_ocl_kern_imp_testFOrdGreaterThan"
-// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testFOrdGreaterThanEqual:]] "__clang_ocl_kern_imp_testFOrdGreaterThanEqual"
-// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testFOrdLessThan:]] "__clang_ocl_kern_imp_testFOrdLessThan"
-// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testFOrdLessThanEqual:]] "__clang_ocl_kern_imp_testFOrdLessThanEqual"
+// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testUGreaterThan:]] "testUGreaterThan"
+// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testSGreaterThan:]] "testSGreaterThan"
+// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testUGreaterThanEqual:]] "testUGreaterThanEqual"
+// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testSGreaterThanEqual:]] "testSGreaterThanEqual"
+// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testULessThan:]] "testULessThan"
+// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testSLessThan:]] "testSLessThan"
+// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testULessThanEqual:]] "testULessThanEqual"
+// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testSLessThanEqual:]] "testSLessThanEqual"
+// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testFOrdEqual:]] "testFOrdEqual"
+// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testFUnordNotEqual:]] "testFUnordNotEqual"
+// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testFOrdGreaterThan:]] "testFOrdGreaterThan"
+// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testFOrdGreaterThanEqual:]] "testFOrdGreaterThanEqual"
+// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testFOrdLessThan:]] "testFOrdLessThan"
+// CHECK-SPIRV-DAG: Name [[#__clang_ocl_kern_imp_testFOrdLessThanEqual:]] "testFOrdLessThanEqual"
 
 // CHECK-SPIRV: Function [[#]] [[#__clang_ocl_kern_imp_testUGreaterThan]]
 // CHECK-SPIRV-NEXT: FunctionParameter {{[0-9]+}} [[A:[0-9]+]]

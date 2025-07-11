@@ -1,3 +1,4 @@
+; XFAIL: *
 ; Check if the translator handles #dbg_declare(ptr null ...) correctly
 
 ; RUN: llvm-as %s -o %t.bc

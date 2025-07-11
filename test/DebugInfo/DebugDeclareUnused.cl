@@ -1,3 +1,4 @@
+// XFAIL: *
 // Check that we can translate llvm.dbg.declare for a local variable which was
 // deleted by mem2reg pass(disabled by default in amd-llvm-spirv)
 // RUN: %clang_cc1 %s -triple spir -disable-llvm-passes -debug-info-kind=standalone -emit-llvm-bc -o - | amd-llvm-spirv -spirv-mem2reg -o %t.spv

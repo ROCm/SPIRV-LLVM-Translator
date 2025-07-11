@@ -13,10 +13,10 @@
 // CHECK-SPIRV-DAG: Name [[#Write:]] "test_pipe_write"
 // CHECK-SPIRV-DAG: Name [[#Query:]] "test_pipe_query_functions"
 // CHECK-SPIRV-DAG: Name [[#Read:]] "test_pipe_read"
-// CHECK-SPIRV-DAG: Name [[#WorkgroupWriteChar:]] "__clang_ocl_kern_imp_test_pipe_workgroup_write_char"
-// CHECK-SPIRV-DAG: Name [[#WorkgroupReadChar:]] "__clang_ocl_kern_imp_test_pipe_workgroup_read_char"
-// CHECK-SPIRV-DAG: Name [[#SubgroupWriteUint:]] "__clang_ocl_kern_imp_test_pipe_subgroup_write_uint"
-// CHECK-SPIRV-DAG: Name [[#SubgroupReadUint:]] "__clang_ocl_kern_imp_test_pipe_subgroup_read_uint"
+// CHECK-SPIRV-DAG: Name [[#WorkgroupWriteChar:]] "test_pipe_workgroup_write_char"
+// CHECK-SPIRV-DAG: Name [[#WorkgroupReadChar:]] "test_pipe_workgroup_read_char"
+// CHECK-SPIRV-DAG: Name [[#SubgroupWriteUint:]] "test_pipe_subgroup_write_uint"
+// CHECK-SPIRV-DAG: Name [[#SubgroupReadUint:]] "test_pipe_subgroup_read_uint"
 
 // CHECK-SPIRV-DAG: TypePipe [[ROPipeTy:[0-9]+]] 0
 // CHECK-SPIRV-DAG: TypePipe [[WOPipeTy:[0-9]+]] 1
