@@ -1,7 +1,7 @@
 ; Check that we don't end up with duplicated array types in TypeMap.
 ; No FileCheck needed, we only want to check the absence of errors.
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
 
 ; ModuleID = 'duplicate-array-types'

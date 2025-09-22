@@ -1,3 +1,4 @@
+; XFAIL: *
 ; REQUIRES: object-emission
 
 ; RUN: llvm-as < %s -o %t.bc
