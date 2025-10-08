@@ -38,7 +38,6 @@
 
 #include "OCLUtil.h"
 #include "SPIRVToOCL.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Verifier.h"
 
 #define DEBUG_TYPE "spvtocl20"
@@ -116,27 +115,46 @@ static void translateSPIRVCmpXchgToLLVM(CallInst *CI, Op OC) {
   CI->eraseFromParent();
 }
 
+static AtomicRMWInst::BinOp getAtomicRMWInstForOp(Op op) {
+  switch (op) {
+  case OpAtomicAnd:
+    return AtomicRMWInst::And;
+  case OpAtomicExchange:
+    return AtomicRMWInst::Xchg;
+  case OpAtomicFAddEXT:
+    return AtomicRMWInst::FAdd;
+  case OpAtomicFMaxEXT:
+    return AtomicRMWInst::FMax;
+  case OpAtomicFMinEXT:
+    return AtomicRMWInst::FMin;
+  case OpAtomicIAdd:
+    return AtomicRMWInst::Add;
+  case OpAtomicIDecrement:
+    return AtomicRMWInst::UDecWrap;
+  case OpAtomicIIncrement:
+    return AtomicRMWInst::UIncWrap;
+  case OpAtomicISub:
+    return AtomicRMWInst::Sub;
+  case OpAtomicOr:
+    return AtomicRMWInst::Or;
+  case OpAtomicSMax:
+    return AtomicRMWInst::Max;
+  case OpAtomicSMin:
+    return AtomicRMWInst::Min;
+  case OpAtomicUMax:
+    return AtomicRMWInst::UMax;
+  case OpAtomicUMin:
+    return AtomicRMWInst::UMin;
+  case OpAtomicXor:
+    return AtomicRMWInst::Xor;
+  default:
+    llvm_unreachable("Undefined operation");
+  }
+}
+
 static void translateSPIRVAtomicBuiltinToLLVMAtomicOp(CallInst *CI, Op OC) {
   if (OC == OpAtomicCompareExchange || OC == OpAtomicCompareExchangeWeak)
     return translateSPIRVCmpXchgToLLVM(CI, OC);
-
-  static const DenseMap<Op, AtomicRMWInst::BinOp> SPIRVtoLLVM{
-    {OpAtomicAnd, AtomicRMWInst::And},
-    {OpAtomicExchange, AtomicRMWInst::Xchg},
-    {OpAtomicFAddEXT, AtomicRMWInst::FAdd},
-    {OpAtomicFMaxEXT, AtomicRMWInst::FMax},
-    {OpAtomicFMinEXT, AtomicRMWInst::FMin},
-    {OpAtomicIAdd, AtomicRMWInst::Add},
-    {OpAtomicIDecrement, AtomicRMWInst::UDecWrap},
-    {OpAtomicIIncrement, AtomicRMWInst::UIncWrap},
-    {OpAtomicISub, AtomicRMWInst::Sub},
-    {OpAtomicOr, AtomicRMWInst::Or},
-    {OpAtomicSMax, AtomicRMWInst::Max},
-    {OpAtomicSMin, AtomicRMWInst::Min},
-    {OpAtomicUMax, AtomicRMWInst::UMax},
-    {OpAtomicUMin, AtomicRMWInst::UMin},
-    {OpAtomicXor, AtomicRMWInst::Xor}
-  };
 
   assert(isa<ConstantInt>(CI->getArgOperand(CI->arg_size() - 1)));
   assert(isa<ConstantInt>(CI->getArgOperand(CI->arg_size() - 2)));
@@ -156,8 +174,9 @@ static void translateSPIRVAtomicBuiltinToLLVMAtomicOp(CallInst *CI, Op OC) {
     ST->setAtomic(Order, S);
     CI->replaceAllUsesWith(ST);
   } else {
-    auto RMW = Builder.CreateAtomicRMW(SPIRVtoLLVM.at(OC), CI->getOperand(0),
-                                       CI->getOperand(1), {}, Order, S);
+    auto RMW =
+        Builder.CreateAtomicRMW(getAtomicRMWInstForOp(OC), CI->getOperand(0),
+                                CI->getOperand(1), {}, Order, S);
     CI->replaceAllUsesWith(RMW);
   }
 
