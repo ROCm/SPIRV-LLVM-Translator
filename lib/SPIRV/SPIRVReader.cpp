@@ -98,6 +98,8 @@ using namespace llvm;
 using namespace SPIRV;
 using namespace OCLUtil;
 
+this should not compile!
+
 namespace SPIRV {
 
 cl::opt<bool> SPIRVEnableStepExpansion(
