@@ -1989,7 +1989,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
   }
 
   case OpLifetimeStart: {
-SPIRVLifetimeStart *LTStart = static_cast<SPIRVLifetimeStart *>(BV);
+    SPIRVLifetimeStart *LTStart = static_cast<SPIRVLifetimeStart *>(BV);
     IRBuilder<> Builder(BB);
     auto *Var = transValue(LTStart->getObject(), F, BB);
     Var = Var->stripPointerCasts();
