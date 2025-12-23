@@ -49,7 +49,7 @@
 #include "SPIRVWriter.h"
 
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
+#include "llvm/Extensions/PassPlugin.h"
 
 using namespace llvm;
 
