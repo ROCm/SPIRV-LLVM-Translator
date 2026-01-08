@@ -152,6 +152,11 @@ jobs:
              git log -1
              pwd   #Just to debug, remove this
              ls    #Just to degub, remove this
+             cd compiler
+             ls
+             cd amd-llvm
+             ls
+             cd ../..
              cd compiler/amd-llvm/llvm
              git log -3
              cd -
