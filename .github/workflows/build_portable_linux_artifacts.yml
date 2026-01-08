@@ -116,18 +116,17 @@ jobs:
         run: |
           ./build_tools/fetch_sources.py --jobs 12
 
-      - name: "Checking out repository for llvm-project"
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          path: compiler/amd-llvm
-          ref: amd-mainline
-          clean: false
-
       - name: "Checking out repository for spriv-llvm-translator"
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: "ROCm/spirv-llvm-translator"
           path: compiler/spirv-llvm-translator
+
+      - name: "Checking out repository for llvm-project"
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          path: compiler/amd-llvm
+          ref: amd-mainline
 
       - name: "Checking out repository for hipify"
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -135,7 +134,6 @@ jobs:
           repository: "ROCm/hipify"
           path: compiler/hipify
           ref: amd-mainline
-          clean: false
 
       - name: Apply patches
         run: |
