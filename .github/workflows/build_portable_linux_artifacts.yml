@@ -150,6 +150,8 @@ jobs:
         run: |
              git config --global --add safe.directory $PWD
              git log -1
+             pwd   #Just to debug, remove this
+             ls    #Just to degub, remove this
              cd compiler/amd-llvm/llvm
              git log -3
              cd -
