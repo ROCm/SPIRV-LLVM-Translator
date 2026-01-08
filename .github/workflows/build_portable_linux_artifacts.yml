@@ -121,6 +121,7 @@ jobs:
         with:
           path: compiler/amd-llvm
           ref: amd-mainline
+          clean: false
 
       - name: "Checking out repository for spriv-llvm-translator"
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -134,6 +135,7 @@ jobs:
           repository: "ROCm/hipify"
           path: compiler/hipify
           ref: amd-mainline
+          clean: false
 
       - name: Apply patches
         run: |
@@ -153,8 +155,7 @@ jobs:
              pwd   #Just to debug, remove this
              cd compiler/amd-llvm
              ls
-             cd ../../..
-             ls
+             cd ../../
              cd compiler/amd-llvm/llvm
              git log -3
              cd -
