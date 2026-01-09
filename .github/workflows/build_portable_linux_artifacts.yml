@@ -170,7 +170,7 @@ jobs:
 
       - name: Build therock-archives and therock-dist
         run: |
-          cmake --build build --target therock-archives therock-dist -- -k 0
+          cmake --build build --target therock-archives therock-dist -- -j32
 
       - name: Test Packaging
         if: ${{ github.event.repository.name == 'TheRock' }}
@@ -212,7 +212,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
         with:
           aws-region: us-east-2
-          role-to-assume: arn:aws:iam::692859939525:role/therock-ci
+          role-to-assume: arn:aws:iam::692859939525:role/therock-ci-external
 
       - name: Post Build Upload
         if: always()
