@@ -84,6 +84,17 @@ jobs:
           ref: ${{ secrets.THEROCK_MAINLINE_REF }}
           fetch-depth: 10
 
+      - name: Update Submodule Pointer to the PR
+        run: |
+          git config --global --add safe.directory $PWD
+          # Fetch the latest commit SHA from the PR branch          
+          PR_SHA=${{ github.event.pull_request.head.sha }}
+          # Update the submodule pointer using cacheinfo
+          git update-index --cacheinfo 160000,$PR_SHA,compiler/spirv-llvm-translator 
+          # Verify the pointer update
+          git submodule status
+          git submodule
+
       - name: Install python deps
         run: |
           pip install -r requirements.txt
@@ -123,11 +134,6 @@ jobs:
           path: compiler/amd-llvm
           ref: amd-mainline
 
-      - name: "Checking out repository for spriv-llvm-translator"
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          path: compiler/spirv-llvm-translator
-
       - name: "Checking out repository for hipify"
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
@@ -149,9 +155,11 @@ jobs:
       - name: TheRock and llvm SHA
         run: |
              git config --global --add safe.directory $PWD
-             git log -1
-             cd compiler/amd-llvm/llvm
-             git log -3
+             git log --oneline -1
+             ls -l compiler/amd-llvm
+             cd compiler/amd-llvm/llvm  
+             ls -l
+             git log --oneline -3             
              cd -
 
       - name: Configure Projects
