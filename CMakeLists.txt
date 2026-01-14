@@ -12,7 +12,7 @@ option(LLVM_SPIRV_INCLUDE_TESTS
   "Generate build targets for the llvm-spirv lit tests."
   ${LLVM_INCLUDE_TESTS})
 
-if (NOT DEFINED LLVM_SPIRV_BUILD_EXTERNAL)
+if (NOT DEFINED LLVM_SPIRV_BUILD_EXTERNAL
   # check if we build inside llvm or not
   if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     set(LLVM_SPIRV_BUILD_EXTERNAL YES)
