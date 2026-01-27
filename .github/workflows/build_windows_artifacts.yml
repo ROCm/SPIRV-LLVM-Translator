@@ -145,6 +145,7 @@ jobs:
           git config fetch.parallel 10
           git config --global core.symlinks true
           git config --global core.longpaths true
+          git submodule update --init --remote compiler/amd-llvm || true
           python ./build_tools/fetch_sources.py --jobs 12
 
       - name: "Checking out repository for llvm-project"
