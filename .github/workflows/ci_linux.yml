@@ -19,6 +19,9 @@ on:
         type: string
       test_runs_on:
         type: string
+      benchmark_runs_on:
+        type: string
+        default: ""          
       expect_failure:
         type: boolean
       use_prebuilt_artifacts:
