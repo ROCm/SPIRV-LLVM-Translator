@@ -77,7 +77,7 @@ jobs:
     with:
       artifact_group: ${{ inputs.artifact_group }}
       amdgpu_families: ${{ inputs.amdgpu_families }}
-      test_runs_on: ${{ inputs.benchmark_runs_on }}      
+      test_runs_on: ${{ inputs.benchmark_runs_on }} 
       artifact_run_id: ${{ inputs.artifact_run_id }}
 
   build_windows_python_packages:
