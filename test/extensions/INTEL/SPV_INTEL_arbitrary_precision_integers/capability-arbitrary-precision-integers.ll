@@ -1,4 +1,4 @@
-; RUN: llvm-spirv %s --spirv-ext=+SPV_INTEL_arbitrary_precision_integers -o %t.spv
+; RUN: llvm-spirv %s --spirv-ext=+SPV_ALTERA_arbitrary_precision_integers -o %t.spv
 ; RUN: llvm-spirv %t.spv -to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
@@ -8,8 +8,8 @@
 ; RUN: llvm-spirv -spirv-text -r %t.spt -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
-; CHECK-SPIRV: Capability ArbitraryPrecisionIntegersINTEL
-; CHECK-SPIRV: Extension "SPV_INTEL_arbitrary_precision_integers"
+; CHECK-SPIRV: Capability ArbitraryPrecisionIntegersALTERA
+; CHECK-SPIRV: Extension "SPV_ALTERA_arbitrary_precision_integers"
 
 ; CHECK-SPIRV-DAG: TypeInt {{[0-9]+}} 13 0
 ; CHECK-SPIRV-DAG: TypeInt {{[0-9]+}} 58 0

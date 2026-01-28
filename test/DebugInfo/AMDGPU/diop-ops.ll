@@ -1,4 +1,3 @@
-; XFAIL: *
 ; RUN: llvm-as < %s -o %t.bc
 ; RUN: llvm-spirv --spirv-debug-info-version=nonsemantic-shader-200 %t.bc -o %t.spv
 ; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s

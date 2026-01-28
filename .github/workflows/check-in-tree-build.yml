@@ -119,11 +119,11 @@
 #       - name: Build
 #         run: |
 #           cd build
-#           make llvm-spirv -j2
+#           make llvm-spirv -j$(nproc)
 #       - name: Build tests & test
 #         run: |
 #           cd build
-#           make check-llvm-spirv -j2
+#           make check-llvm-spirv -j$(nproc)
 
 #   build_windows:
 #     name: Windows
@@ -176,51 +176,51 @@
 #           #           cd build
 #           #           cmake --build . --config Release --target check-llvm-spirv -j2
 
-#   build_and_test_macosx:
-#     name: macOS
-#     strategy:
-#       matrix:
-#         build_type: [Release]
-#       fail-fast: false
-#     runs-on: macos-latest
-#     continue-on-error: true
-#     steps:
-#       - name: Checkout LLVM sources
-#         uses: actions/checkout@v5
-#         with:
-#           repository: llvm/llvm-project
-#           ref: main
-#           path: llvm-project
-#       - name:  Checkout the translator sources
-#         uses: actions/checkout@v5
-#         with:
-#           path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
-#       - name:  Get tag for SPIR-V Headers
-#         id: spirv-headers-tag
-#         run: |
-#           echo "spirv_headers_tag=$(cat llvm-project/llvm/projects/SPIRV-LLVM-Translator/spirv-headers-tag.conf)" >> $GITHUB_ENV
-#       - name:  Checkout SPIR-V Headers
-#         uses: actions/checkout@v5
-#         with:
-#           repository: KhronosGroup/SPIRV-Headers
-#           ref: ${{ env.spirv_headers_tag }}
-#           path: llvm-project/llvm/projects/SPIRV-Headers
-#       - name: Configure
-#         run: |
-#           mkdir build && cd build
-#           cmake ${{ github.workspace }}/llvm-project/llvm \
-#             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-#             -DLLVM_TARGETS_TO_BUILD="X86" \
-#             -DSPIRV_SKIP_CLANG_BUILD=ON \
-#             -DSPIRV_SKIP_DEBUG_INFO_TESTS=ON \
-#             -DLLVM_LIT_ARGS="-sv --no-progress-bar" \
-#             -G "Unix Makefiles"
-#       - name: Build
-#         run: |
-#           cd build
-#           make llvm-spirv -j2
-#           # FIXME: Testing is disabled at the moment as it requires clang to be present
-#           # - name: Build tests & test
-#           #   run: |
-#           #     cd build
-#           #     make check-llvm-spirv -j2
+  # build_and_test_macosx:
+  #   name: macOS
+  #   strategy:
+  #     matrix:
+  #       build_type: [Release]
+  #     fail-fast: false
+  #   runs-on: macos-latest
+  #   continue-on-error: true
+  #   steps:
+  #     - name: Checkout LLVM sources
+  #       uses: actions/checkout@v5
+  #       with:
+  #         repository: llvm/llvm-project
+  #         ref: main
+  #         path: llvm-project
+  #     - name:  Checkout the translator sources
+  #       uses: actions/checkout@v5
+  #       with:
+  #         path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
+  #     - name:  Get tag for SPIR-V Headers
+  #       id: spirv-headers-tag
+  #       run: |
+  #         echo "spirv_headers_tag=$(cat llvm-project/llvm/projects/SPIRV-LLVM-Translator/spirv-headers-tag.conf)" >> $GITHUB_ENV
+  #     - name:  Checkout SPIR-V Headers
+  #       uses: actions/checkout@v5
+  #       with:
+  #         repository: KhronosGroup/SPIRV-Headers
+  #         ref: ${{ env.spirv_headers_tag }}
+  #         path: llvm-project/llvm/projects/SPIRV-Headers
+  #     - name: Configure
+  #       run: |
+  #         mkdir build && cd build
+  #         cmake ${{ github.workspace }}/llvm-project/llvm \
+  #           -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+  #           -DLLVM_TARGETS_TO_BUILD="X86" \
+  #           -DSPIRV_SKIP_CLANG_BUILD=ON \
+  #           -DSPIRV_SKIP_DEBUG_INFO_TESTS=ON \
+  #           -DLLVM_LIT_ARGS="-sv --no-progress-bar" \
+  #           -G "Unix Makefiles"
+  #     - name: Build
+  #       run: |
+  #         cd build
+  #         make llvm-spirv -j$(sysctl -n hw.logicalcpu)
+  #         # FIXME: Testing is disabled at the moment as it requires clang to be present
+  #         # - name: Build tests & test
+  #         #   run: |
+  #         #     cd build
+  #         #     make check-llvm-spirv -j2

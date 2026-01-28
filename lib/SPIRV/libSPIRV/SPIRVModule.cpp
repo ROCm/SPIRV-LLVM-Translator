@@ -328,8 +328,6 @@ public:
   SPIRVEntry *addTypeStructContinuedINTEL(unsigned NumMembers) override;
   void closeStructType(SPIRVTypeStruct *T, bool) override;
   SPIRVTypeVector *addVectorType(SPIRVType *, SPIRVWord) override;
-  SPIRVTypeJointMatrixINTEL *
-  addJointMatrixINTELType(SPIRVType *, std::vector<SPIRVValue *>) override;
   SPIRVTypeCooperativeMatrixKHR *
   addCooperativeMatrixKHRType(SPIRVType *, std::vector<SPIRVValue *>) override;
   SPIRVTypeTaskSequenceINTEL *addTaskSequenceINTELType() override;
@@ -520,7 +518,8 @@ public:
   SPIRVInstruction *addTransposeInst(SPIRVType *TheType, SPIRVId TheMatrix,
                                      SPIRVBasicBlock *BB) override;
   SPIRVInstruction *addUnaryInst(Op, SPIRVType *, SPIRVValue *,
-                                 SPIRVBasicBlock *) override;
+                                 SPIRVBasicBlock *,
+                                 SPIRVInstruction * = nullptr) override;
   SPIRVInstruction *addVariable(SPIRVType *, SPIRVType *, bool,
                                 SPIRVLinkageTypeKind, SPIRVValue *,
                                 const std::string &, SPIRVStorageClassKind,
@@ -1172,12 +1171,6 @@ SPIRVTypeVector *SPIRVModuleImpl::addVectorType(SPIRVType *CompType,
   return addType(Ty);
 }
 
-SPIRVTypeJointMatrixINTEL *
-SPIRVModuleImpl::addJointMatrixINTELType(SPIRVType *CompType,
-                                         std::vector<SPIRVValue *> Args) {
-  return addType(new SPIRVTypeJointMatrixINTEL(this, getId(), CompType, Args));
-}
-
 SPIRVTypeCooperativeMatrixKHR *
 SPIRVModuleImpl::addCooperativeMatrixKHRType(SPIRVType *CompType,
                                              std::vector<SPIRVValue *> Args) {
@@ -1759,16 +1752,16 @@ SPIRVInstruction *SPIRVModuleImpl::addReturnValueInst(SPIRVValue *ReturnValue,
   return addInstruction(new SPIRVReturnValue(ReturnValue, BB), BB);
 }
 
-SPIRVInstruction *SPIRVModuleImpl::addUnaryInst(Op TheOpCode,
-                                                SPIRVType *TheType,
-                                                SPIRVValue *Op,
-                                                SPIRVBasicBlock *BB) {
+SPIRVInstruction *
+SPIRVModuleImpl::addUnaryInst(Op TheOpCode, SPIRVType *TheType, SPIRVValue *Op,
+                              SPIRVBasicBlock *BB,
+                              SPIRVInstruction *InsertBefore) {
   if (TheType->isTypeFloat(16, FPEncodingBFloat16KHR) && TheOpCode != OpDot)
     addCapability(internal::CapabilityBFloat16ArithmeticINTEL);
   return addInstruction(
       SPIRVInstTemplateBase::create(TheOpCode, TheType, getId(),
                                     getVec(Op->getId()), BB, this),
-      BB);
+      BB, InsertBefore);
 }
 
 SPIRVInstruction *SPIRVModuleImpl::addVectorExtractDynamicInst(
@@ -1865,10 +1858,24 @@ SPIRVInstruction *SPIRVModuleImpl::addSelectionMergeInst(
 SPIRVInstruction *SPIRVModuleImpl::addLoopMergeInst(
     SPIRVId MergeBlock, SPIRVId ContinueTarget, SPIRVWord LoopControl,
     std::vector<SPIRVWord> LoopControlParameters, SPIRVBasicBlock *BB) {
-  return addInstruction(
-      new SPIRVLoopMerge(MergeBlock, ContinueTarget, LoopControl,
-                         LoopControlParameters, BB),
-      BB, const_cast<SPIRVInstruction *>(BB->getTerminateInstr()));
+  SPIRVInstruction *TermInst =
+      const_cast<SPIRVInstruction *>(BB->getTerminateInstr());
+  // OpLoopMerge must be the second-to-last instruction in the block,
+  // immediately preceding the branch instruction (OpBranch or
+  // OpBranchConditional)
+  if (TermInst && (TermInst->getOpCode() == OpBranch ||
+                   TermInst->getOpCode() == OpBranchConditional)) {
+    return addInstruction(new SPIRVLoopMerge(MergeBlock, ContinueTarget,
+                                             LoopControl, LoopControlParameters,
+                                             BB),
+                          BB, TermInst);
+  }
+  // If terminator doesn't exist yet or is not a branch, add at end
+  // (it will be before terminator when added)
+  return addInstruction(new SPIRVLoopMerge(MergeBlock, ContinueTarget,
+                                           LoopControl, LoopControlParameters,
+                                           BB),
+                        BB);
 }
 
 SPIRVInstruction *SPIRVModuleImpl::addLoopControlINTELInst(
@@ -1876,9 +1883,21 @@ SPIRVInstruction *SPIRVModuleImpl::addLoopControlINTELInst(
     SPIRVBasicBlock *BB) {
   addCapability(CapabilityUnstructuredLoopControlsINTEL);
   addExtension(ExtensionID::SPV_INTEL_unstructured_loop_controls);
+  SPIRVInstruction *TermInst =
+      const_cast<SPIRVInstruction *>(BB->getTerminateInstr());
+  // OpLoopControlINTEL must be the second-to-last instruction in the block,
+  // immediately preceding the branch instruction (OpBranch or
+  // OpBranchConditional)
+  if (TermInst && (TermInst->getOpCode() == OpBranch ||
+                   TermInst->getOpCode() == OpBranchConditional)) {
+    return addInstruction(
+        new SPIRVLoopControlINTEL(LoopControl, LoopControlParameters, BB), BB,
+        TermInst);
+  }
+  // If terminator doesn't exist yet or is not a branch, add at end
+  // (it will be before terminator when added)
   return addInstruction(
-      new SPIRVLoopControlINTEL(LoopControl, LoopControlParameters, BB), BB,
-      const_cast<SPIRVInstruction *>(BB->getTerminateInstr()));
+      new SPIRVLoopControlINTEL(LoopControl, LoopControlParameters, BB), BB);
 }
 
 SPIRVInstruction *SPIRVModuleImpl::addFixedPointIntelInst(

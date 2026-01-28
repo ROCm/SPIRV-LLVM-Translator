@@ -1,5 +1,5 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_arbitrary_precision_integers -o %t.spv
+; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_ALTERA_arbitrary_precision_integers -o %t.spv
 ; RUN: llvm-spirv %t.spv -to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 ; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
@@ -8,8 +8,8 @@
 ; RUN: not llvm-spirv %t.bc 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
 ; CHECK-ERROR: InvalidBitWidth: Invalid bit width in input: 4
 
-; CHECK-SPIRV: Capability ArbitraryPrecisionIntegersINTEL
-; CHECK-SPIRV: Extension "SPV_INTEL_arbitrary_precision_integers"
+; CHECK-SPIRV: Capability ArbitraryPrecisionIntegersALTERA
+; CHECK-SPIRV: Extension "SPV_ALTERA_arbitrary_precision_integers"
 ; CHECK-SPIRV: TypeInt [[#Int4:]] 4 0
 ; CHECK-SPIRV: Constant [[#Int4]] [[#Const:]] 1
 ; CHECK-SPIRV: TypeFunction [[#]] [[#]] [[#Int4]]

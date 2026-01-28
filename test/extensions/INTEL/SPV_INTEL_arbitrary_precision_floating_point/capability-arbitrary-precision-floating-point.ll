@@ -406,10 +406,10 @@
 ; clang -I llvm/include/sycl -S -emit-llvm -fno-sycl-early-optimizations -fsycl-device-only capability-arbitrary-precision-floating-point.cpp
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_arbitrary_precision_integers,+SPV_INTEL_arbitrary_precision_floating_point -o %t.spv
+; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_ALTERA_arbitrary_precision_integers,+SPV_INTEL_arbitrary_precision_floating_point -o %t.spv
 ; RUN: llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
 
-; RUN: not llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_arbitrary_precision_integers -spirv-text -o - 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
+; RUN: not llvm-spirv %t.bc --spirv-ext=+SPV_ALTERA_arbitrary_precision_integers -spirv-text -o - 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
 ; CHECK-ERROR: InvalidInstruction: Can't translate llvm instruction:
 ; CHECK-ERROR: Floating point instructions can't be translated correctly without enabled SPV_INTEL_arbitrary_precision_floating_point extension!
 
@@ -417,15 +417,15 @@
 ; RUN: llvm-dis < %t.r.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; Test with untyped pointers enabled.
-; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_arbitrary_precision_integers,+SPV_INTEL_arbitrary_precision_floating_point,+SPV_KHR_untyped_pointers -o %t.spv
+; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_ALTERA_arbitrary_precision_integers,+SPV_INTEL_arbitrary_precision_floating_point,+SPV_KHR_untyped_pointers -o %t.spv
 ; RUN: llvm-spirv -r %t.spv -o %t.r.bc
 ; RUN: llvm-dis < %t.r.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; CHECK-SPIRV: 2 Capability Kernel
-; CHECK-SPIRV: 2 Capability ArbitraryPrecisionIntegersINTEL
+; CHECK-SPIRV: 2 Capability ArbitraryPrecisionIntegersALTERA
 ; CHECK-SPIRV: 2 Capability ArbitraryPrecisionFloatingPointINTEL
+; CHECK-SPIRV: 11 Extension "SPV_ALTERA_arbitrary_precision_integers"
 ; CHECK-SPIRV: 13 Extension "SPV_INTEL_arbitrary_precision_floating_point"
-; CHECK-SPIRV: 11 Extension "SPV_INTEL_arbitrary_precision_integers"
 
 ; CHECK-SPIRV: 4 TypeInt [[Ty_8:[0-9]+]] 8 0
 ; CHECK-SPIRV: 4 TypeInt [[Ty_40:[0-9]+]] 40 0

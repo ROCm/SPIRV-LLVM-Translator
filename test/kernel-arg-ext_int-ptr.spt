@@ -1,8 +1,8 @@
 119734787 65536 393230 10 0
 2 Capability Addresses
 2 Capability Kernel
-2 Capability ArbitraryPrecisionIntegersINTEL
-11 Extension "SPV_INTEL_arbitrary_precision_integers"
+2 Capability ArbitraryPrecisionIntegersALTERA
+11 Extension "SPV_ALTERA_arbitrary_precision_integers"
 5 ExtInstImport 1 "OpenCL.std"
 3 MemoryModel 2 2
 7 EntryPoint 6 6 "kernel_func1"
