@@ -1,0 +1,16 @@
+name: runner-test
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  hello-world:
+    runs-on: 'linux-mi325-1gpu-ossci-rocm'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Print Hello World
+        run: echo "Hello World from runner with label linux-mi325-1gpu-ossci-rocm"
