@@ -78,13 +78,11 @@ jobs:
       IS_PR_FROM_FORK: ${{ github.event.pull_request.head.repo.fork }}
     steps:
       - name: Checkout TheRock repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: "ROCm/TheRock"
-          ref: compiler/amd-staging
-          #ref: ${{ secrets.THEROCK_MAINLINE_REF }}
-          fetch-depth: 10
-
+          ref: 'compiler/amd-staging'
+          
       - name: Update Submodule Pointer to the PR
         run: |
           git config --global --add safe.directory $PWD
@@ -94,10 +92,11 @@ jobs:
           git update-index --cacheinfo 160000,$PR_SHA,compiler/spirv-llvm-translator
           git config --global user.email "z1-cciauto@amd.com"
           git config --global user.name "Z1 cciauto"
-          git commit -m "Update submodule reference for compiler/spirv-llvm-translator"          
+          git commit -m "Update submodule reference for compiler/spirv-llvm-translator"
           # Verify the pointer update
           git submodule status
           git submodule
+    
 
       - name: Install python deps
         run: |
@@ -125,6 +124,10 @@ jobs:
       - name: Test build_tools
         run: |
           python -m pytest build_tools/tests build_tools/github_actions/tests
+
+      - name: Remove ununsed existing patchces
+        run: |
+          rm -fv patches/amd-mainline/llvm-project/0001-Ensure-to-use-libamdhip64-with-major-version.patch
 
       - name: Fetch sources
         timeout-minutes: 30
@@ -163,7 +166,7 @@ jobs:
              ls -l compiler/amd-llvm
              cd compiler/amd-llvm/llvm  
              ls -l
-             git log --oneline -3             
+             git log --oneline -3
              cd -
 
       - name: Configure Projects
