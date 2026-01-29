@@ -19,6 +19,9 @@ on:
         type: string
       test_runs_on:
         type: string
+      benchmark_runs_on:
+        type: string
+        default: ""
       expect_failure:
         type: boolean
       use_prebuilt_artifacts:
@@ -34,23 +37,6 @@ permissions:
   contents: read
 
 jobs:
-  build_portable_linux_artifacts:
-    name: Build Artifacts
-    if: ${{ inputs.use_prebuilt_artifacts == 'false' }}
-    uses: ./.github/workflows/build_portable_linux_artifacts.yml
-    secrets: inherit
-    with:
-      artifact_group: ${{ inputs.artifact_group }}
-      package_version: ${{ inputs.rocm_package_version }}
-      amdgpu_families: ${{ inputs.amdgpu_families }}
-      build_variant_label: ${{ inputs.build_variant_label }}
-      build_variant_cmake_preset: ${{ inputs.build_variant_cmake_preset }}
-      build_variant_suffix: ${{ inputs.build_variant_suffix }}
-      expect_failure: ${{ inputs.expect_failure }}
-    permissions:
-      contents: read
-      id-token: write
-
   # TODO: rework "artifact_run_id" and "use_prebuilt_artifacts" here?
   #   I don't want to copy/paste this condition and special case plumbing
   #   through multiple workflows. All the packaging and testing workflows need
@@ -59,7 +45,6 @@ jobs:
   #   How about having the "build artifacts" job run as a passthrough?
 
   test_linux_artifacts:
-    needs: [build_portable_linux_artifacts]
     name: Test Artifacts
     # If the dependent job failed/cancelled, this job will not be run
     # The use_prebuilt_artifacts "or" statement ensures that tests will run if
@@ -85,24 +70,4 @@ jobs:
       test_labels: ${{ inputs.test_labels }}
       sanity_check_only_for_family: ${{ inputs.sanity_check_only_for_family == true }}
 
-  build_portable_linux_python_packages:
-    needs: [build_portable_linux_artifacts]
-    name: Build Python
-    # If the dependent job failed/cancelled, this job will not be run
-    # The use_prebuilt_artifacts "or" statement ensures that tests will run if
-    # previous build step is run or skipped.concurrency.
-    if: >-
-      ${{
-        !failure() &&
-        !cancelled() &&
-        (
-          inputs.use_prebuilt_artifacts == 'false' ||
-          inputs.use_prebuilt_artifacts == 'true'
-        ) &&
-        inputs.expect_failure == false
-      }}
-    uses: ./.github/workflows/build_portable_linux_python_packages.yml
-    with:
-      artifact_run_id: "${{ inputs.artifact_run_id != '' && inputs.artifact_run_id || github.run_id }}"
-      artifact_group: ${{ inputs.artifact_group }}
-      package_version: ${{ inputs.rocm_package_version }}
+
