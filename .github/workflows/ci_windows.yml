@@ -60,7 +60,7 @@ jobs:
     # Run benchmarks if:
     # - Build succeeded (or using prebuilt artifacts)
     # - Not expecting failure
-    # - Benchmark runner is available (benchmark_runs_on is set)      
+    # - Benchmark runner is available (benchmark_runs_on is set) 
     if: >-
       ${{
         !failure() &&
