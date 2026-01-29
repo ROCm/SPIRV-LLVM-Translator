@@ -6,7 +6,7 @@ on:
 
 jobs:
   hello-world:
-    runs-on: 'linux-mi325-1gpu-ossci-rocm'
+    runs-on: 'linux-mi325-1gpu-ossci-rocm-frac'
 
     steps:
       - name: Checkout code
