@@ -3,8 +3,7 @@
 ; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
-; RUN: llvm-spirv %t.bc -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV-NOEXT
-; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv %s -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV-NOEXT
 
 ; CHECK-SPIRV: Capability Linkage
 ; CHECK-SPIRV: Extension "SPV_AMD_weak_linkage"
