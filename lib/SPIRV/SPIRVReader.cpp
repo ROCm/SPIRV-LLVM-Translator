@@ -5476,6 +5476,10 @@ void SPIRVToLLVM::transAuxDataInst(SPIRVExtInst *BC) {
   case NonSemanticAuxData::FunctionAttribute:
   case NonSemanticAuxData::GlobalVariableAttribute: {
     assert(Args.size() < 4 && "Unexpected FunctionAttribute Args");
+    // Skip target-specific attributes so they won't conflict with attributes
+    // that can be set later during compilation.
+    if (AttrOrMDName == "target-features" || AttrOrMDName == "target-cpu")
+      return;
     // If this attr was specially handled and added elsewhere, skip it.
     Attribute::AttrKind AsKind = Attribute::getAttrKindFromName(AttrOrMDName);
     if (AsKind != Attribute::None)
