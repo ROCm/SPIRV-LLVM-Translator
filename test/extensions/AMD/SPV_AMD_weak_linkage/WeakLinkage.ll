@@ -1,5 +1,4 @@
-; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv --spirv-ext=+SPV_AMD_weak_linkage %t.bc -o %t.spv
+; RUN: llvm-spirv %s --spirv-ext=+SPV_AMD_weak_linkage -o %t.spv
 ; RUN: llvm-spirv %t.spv --to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
 ; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
