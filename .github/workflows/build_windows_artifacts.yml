@@ -214,7 +214,7 @@ jobs:
 
       - name: Build therock-archives and therock-dist
         run: |
-          cd L:
+          cd /d ${{ steps.subst.outputs.drive }}
           cmake --build "${{ env.BUILD_DIR }}" --target therock-archives therock-dist -- -j32
 
       - name: Report
