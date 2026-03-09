@@ -168,7 +168,7 @@ jobs:
       - name: Fetch sources
         timeout-minutes: 30
         run: |
-          cd /d ${{ steps.subst.outputs.drive }}
+          cd "${{ steps.subst.outputs.drive }}/"
           git config fetch.parallel 10
           git config --global core.symlinks true
           git config --global core.longpaths true
@@ -194,7 +194,7 @@ jobs:
           #extra_cmake_options: ${{ inputs.extra_cmake_options }}
           extra_cmake_options: "-DTHEROCK_ENABLE_ALL=OFF -DTHEROCK_ENABLE_COMPILER=ON -DTHEROCK_ENABLE_HIP_RUNTIME=ON -DTHEROCK_ENABLE_PRIM=ON -DTHEROCK_ENABLE_BLAS=ON -DTHEROCK_ENABLE_RAND=ON -DTHEROCK_ENABLE_SOLVER=ON -DTHEROCK_ENABLE_SPARSE=ON -DTHEROCK_ENABLE_SYSDEPS=OFF  -DTHEROCK_ENABLE_COMPOSABLE_KERNEL=OFF -DTHEROCK_ENABLE_OCL_RUNTIME=ON  -DTHEROCK_ENABLE_MATH_LIBS=ON -DLLVM_SMREV_REPO='' -DLLVM_SMREV_REVISION=''"
         run: |
-          cd /d ${{ steps.subst.outputs.drive }}
+          cd "${{ steps.subst.outputs.drive }}/"
           # clear cache before build and after download
           ccache -z
           python3 build_tools/github_actions/build_configure.py
@@ -208,13 +208,13 @@ jobs:
           extra_cmake_options: ${{ inputs.extra_cmake_options }}
         run: |
           # clear cache before build and after download
-          cd /d ${{ steps.subst.outputs.drive }}
+          cd "${{ steps.subst.outputs.drive }}/"
           ccache -z
-          cmake -B 'B:\build' -GNinja -S '${{ steps.subst.outputs.drive }}\' --preset windows-release -DTHEROCK_AMDGPU_FAMILIES=gfx1151 '-DCMAKE_C_COMPILER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\/bin/Hostx64/x64/cl.exe' '-DCMAKE_CXX_COMPILER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\/bin/Hostx64/x64/cl.exe' '-DCMAKE_LINKER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\/bin/Hostx64/x64/link.exe' -DTHEROCK_BACKGROUND_BUILD_JOBS=4          
+          cmake -B "B:\build" -GNinja -S "${{ steps.subst.outputs.drive }}/" --preset windows-release -DTHEROCK_AMDGPU_FAMILIES=gfx1151 "-DCMAKE_C_COMPILER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207/bin/Hostx64/x64/cl.exe" "-DCMAKE_CXX_COMPILER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207/bin/Hostx64/x64/cl.exe" "-DCMAKE_LINKER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207/bin/Hostx64/x64/link.exe" -DTHEROCK_BACKGROUND_BUILD_JOBS=4          
 
       - name: Build therock-archives and therock-dist
         run: |
-          cd /d ${{ steps.subst.outputs.drive }}
+          cd "${{ steps.subst.outputs.drive }}/"
           cmake --build "${{ env.BUILD_DIR }}" --target therock-archives therock-dist -- -j32
 
       - name: Report
@@ -271,4 +271,4 @@ jobs:
         shell: cmd
         run: |
           REM Remove the drive mapping
-          subst ${{ steps.subst.outputs.drive }} /D          
+          subst ${{ steps.subst.outputs.drive }} /D
