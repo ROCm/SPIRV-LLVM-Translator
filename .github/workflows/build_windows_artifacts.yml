@@ -98,7 +98,7 @@ jobs:
           git submodule status
           git submodule
 
-      - name: "Map Current Directory to Drive"
+      - name: "Map Current Directory to a Drive"
         id: subst
         shell: cmd
         run: |
@@ -110,7 +110,7 @@ jobs:
               goto :found
             )
           )
-          echo No available drive letter found.
+          echo No available drive letter found. So exiting
           exit /b 1
           :found
           subst %driveLetter% "%currentDir%"
