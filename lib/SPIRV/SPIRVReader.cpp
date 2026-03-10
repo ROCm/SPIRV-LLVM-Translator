@@ -358,7 +358,8 @@ Type *SPIRVToLLVM::transType(SPIRVType *T, bool UseTPT) {
     // and evaluated before the LLVM ArrayType can be constructed.
     auto *LenExpr = static_cast<const SPIRVTypeArray *>(T)->getLength();
     auto *LenValue = cast<ConstantInt>(transValue(LenExpr, nullptr, nullptr));
-    if (LenValue->getZExtValue() == UINT32_MAX && IsAMDGCN)
+    if ((LenValue->getZExtValue() == UINT64_MAX ||
+         LenValue->getZExtValue() == UINT32_MAX) && IsAMDGCN)
       return mapType(T, ArrayType::get(transType(T->getArrayElementType()), 0));
     return mapType(T, ArrayType::get(transType(T->getArrayElementType()),
                                      LenValue->getZExtValue()));
