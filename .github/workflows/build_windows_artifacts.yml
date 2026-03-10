@@ -48,6 +48,8 @@ on:
         type: boolean
       extra_cmake_options:
         type: string
+      test_type:
+        type: string
 
 permissions:
   contents: read
@@ -78,9 +80,11 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: "ROCm/TheRock"
+          ref: 'compiler/amd-mainline'
 
 
       - name: Update Submodule Pointer to the PR
+        if: ${{ github.event_name == 'pull_request' }}
         run: |
           git config --global --add safe.directory $PWD
           # Fetch the latest commit SHA from the PR branch
@@ -94,22 +98,27 @@ jobs:
           git submodule status
           git submodule
 
-      - name: "Map Current Directory to L Drive"
+      - name: "Map Current Directory to a Drive"
         id: subst
         shell: cmd
         run: |
-          REM Get the current working directory
           set currentDir=%cd%
-
-          REM Substitute the current directory with L: drive
-          subst L: %currentDir%
-          cd L:
-          dir L:
-
-      - name: map details
-        run: |
+          set "driveLetter="
+          for %%L in (Z Y X W V U T S R Q P O N M L) do (
+            if not exist %%L:\ (
+              set "driveLetter=%%L:"
+              goto :found
+            )
+          )
+          echo No available drive letter found. So exiting
+          exit /b 1
+          :found
+          subst %driveLetter% "%currentDir%"
+          cd /d %driveLetter%
+          dir %driveLetter%
           wmic logicaldisk get name
-
+          echo drive=%driveLetter%>>"%GITHUB_OUTPUT%"
+    
       - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
           python-version: 3.12
@@ -150,6 +159,12 @@ jobs:
         run: |
           python -m pytest build_tools/tests build_tools/github_actions/tests
 
+      - name: Remove ununsed existing patchces
+        run: |
+          rm -fv patches/amd-mainline/llvm-project/0003-HACK-Handle-ROCM-installation-layout-of-lib-llvm-bin.patch
+          rm -fv patches/amd-mainline/llvm-project/0009-Add-gcc-toolset-13-prefix-detection.patch
+          rm -fv patches/amd-mainline/llvm-project/0001-Ensure-to-use-libamdhip64-with-major-version.patch
+
       - name: Fetch sources
         timeout-minutes: 30
         run: |
@@ -159,32 +174,8 @@ jobs:
           git config --global core.longpaths true
           python ./build_tools/fetch_sources.py --jobs 12
 
-      - name: "Checking out repository for llvm-project"
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          repository: "ROCm/llvm-project"
-          path: compiler/amd-llvm
-          ref: amd-mainline
-
-      - name: "Checking out repository for hipify"
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          repository: "ROCm/hipify"
-          path: compiler/hipify
-          ref: amd-mainline
-
-      - name: Apply patches
-        run: |
-             cp -v patches/amd-mainline/llvm-project/*.patch compiler/amd-llvm
-             cd compiler/amd-llvm
-             git log -10
-             git config --global --add safe.directory $PWD
-             find . -type f -name '*.patch' -exec git apply --check {} \;
-             find . -type f -name '*.patch' -exec git apply {} \;
-             git log -15
-             cd -
-
       - name: TheRock and llvm SHA
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
         run: |
              git config --global --add safe.directory $PWD
              git log --oneline -1
@@ -194,21 +185,22 @@ jobs:
              git log --oneline -3
              cd -
 
-      - name: Configure Projects
+      - name: Configure PR Projects
+        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.test_type != 'full') }}
         env:
           cmake_preset: ${{ inputs.build_variant_cmake_preset }}
           amdgpu_families: ${{ inputs.amdgpu_families }}
           package_version: ${{ inputs.package_version }}
           extra_cmake_options: ${{ inputs.extra_cmake_options }}
         run: |
-          cd L:
+          cd "${{ steps.subst.outputs.drive }}/"
           # clear cache before build and after download
           ccache -z
-          cmake -B 'B:\build' -GNinja -S 'L:\' --preset windows-release -DTHEROCK_AMDGPU_FAMILIES=gfx1151 '-DCMAKE_C_COMPILER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\/bin/Hostx64/x64/cl.exe' '-DCMAKE_CXX_COMPILER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\/bin/Hostx64/x64/cl.exe' '-DCMAKE_LINKER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\/bin/Hostx64/x64/link.exe' -DTHEROCK_BACKGROUND_BUILD_JOBS=4
+          python3 build_tools/github_actions/build_configure.py
 
       - name: Build therock-archives and therock-dist
         run: |
-          cd L:
+          cd "${{ steps.subst.outputs.drive }}/"
           cmake --build "${{ env.BUILD_DIR }}" --target therock-archives therock-dist -- -j32
 
       - name: Report
@@ -244,7 +236,7 @@ jobs:
           get-disk | Select-object @{Name="Size(GB)";Expression={$_.Size/1GB}} | Write-Host
 
       - name: Configure AWS Credentials for non-forked repos
-        if: ${{ always() && !github.event.pull_request.head.repo.fork }}
+        if: always()
         uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
         with:
           aws-region: us-east-2
@@ -265,4 +257,4 @@ jobs:
         shell: cmd
         run: |
           REM Remove the drive mapping
-          subst L: /D
+          subst ${{ steps.subst.outputs.drive }} /D

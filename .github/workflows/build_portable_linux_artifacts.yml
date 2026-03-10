@@ -49,6 +49,8 @@ on:
         type: boolean
       extra_cmake_options:
         type: string
+      test_type:
+        type: string
 
 # See the details regarding permissions from the link:
 # https://github.com/aws-actions/configure-aws-credentials?tab=readme-ov-file#oidc
@@ -81,11 +83,13 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: "ROCm/TheRock"
+          ref: 'compiler/amd-mainline'
 
       - name: Update Submodule Pointer to the PR
+        if: ${{ github.event_name == 'pull_request' }}
         run: |
           git config --global --add safe.directory $PWD
-          # Fetch the latest commit SHA from the PR branch
+          # Fetch the latest commit SHA from the PR branch          
           PR_SHA=${{ github.event.pull_request.head.sha }}
           # Update the submodule pointer using cacheinfo
           git update-index --cacheinfo 160000,$PR_SHA,compiler/spirv-llvm-translator
@@ -95,7 +99,6 @@ jobs:
           # Verify the pointer update
           git submodule status
           git submodule
-
 
       - name: Install python deps
         run: |
@@ -124,47 +127,28 @@ jobs:
         run: |
           python -m pytest build_tools/tests build_tools/github_actions/tests
 
+      - name: Remove ununsed existing patchces
+        run: |
+          rm -fv patches/amd-mainline/llvm-project/0001-Ensure-to-use-libamdhip64-with-major-version.patch
+
       - name: Fetch sources
         timeout-minutes: 30
         run: |
           ./build_tools/fetch_sources.py --jobs 12
 
-      - name: "Checking out repository for llvm-project"
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          repository: "ROCm/llvm-project"
-          path: compiler/amd-llvm
-          ref: amd-mainline
-
-      - name: "Checking out repository for hipify"
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          repository: "ROCm/hipify"
-          path: compiler/hipify
-          ref: amd-mainline
-
-      - name: Apply patches
-        run: |
-             cp -v patches/amd-mainline/llvm-project/*.patch compiler/amd-llvm
-             cd compiler/amd-llvm
-             git log -10
-             git config --global --add safe.directory $PWD
-             find . -type f -name '*.patch' -exec git apply --check {} \;
-             find . -type f -name '*.patch' -exec git apply {} \;
-             git log -15
-             cd -
-
       - name: TheRock and llvm SHA
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
         run: |
              git config --global --add safe.directory $PWD
              git log --oneline -1
              ls -l compiler/amd-llvm
-             cd compiler/amd-llvm/llvm
+             cd compiler/amd-llvm/llvm  
              ls -l
              git log --oneline -3
              cd -
 
-      - name: Configure Projects
+      - name: Configure PR Projects
+        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.test_type != 'full') }}
         env:
           cmake_preset: ${{ inputs.build_variant_cmake_preset }}
           amdgpu_families: ${{ inputs.amdgpu_families }}
@@ -214,7 +198,7 @@ jobs:
           python3 build_tools/analyze_build_times.py --build-dir build
 
       - name: Configure AWS Credentials for non-forked repos
-        if: ${{ always() && !github.event.pull_request.head.repo.fork }}
+        if: always()
         uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
         with:
           aws-region: us-east-2
