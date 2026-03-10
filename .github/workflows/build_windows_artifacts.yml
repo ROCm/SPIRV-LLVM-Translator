@@ -104,7 +104,13 @@ jobs:
         run: |
           set currentDir=%cd%
           set "driveLetter="
-          for %%L in (Z Y X W V U T S R Q P O N M L) do (
+          REM Default: try L: first  #L: is default to check
+          if not exist L:\ (
+            set "driveLetter=L:"
+            goto :found
+          )
+          REM L: in use — find another available drive letter
+          for %%L in (Z Y X W V U T S R Q P O N M K) do (
             if not exist %%L:\ (
               set "driveLetter=%%L:"
               goto :found
@@ -117,8 +123,8 @@ jobs:
           cd /d %driveLetter%
           dir %driveLetter%
           wmic logicaldisk get name
-          echo drive=%driveLetter%>>"%GITHUB_OUTPUT%"
-          
+          echo drive=%driveLetter%>>"%GITHUB_OUTPUT%"          
+         
       - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
           python-version: 3.12
