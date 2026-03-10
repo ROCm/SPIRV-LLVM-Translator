@@ -168,7 +168,7 @@ jobs:
       - name: Fetch sources
         timeout-minutes: 30
         run: |
-          cd L:
+          cd "${{ steps.subst.outputs.drive }}/"
           git config fetch.parallel 10
           git config --global core.symlinks true
           git config --global core.longpaths true
