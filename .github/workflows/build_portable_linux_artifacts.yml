@@ -146,9 +146,17 @@ jobs:
           path: compiler/hipify
           ref: amd-mainline
 
-      - name: Remove ununsed existing patchces
+      - name: Apply patches and remove ununsed existing patchces
         run: |
-          rm -fv patches/amd-mainline/llvm-project/0001-Ensure-to-use-libamdhip64-with-major-version.patch
+             cp -v patches/amd-mainline/llvm-project/*.patch compiler/amd-llvm
+             cd compiler/amd-llvm
+             git log -10
+             git config --global --add safe.directory $PWD
+             find . -type f -name '*.patch' -exec git apply --check {} \;
+             find . -type f -name '*.patch' -exec git apply {} \;
+             git log -15   
+             rm -fv patches/amd-mainline/llvm-project/0001-Ensure-to-use-libamdhip64-with-major-version.patch
+             cd -
 
       - name: TheRock and llvm SHA
         if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
