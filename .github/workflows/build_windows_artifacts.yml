@@ -196,7 +196,7 @@ jobs:
           cd "${{ steps.subst.outputs.drive }}/"
           # clear cache before build and after download
           ccache -z
-          python3 build_tools/github_actions/build_configure.py
+          cmake -B "B:\build" -GNinja -S "${{ steps.subst.outputs.drive }}/" --preset windows-release -DTHEROCK_AMDGPU_FAMILIES=gfx1151 "-DCMAKE_C_COMPILER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\/bin/Hostx64/x64/cl.exe" "-DCMAKE_CXX_COMPILER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\/bin/Hostx64/x64/cl.exe" "-DCMAKE_LINKER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\/bin/Hostx64/x64/link.exe" -DTHEROCK_BACKGROUND_BUILD_JOBS=4
 
       - name: Build therock-archives and therock-dist
         run: |
