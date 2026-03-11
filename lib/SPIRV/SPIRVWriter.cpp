@@ -457,7 +457,7 @@ SPIRVType *LLVMToSPIRVBase::transType(Type *T) {
     const auto ArraySize =
         T->getArrayNumElements() ? T->getArrayNumElements() :
             (M->getTargetTriple().getVendor() == Triple::VendorType::AMD
-              ? UINT32_MAX : 1);
+              ? UINT64_MAX : 1);
 
     Type *ElTy = T->getArrayElementType();
     SPIRVType *TransType = BM->addArrayType(
