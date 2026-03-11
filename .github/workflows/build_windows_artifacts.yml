@@ -102,7 +102,8 @@ jobs:
         id: subst
         shell: cmd
         run: |
-          set currentDir=%cd%
+          setlocal EnableDelayedExpansion
+          set "currentDir=%cd%"
           set "driveLetter="
           REM Default: try L: first  #L: is default to check
           if not exist L:\ (
@@ -119,11 +120,12 @@ jobs:
           echo No available drive letter found. So exiting
           exit /b 1
           :found
-          subst %driveLetter% "%currentDir%"
-          cd /d %driveLetter%
-          dir %driveLetter%
+          subst !driveLetter! "!currentDir!"
+          cd /d !driveLetter!
+          dir !driveLetter!
           wmic logicaldisk get name
-          echo drive=%driveLetter%>>"%GITHUB_OUTPUT%"          
+          echo drive=!driveLetter!>>"%GITHUB_OUTPUT%"
+          endlocal
          
       - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
@@ -252,7 +254,7 @@ jobs:
           get-disk | Select-object @{Name="Size(GB)";Expression={$_.Size/1GB}} | Write-Host
 
       - name: Configure AWS Credentials for non-forked repos
-        if: always()
+        if: ${{ github.repository == 'ROCm/TheRock' }}
         uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
         with:
           aws-region: us-east-2
