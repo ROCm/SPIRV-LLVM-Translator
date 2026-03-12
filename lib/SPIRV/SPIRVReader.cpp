@@ -1756,6 +1756,13 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     auto *Ty = transType(PreTransTy);
     bool IsConst = BVar->isConstant();
     llvm::GlobalValue::LinkageTypes LinkageTy = transLinkageType(BVar);
+    // HostAccessINTEL implies the symbol must be findable by the host runtime
+    // (hipGetSymbolAddress), so it mustn't have internal linkage.
+    if (M->getTargetTriple().isAMDGCN() &&
+        BVar->hasDecorate(DecorationHostAccessINTEL) &&
+        LinkageTy == GlobalValue::InternalLinkage) {
+      LinkageTy = GlobalValue::ExternalLinkage;
+    }
     SPIRVStorageClassKind BS = BVar->getStorageClass();
     SPIRVValue *Init = BVar->getInitializer();
 
