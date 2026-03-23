@@ -1,0 +1,37 @@
+name: Notify Teams on Merge PR
+
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  notify:
+    if: github.event.pull_request.title == 'merge main into amd-staging'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Teams Notification
+        run: |
+          curl -H "Content-Type: application/json" -d '{
+            "@type": "MessageCard",
+            "themeColor": "0076D7",
+            "summary": "New merge PR opened",
+            "sections": [{
+              "activityTitle": "merge main into amd-staging",
+              "facts": [{
+                "name": "PR Number",
+                "value": "#${{ github.event.pull_request.number }}"
+              }, {
+                "name": "Author",
+                "value": "${{ github.event.pull_request.user.login }}"
+              }],
+              "markdown": true
+            }],
+            "potentialAction": [{
+              "@type": "OpenUri",
+              "name": "View PR",
+              "targets": [{
+                "os": "default",
+                "uri": "${{ github.event.pull_request.html_url }}"
+              }]
+            }]
+          }' "${{ secrets.TEAMS_WEBHOOK_URL }}"
