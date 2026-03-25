@@ -84,6 +84,7 @@
 #include "llvm/IR/TypedPointerType.h"
 #include "llvm/Pass.h"
 #include "llvm/Passes/PassBuilder.h"
+#include "llvm/Support/AMDGPUAddrSpace.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -854,7 +855,9 @@ SPIRVType *LLVMToSPIRVBase::transScavengedType(Value *V) {
 
     SPIRVType *RT = transType(FnTy->getReturnType());
     if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
-        F->hasName() && F->getName().contains("dispatch.ptr"))
+        F->isIntrinsic() && F->getReturnType()->isPointerTy() &&
+        F->getReturnType()->getPointerAddressSpace() ==
+            AMDGPUAS::CONSTANT_ADDRESS)
       RT = transType(PointerType::get(F->getContext(), SPIRAS_Constant));
 
     std::vector<SPIRVType *> PT;
