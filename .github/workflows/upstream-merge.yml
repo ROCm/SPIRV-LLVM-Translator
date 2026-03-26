@@ -91,6 +91,7 @@ jobs:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           PR_URL=$(gh pr create \
+            --repo ${{ github.repository }} \
             --base amd-staging \
             --head ${{ steps.merge.outputs.branch }} \
             --title "${{ steps.merge.outputs.pr_title }}" \
