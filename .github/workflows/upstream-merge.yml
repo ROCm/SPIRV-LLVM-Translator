@@ -23,7 +23,7 @@ jobs:
         with:
           ref: amd-staging
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Configure git
         run: |
@@ -88,7 +88,7 @@ jobs:
         id: create-pr
         if: steps.merge.outputs.conflict == 'false'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           PR_URL=$(gh pr create \
             --base amd-staging \
