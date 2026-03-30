@@ -72,6 +72,7 @@ typedef struct {
 #define NO_REQUIRED_EXTENSION  ExtensionID::Last
 #define NO_FORBIDDEN_EXTENSION ExtensionID::Last
 
+// AMD customization begin: extension name changes (SPV_INTEL_arbitrary_precision_integers -> SPV_ALTERA_arbitrary_precision_integers)
 const std::map<const StringRef, const LLVMIntrinsicMapValueType> LLVMIntrinsicMapEntries = {
 //  LLVM Intrinsic Name             Required Extension                                   Forbidden Extension                    Module with
 //                                                                                                                              emulation function
@@ -121,6 +122,7 @@ const std::map<const StringRef, const LLVMIntrinsicMapValueType> LLVMIntrinsicMa
   { "llvm.sadd.with.overflow.i32", {NO_REQUIRED_EXTENSION,                               NO_FORBIDDEN_EXTENSION,                LLVMSaddWithOverflow}},
   { "llvm.sadd.with.overflow.i64", {NO_REQUIRED_EXTENSION,                               NO_FORBIDDEN_EXTENSION,                LLVMSaddWithOverflow}},
 };
+// AMD customization end
 // clang-format on
 
 } // namespace

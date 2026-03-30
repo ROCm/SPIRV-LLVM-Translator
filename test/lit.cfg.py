@@ -52,6 +52,7 @@ config.substitutions.append(('%PATH%', config.environment['PATH']))
 
 tool_dirs = [config.llvm_spirv_dir, config.llvm_tools_dir]
 
+# AMD customization begin: Use amd-llvm-spirv tool name
 tools = ['llvm-as', 'llvm-dis', 'amd-llvm-spirv', 'not']
 if not config.spirv_skip_debug_info_tests:
     tools.extend(['llc', 'llvm-dwarfdump', 'llvm-objdump', 'llvm-readelf', 'llvm-readobj'])
@@ -61,6 +62,7 @@ if config.spirv_backend_found:
         tools.extend(['llc'])
 
 config.substitutions.append(('llvm-spirv', 'amd-llvm-spirv'))
+# AMD customization end
 llvm_config.add_tool_substitutions(tools, tool_dirs)
 
 using_spirv_tools = False
@@ -88,6 +90,7 @@ if config.spirv_tools_have_spirv_val:
 else:
     config.substitutions.append(('spirv-val', ':'))
 
+# AMD customization begin: Use LLVMSPIRVAMDLib library name
 if not config.llvm_spirv_build_external and config.llvm_build_shared_libs:
     config.available_features.add('pass-plugin')
     config.substitutions.append(
@@ -98,6 +101,7 @@ if not config.llvm_spirv_build_external and config.llvm_build_shared_libs:
             ),
         )
     )
+# AMD customization end
 
 llvm_config.with_system_environment('LD_LIBRARY_PATH')
 if using_spirv_tools:

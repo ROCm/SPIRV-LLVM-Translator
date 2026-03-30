@@ -5,8 +5,10 @@ llvm_canonicalize_cmake_booleans(LLVM_SPIRV_BUILD_EXTERNAL)
 llvm_canonicalize_cmake_booleans(SPIRV_BACKEND_FOUND)
 
 # required by lit.site.cfg.py.in
+# AMD customization begin: Use amd-llvm-spirv and LLVMSPIRVAMDLib
 get_target_property(LLVM_SPIRV_DIR amd-llvm-spirv BINARY_DIR)
 get_target_property(LLVM_SPIRV_LIB_DIR LLVMSPIRVAMDLib BINARY_DIR)
+# AMD customization end
 set(LLVM_SPIRV_TEST_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(SPIRV_TOOLS_FOUND AND NOT SPIRV-Tools-tools_FOUND)
@@ -129,6 +131,7 @@ if(NOT LLVM_SPIRV_BUILD_EXTERNAL)
 endif(NOT LLVM_SPIRV_BUILD_EXTERNAL)
 
 
+# AMD customization begin: Rename test target to check-amd-llvm-spirv
 add_lit_testsuite(check-amd-llvm-spirv "Running the amd-llvm-spirv regression tests"
   ${CMAKE_CURRENT_BINARY_DIR}
   ARGS
@@ -149,5 +152,6 @@ if(LLVM_SPIRV_BUILD_EXTERNAL)
     DEPENDS
       check-amd-llvm-spirv
   )
+# AMD customization end
   cmake_policy(POP)
 endif(LLVM_SPIRV_BUILD_EXTERNAL)

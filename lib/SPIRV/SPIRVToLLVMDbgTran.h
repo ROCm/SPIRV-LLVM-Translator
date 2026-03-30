@@ -178,9 +178,11 @@ private:
 
   DINode *transModule(const SPIRVExtInst *DebugInst);
 
+  // AMD customization begin: DIOp-based DIExpression support
   template <class OperTy>
   OperTy transDIOpOperand(const SPIRVExtInst *DbgOpInst, unsigned Idx);
   MDNode *tryTransDIOpDIExpression(const SPIRVExtInst *DebugInst);
+  // AMD customization end
   DIMacro *transMacroDef(const SPIRVExtInst *DebugInst);
 
   DIMacro *transMacroUndef(const SPIRVExtInst *DebugInst);

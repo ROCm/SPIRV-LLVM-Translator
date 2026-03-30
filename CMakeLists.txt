@@ -111,12 +111,14 @@ if(LLVM_SPIRV_BUILD_EXTERNAL)
   endif()
 endif()
 
+# AMD customization begin: Disable SPIR-V backend for AMD's fork
 is_llvm_target_library("SPIRV" spirv_present_result INCLUDED_TARGETS)
 if(spirv_present_result)
   message(STATUS "Found SPIR-V Backend, but it is currently disabled for AMD's fork.")
   # set(SPIRV_BACKEND_FOUND TRUE)
   # add_compile_definitions(LLVM_SPIRV_BACKEND_TARGET_PRESENT)
 endif()
+# AMD customization end
 
 set(LLVM_SPIRV_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include)
 

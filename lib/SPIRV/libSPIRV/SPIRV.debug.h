@@ -7,11 +7,13 @@
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 
+// AMD customization begin: DIOp-based DIExpression support
 #ifdef __has_include
 #if __has_include("llvm/IR/DIExprOps.def")
 #define SPIRV_HAS_DIOP_DIEXPRESSION
 #endif
 #endif
+// AMD customization end
 
 namespace SPIRVDebug {
 
@@ -294,6 +296,7 @@ enum ExpressionOpCode {
   ImplicitPointerTag = 166,
   TagOffset          = 167,
 
+// AMD customization begin: DIOp-based debug operations
 #ifdef SPIRV_HAS_DIOP_DIEXPRESSION
   // AMD-specific debug operations, padded.
   Poisoned           = 10000,
@@ -306,6 +309,7 @@ enum ExpressionOpCode {
 #else
   AMDExtensions_Begin = 10000,
 #endif
+// AMD customization end
 };
 
 enum ImportedEntityTag {
@@ -607,8 +611,10 @@ enum {
   FlagsIdx                   = 8,
   StaticMemberDeclarationIdx = 9,
   MinOperandCount            = 9,
+  // AMD customization begin: DIOp-based expression support
   DIOpBasedExprIdx           = 10,
   MaxOperandCount            = 11,
+  // AMD customization end
 };
 }
 
@@ -961,6 +967,7 @@ static std::unordered_map<ExpressionOpCode, unsigned> OpCountMap {
   { ImplicitPointerTag, 2 },
   { TagOffset,          2 },
 
+// AMD customization begin: DIOp-based operation counts
 #ifdef SPIRV_HAS_DIOP_DIEXPRESSION
   { Poisoned,           1 },
 
@@ -969,6 +976,7 @@ static std::unordered_map<ExpressionOpCode, unsigned> OpCountMap {
 #define HANDLE_OP2(NAME, T1, N1, T2, N2) { DIOp##NAME, 3 },
 #include "llvm/IR/DIExprOps.def"
 #endif
+// AMD customization end
 };
 }
 
@@ -1481,6 +1489,7 @@ inline void DbgExpressionOpCodeMap::init() {
   add(dwarf::DW_OP_LLVM_implicit_pointer, SPIRVDebug::ImplicitPointerTag);
   add(dwarf::DW_OP_LLVM_tag_offset,       SPIRVDebug::TagOffset);
 
+// AMD customization begin: DIOp-based expression mapping
 #ifdef SPIRV_HAS_DIOP_DIEXPRESSION
   add(dwarf::DW_OP_LLVM_poisoned,         SPIRVDebug::Poisoned);
 #endif
@@ -1496,6 +1505,7 @@ inline void DbgExpressionDIOpBasedOpCodeMap::init() {
 #include "llvm/IR/DIExprOps.def"
 #endif
 }
+// AMD customization end
 
 typedef SPIRVMap<dwarf::Tag, SPIRVDebug::ImportedEntityTag>
   DbgImportedEntityMap;

@@ -403,10 +403,12 @@ void OCLToSPIRVBase::visitCallInst(CallInst &CI) {
   if (DemangledName == kOCLBuiltinName::WorkGroupBarrier ||
       DemangledName == kOCLBuiltinName::Barrier ||
       DemangledName == kOCLBuiltinName::SubGroupBarrier) {
+    // AMD customization begin: barrier argument validation for AMD
     if (F->arg_size() != 1 && F->arg_size() != 2 &&
         F->getParent()->getTargetTriple().getVendor()
           == Triple::VendorType::AMD)
       return; // Somebody used the name.
+    // AMD customization end
     visitCallBarrier(&CI);
     return;
   }

@@ -1,3 +1,4 @@
+# AMD customization begin: Rename library to SPIRVAMDLib
 set(LLVM_LINK_COMPONENTS
   SPIRVAMDLib
   Analysis
@@ -10,6 +11,7 @@ set(LLVM_LINK_COMPONENTS
   TargetParser
   TransformUtils
 )
+# AMD customization end
 
 # llvm_setup_rpath messes with the rpath making llvm-spirv not
 # executable from the build directory in out-of-tree builds
@@ -20,6 +22,7 @@ if(LLVM_SPIRV_BUILD_EXTERNAL)
   )
 endif()
 
+# AMD customization begin: Rename tool to amd-llvm-spirv
 add_llvm_tool(amd-llvm-spirv
   llvm-spirv.cpp
   ${add_llvm_tool_options}
@@ -32,6 +35,7 @@ if (LLVM_SPIRV_BUILD_EXTERNAL OR LLVM_LINK_LLVM_DYLIB)
 endif()
 
 target_include_directories(amd-llvm-spirv
+# AMD customization end
   PRIVATE
     ${LLVM_INCLUDE_DIRS}
     ${LLVM_SPIRV_INCLUDE_DIRS}

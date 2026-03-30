@@ -75,7 +75,9 @@
 #include "llvm/IR/PassInstrumentation.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/TypedPointerType.h"
+// AMD customization begin: Include for target triple handling
 #include "llvm/MC/TargetRegistry.h"
+// AMD customization end
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -344,7 +346,9 @@ Type *SPIRVToLLVM::transType(SPIRVType *T, bool UseTPT) {
 
   SPIRVDBG(spvdbgs() << "[transType] " << *T << " -> ";)
   T->validate();
+  // AMD customization begin: AMDGCN target detection for address space mapping
   auto IsAMDGCN = M->getTargetTriple().getVendor() == Triple::VendorType::AMD;
+  // AMD customization end
   switch (static_cast<SPIRVWord>(T->getOpCode())) {
   case OpTypeVoid:
     return mapType(T, Type::getVoidTy(*Context));
@@ -359,14 +363,17 @@ Type *SPIRVToLLVM::transType(SPIRVType *T, bool UseTPT) {
     // and evaluated before the LLVM ArrayType can be constructed.
     auto *LenExpr = static_cast<const SPIRVTypeArray *>(T)->getLength();
     auto *LenValue = cast<ConstantInt>(transValue(LenExpr, nullptr, nullptr));
+    // AMD customization begin: Handle zero-sized arrays
     if (LenValue->getZExtValue() == UINT64_MAX && IsAMDGCN)
       return mapType(T, ArrayType::get(transType(T->getArrayElementType()), 0));
+    // AMD customization end
     return mapType(T, ArrayType::get(transType(T->getArrayElementType()),
                                      LenValue->getZExtValue()));
   }
   case internal::OpTypeTokenINTEL:
     return mapType(T, Type::getTokenTy(*Context));
   case OpTypePointer: {
+    // AMD customization begin: AMDGPU address space mapping
     unsigned AS =
         IsAMDGCN ? mapSPIRVAddrSpaceToAMDGPU(T->getPointerStorageClass()) :
                    SPIRSPIRVAddrSpaceMap::rmap(T->getPointerStorageClass());
@@ -377,18 +384,21 @@ Type *SPIRVToLLVM::transType(SPIRVType *T, bool UseTPT) {
         T->getPointerElementType()->getOpCode() == OpTypeFunction)
       AS = IsAMDGCN ?
           M->getDataLayout().getProgramAddressSpace() :SPIRAS_CodeSectionINTEL;
+    // AMD customization end
     Type *ElementTy = transType(T->getPointerElementType(), UseTPT);
     if (UseTPT)
       return TypedPointerType::get(ElementTy, AS);
     return mapType(T, PointerType::get(*Context, AS));
   }
   case OpTypeUntypedPointerKHR: {
+    // AMD customization begin: AMDGPU address space mapping
     unsigned AS = IsAMDGCN ?
         mapSPIRVAddrSpaceToAMDGPU(T->getPointerStorageClass()) :
         SPIRSPIRVAddrSpaceMap::rmap(T->getPointerStorageClass());
     if (AS == SPIRAS_CodeSectionINTEL && !BM->shouldEmitFunctionPtrAddrSpace())
       AS = IsAMDGCN ?
           M->getDataLayout().getProgramAddressSpace() : SPIRAS_Private;
+    // AMD customization end
     return mapType(T, PointerType::get(*Context, AS));
   }
   case OpTypeVector:
@@ -1171,6 +1181,7 @@ Value *SPIRVToLLVM::transConvertInst(SPIRVValue *BV, Function *F,
   }
   case OpBitcast:
     if (Src->getType()->isPointerTy() && Dst->isPointerTy()) {
+      // AMD customization begin: Handle pointer bitcast with address space conversion
       if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD) {
         if (Src->getType()->getPointerAddressSpace() !=
             Dst->getPointerAddressSpace())
@@ -1178,6 +1189,7 @@ Value *SPIRVToLLVM::transConvertInst(SPIRVValue *BV, Function *F,
         else
           return Src; // Spuriously inserted pointer BC.
       }
+      // AMD customization end
     } else if ((!Dst->isPointerTy() && Dst == Src->getType()) ||
                (Src->getType() == Dst)) { // Spuriously inserted BC
       return Src;
@@ -1243,9 +1255,11 @@ static void applyNoIntegerWrapDecorations(const SPIRVValue *BV,
 
 void SPIRVToLLVM::applyFPFastMathModeDecorations(const SPIRVValue *BV,
                                                  Instruction *Inst) {
+  // AMD customization begin: Allow FP fast math on CallBase instructions for AMDGCN
   if (!isa<FPMathOperator>(Inst) &&
       (!M->getTargetTriple().isAMDGCN() || !isa<CallBase>(Inst)))
     return;
+  // AMD customization end
 
   SPIRVWord V{0};
   if (BV->hasDecorate(DecorationFPFastMathMode, 0, &V)) {
@@ -1725,11 +1739,13 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
         static_cast<SPIRVConstantFunctionPointerINTEL *>(BV);
     SPIRVFunction *F = BC->getFunction();
     BV->setName(F->getName());
+    // AMD customization begin: Use program address space for AMD targets
     const unsigned AS =
         M->getTargetTriple().getVendor() == Triple::VendorType::AMD
           ? M->getDataLayout().getProgramAddressSpace()
           : (BM->shouldEmitFunctionPtrAddrSpace() ? SPIRAS_CodeSectionINTEL
                                                   : SPIRAS_Private);
+    // AMD customization end
     return mapValue(BV, transFunction(F, AS));
   }
 
@@ -1793,8 +1809,10 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
       AddrSpace = VectorComputeUtil::getVCGlobalVarAddressSpace(BS);
       Initializer = PoisonValue::get(Ty);
     } else
+      // AMD customization begin: AMDGPU address space mapping for variables
       AddrSpace = M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
           mapSPIRVAddrSpaceToAMDGPU(BS) : SPIRSPIRVAddrSpaceMap::rmap(BS);
+      // AMD customization end
     // Force SPIRV BuiltIn variable's name to be __spirv_BuiltInXXXX.
     // No matter what BV's linkage name is.
     SPIRVBuiltinVariableKind BVKind;
@@ -1821,6 +1839,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
                              ? GlobalValue::UnnamedAddr::Global
                              : GlobalValue::UnnamedAddr::None);
     LVar->setInitializer(Initializer);
+    // AMD customization begin: Handle externally initialized global variables
     if (M->getTargetTriple().isAMDGCN()) {
       if (BVar->hasDecorate(DecorationUserTypeGOOGLE)) {
         // This is how the Translator stashes externally initialized
@@ -1833,6 +1852,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
         LVar->setExternallyInitialized(true);
       }
     }
+    // AMD customization end
     if (IsVectorCompute) {
       LVar->addAttribute(kVCMetadata::VCGlobalVariable);
       SPIRVWord Offset;
@@ -1845,11 +1865,13 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
         LVar->addAttribute(SEVAttr.value().getKindAsString(),
                            SEVAttr.value().getValueAsString());
     }
+    // AMD customization begin: Set section for llvm.used/llvm.compiler.used
     if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
         LVar->hasAppendingLinkage() &&
         (LVar->getName() == "llvm.compiler.used" ||
         LVar->getName() == "llvm.used"))
       LVar->setSection("llvm.metadata");
+    // AMD customization end
 
     return Res;
   }
@@ -1966,6 +1988,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     Phi->foreachPair([&](SPIRVValue *IncomingV, SPIRVBasicBlock *IncomingBB,
                          size_t Index) {
       auto *Translated = transValue(IncomingV, F, BB);
+      // AMD customization begin: Handle address space mismatch in phi nodes
       if (LPhi->getType() != Translated->getType() &&
           LPhi->getType()->isPointerTy() &&
           F->getParent()->getTargetTriple().getVendor() ==
@@ -1974,6 +1997,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
         //       these mismatches might occur; find a better way to handle it.
         Translated = ConstantExpr::getAddrSpaceCast(cast<Constant>(Translated),
                                                     LPhi->getType());
+      // AMD customization end
       LPhi->addIncoming(Translated,
                         dyn_cast<BasicBlock>(transValue(IncomingBB, F, BB)));
     });
@@ -2752,10 +2776,12 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
           BV, Call,
           static_cast<SPIRVTypeFunction *>(BC->getCalledValue()->getType()->getPointerElementType()));
     // Assuming we are calling a regular device function
+    // AMD customization begin: Use C calling convention for AMD targets
     Call->setCallingConv(
         M->getTargetTriple().getVendor() == Triple::VendorType::AMD
           ? CallingConv::C
           : CallingConv::SPIR_FUNC);
+    // AMD customization end
     // Don't set attributes, because at translation time we don't know which
     // function exactly we are calling.
     return mapValue(BV, Call);
@@ -3209,11 +3235,13 @@ Value *SPIRVToLLVM::transFixedPointInst(SPIRVInstruction *BI, BasicBlock *BB) {
   std::vector<Value *> Args;
   Args.reserve(8);
   if (RetTy->getIntegerBitWidth() > 64) {
+    // AMD customization begin: AMDGPU address space mapping for fixed point instructions
     llvm::PointerType *RetPtrTy =
         llvm::PointerType::get(
           *Context,
           M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
               mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic);
+    // AMD customization end
     Value *Alloca =
         new AllocaInst(RetTy, M->getDataLayout().getAllocaAddrSpace(), "", BB);
     Value *RetValPtr = new AddrSpaceCastInst(Alloca, RetPtrTy, "", BB);
@@ -3241,10 +3269,12 @@ Value *SPIRVToLLVM::transFixedPointInst(SPIRVInstruction *BI, BasicBlock *BB) {
   FunctionCallee FCallee = M->getOrInsertFunction(FuncName, FT);
 
   auto *Func = cast<Function>(FCallee.getCallee());
+  // AMD customization begin: Use C calling convention for AMD targets
   Func->setCallingConv(
       M->getTargetTriple().getVendor() == Triple::VendorType::AMD
         ? CallingConv::C
         : CallingConv::SPIR_FUNC);
+  // AMD customization end
   if (isFuncNoUnwind())
     Func->addFnAttr(Attribute::NoUnwind);
 
@@ -3340,11 +3370,13 @@ Value *SPIRVToLLVM::transArbFloatInst(SPIRVInstruction *BI, BasicBlock *BB,
   std::vector<Value *> Args;
 
   if (RetTy->getIntegerBitWidth() > 64) {
+    // AMD customization begin: AMDGPU address space mapping for arbitrary float instructions
     llvm::PointerType *RetPtrTy =
         llvm::PointerType::get(
           *Context,
           M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
               mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic);
+    // AMD customization end
     ArgTys.push_back(RetPtrTy);
     Value *Alloca =
         new AllocaInst(RetTy, M->getDataLayout().getAllocaAddrSpace(), "", BB);
@@ -3392,9 +3424,11 @@ Value *SPIRVToLLVM::transArbFloatInst(SPIRVInstruction *BI, BasicBlock *BB,
   FunctionCallee FCallee = M->getOrInsertFunction(FuncName, FT);
 
   auto *Func = cast<Function>(FCallee.getCallee());
+  // AMD customization begin: Use C calling convention for AMD targets
   Func->setCallingConv(
       M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
         CallingConv::C : CallingConv::SPIR_FUNC);
+  // AMD customization end
   if (isFuncNoUnwind())
     Func->addFnAttr(Attribute::NoUnwind);
 
@@ -3457,9 +3491,11 @@ void SPIRVToLLVM::transFunctionAttrs(SPIRVFunction *BF, Function *F) {
       default:
         break; // do nothing
       }
+      // AMD customization begin: AMDGPU uses ByRef instead of ByVal
       // AMDGPU doesn't use ByVal, it is actually a masquerading ByRef.
       if (M->getTargetTriple().isAMDGCN() && LLVMKind == Attribute::ByVal)
         LLVMKind = Attribute::ByRef;
+      // AMD customization end
       // Make sure to use a correct constructor for a typed/typeless attribute
       auto A = AttrTy ? Attribute::get(*Context, LLVMKind, AttrTy)
                       : (LLVMKind != Attribute::Captures)
@@ -3637,6 +3673,7 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
   auto Linkage = IsKernel ? GlobalValue::ExternalLinkage : transLinkageType(BF);
   FunctionType *FT = cast<FunctionType>(transType(BF->getFunctionType()));
   std::string FuncName = BF->getName();
+  // AMD customization begin: Handle variadic functions and intrinsic name fixes
   if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD) {
     if (FuncName == "fprintf" || FuncName == "sprintf" ||
         FuncName == "snprintf" || FuncName == "__isoc23_fscanf" ||
@@ -3652,6 +3689,7 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
     if (FuncName == "llvm.va_end.p4")
       FuncName = "llvm.va_end.p0";
   }
+  // AMD customization end
   StringRef FuncNameRef(FuncName);
   // Transform "@spirv.llvm_memset_p0i8_i32.volatile" to @llvm.memset.p0i8.i32
   // assuming llvm.memset is supported by the device compiler. If this
@@ -3666,6 +3704,7 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
             ->getName();
   }
 
+  // AMD customization begin: Fix memcpy intrinsic name mangling for AMDGCN
   // The name mangling here is broken, as it'd have used the SPIR-V AS Map, so
   // we have to fix it here and call the intrinsic.
   // TODO: maybe handle memcpy_inline and memcpy_atomic.
@@ -3681,6 +3720,7 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
     mapFunction(BF, F);
     return F;
   }
+  // AMD customization end
 
   // Special handling for spirv.llvm_umul_with_overflow_* functions
   // These were created during forward translation by lowering intrinsics.
@@ -3712,11 +3752,13 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
 
   mapFunction(BF, F);
 
+  // AMD customization begin: Set AMDGPU calling conventions
   if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
     F->setCallingConv(IsKernel ? CallingConv::AMDGPU_KERNEL : CallingConv::C);
   else
     F->setCallingConv(IsKernel ? CallingConv::SPIR_KERNEL
                                : CallingConv::SPIR_FUNC);
+  // AMD customization end
   transFunctionAttrs(BF, F);
 
   parseFloatControls2ExecutionModeId(BF, F);
@@ -3802,10 +3844,12 @@ SPIRVToLLVM::transOCLBuiltinPostproc(SPIRVInstruction *BI, CallInst *CI,
 
 Value *SPIRVToLLVM::transBlockInvoke(SPIRVValue *Invoke, BasicBlock *BB) {
   auto *TranslatedInvoke = transFunction(static_cast<SPIRVFunction *>(Invoke));
+  // AMD customization begin: AMDGPU address space mapping for block invoke
   auto *Int8PtrTyGen = PointerType::get(
       *Context,
       M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
           mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic);
+  // AMD customization end
   return CastInst::CreatePointerBitCastOrAddrSpaceCast(TranslatedInvoke,
                                                        Int8PtrTyGen, "", BB);
 }
@@ -3819,10 +3863,12 @@ Instruction *SPIRVToLLVM::transWGSizeQueryBI(SPIRVInstruction *BI,
 
   Function *F = M->getFunction(FName);
   if (!F) {
+    // AMD customization begin: AMDGPU address space mapping for workgroup size query
     auto *Int8PtrTyGen = PointerType::get(
         *Context,
         M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
             mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic);
+    // AMD customization end
     FunctionType *FT = FunctionType::get(Type::getInt32Ty(*Context),
                                          {Int8PtrTyGen, Int8PtrTyGen}, false);
     F = Function::Create(FT, GlobalValue::ExternalLinkage, FName, M);
@@ -3847,10 +3893,12 @@ Instruction *SPIRVToLLVM::transSGSizeQueryBI(SPIRVInstruction *BI,
   auto Ops = BI->getOperands();
   Function *F = M->getFunction(FName);
   if (!F) {
+    // AMD customization begin: AMDGPU address space mapping for subgroup size query
     auto *Int8PtrTyGen = PointerType::get(
         *Context,
         M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
             mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic);
+    // AMD customization end
     SmallVector<Type *, 3> Tys = {
         transType(Ops[0]->getType()), // ndrange
         Int8PtrTyGen,                 // block_invoke
@@ -3877,11 +3925,13 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
                                                BasicBlock *BB) {
   std::string MangledName;
   auto Ops = BI->getOperands();
+  // AMD customization begin: Add value operand for atomic increment/decrement
   if ((FuncName == "__spirv_AtomicIIncrement" ||
        FuncName == "__spirv_AtomicIDecrement") &&
        M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
     Ops.insert(Ops.end(),
                BM->getValue(*BI->getDecorate(DecorationMaxByteOffsetId).cbegin()));
+  // AMD customization end
   Op OC = BI->getOpCode();
   if (isUntypedAccessChainOpCode(OC)) {
     auto *AC = static_cast<SPIRVAccessChainBase *>(BI);
@@ -3901,6 +3951,7 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
     // builtin mangling of atomic and matrix operations.
     if (isAtomicOpCodeUntypedPtrSupported(OC)) {
       auto *AI = static_cast<SPIRVAtomicInstBase *>(BI);
+      // AMD customization begin: AMDGPU address space mapping for atomic operations
       ArgTys[PtrIdx] = TypedPointerType::get(
           transType(AI->getSemanticType()),
           M->getTargetTriple().getVendor() == Triple::VendorType::AMD
@@ -3908,6 +3959,7 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
                   BI->getValueType(Ops[PtrIdx]->getId())->getPointerStorageClass())
               : SPIRSPIRVAddrSpaceMap::rmap(
                   BI->getValueType(Ops[PtrIdx]->getId())->getPointerStorageClass()));
+      // AMD customization end
     }
   }
 
@@ -3928,6 +3980,7 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
     }
   }
 
+  // AMD customization begin: Use program address space for function types
   for (auto &I : ArgTys) {
     if (isa<FunctionType>(I)) {
       I = TypedPointerType::get(
@@ -3936,7 +3989,9 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
           M->getDataLayout().getProgramAddressSpace() : SPIRAS_Private);
     }
   }
+  // AMD customization end
 
+  // AMD customization begin: Map AMDGCN address spaces to SPIRV for mangling
   if (BM->getDesiredBIsRepresentation() != BIsRepresentation::SPIRVFriendlyIR)
     if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD) {
       auto TmpTys = ArgTys;
@@ -3952,6 +4007,7 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
     } else {
       mangleOpenClBuiltin(FuncName, ArgTys, MangledName);
     }
+  // AMD customization end
   else
     MangledName = getSPIRVFriendlyIRFunctionName(FuncName, OC, ArgTys, Ops);
 
@@ -3973,9 +4029,11 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
   if (!Func || Func->getFunctionType() != FT) {
     LLVM_DEBUG(for (auto &I : ArgTys) { dbgs() << *I << '\n'; });
     Func = Function::Create(FT, GlobalValue::ExternalLinkage, MangledName, M);
+    // AMD customization begin: Use C calling convention for AMD targets
     Func->setCallingConv(
         M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
           CallingConv::C : CallingConv::SPIR_FUNC);
+    // AMD customization end
     if (isFuncNoUnwind())
       Func->addFnAttr(Attribute::NoUnwind);
     if (isGroupOpCode(OC) || isGroupNonUniformOpcode(OC) ||
@@ -4042,9 +4100,11 @@ Type *SPIRVToLLVM::getTypedPtrFromUntypedOperand(SPIRVValue *Val, Type *RetTy) {
   }
 
   StorageClass SC = Val->getType()->getPointerStorageClass();
+  // AMD customization begin: AMDGPU address space mapping for typed pointers
   unsigned AddrSpace =
       (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
           ? mapSPIRVAddrSpaceToAMDGPU(SC) : SPIRSPIRVAddrSpaceMap::rmap(SC);
+  // AMD customization end
 
   if (Ty)
     return TypedPointerType::get(Ty, AddrSpace);
@@ -4284,6 +4344,7 @@ bool SPIRVToLLVM::translate() {
   DbgTran->addDbgInfoVersion();
   DbgTran->finalize();
 
+  // AMD customization begin: Add AMD module flags and ABI version global
   if (M->getTargetTriple().getVendor() != Triple::VendorType::AMD)
     return true;
   // TODO: this is temporary hardcoding, but will ultimately get handled in the
@@ -4314,9 +4375,11 @@ bool SPIRVToLLVM::translate() {
   }
 
   return true;
+  // AMD customization end
 }
 
 bool SPIRVToLLVM::transAddressingModel() {
+  // AMD customization begin: Set AMD target triple and data layout
   if (BM->getGeneratorVer() == UINT16_MAX) {
     // TODO: we should use the Target registry here instead of hardcoding
     M->setTargetTriple(Triple("amdgcn-amd-amdhsa"));
@@ -4327,6 +4390,7 @@ bool SPIRVToLLVM::transAddressingModel() {
         "v2048:2048-n32:64-S32-A5-G1-ni:7:8:9");
     return true;
   }
+  // AMD customization end
   switch (BM->getAddressingModel()) {
   case AddressingModelPhysical64:
     M->setTargetTriple(Triple(SPIR_TARGETTRIPLE64));
@@ -4720,10 +4784,12 @@ void SPIRVToLLVM::transUserSemantic(SPIRV::SPIRVFunction *Fun) {
     Constant *C =
         ConstantExpr::getPointerBitCastOrAddrSpaceCast(TransFun, ResType);
 
+    // AMD customization begin: AMDGPU address space mapping for annotations
     Type *Int8PtrTyPrivate = PointerType::get(
       *Context,
       M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
           mapSPIRVAddrSpaceToAMDGPU(StorageClassFunction) : SPIRAS_Private);
+    // AMD customization end
     IntegerType *Int32Ty = Type::getInt32Ty(*Context);
 
     llvm::Constant *Fields[5] = {
@@ -5043,6 +5109,7 @@ bool SPIRVToLLVM::transMetadata() {
     if (BM->getDesiredBIsRepresentation() == BIsRepresentation::SPIRVFriendlyIR)
       transFunctionDecorationsToMetadata(BF, F);
 
+    // AMD customization begin: Check for AMDGPU_KERNEL calling convention
     if (F->getCallingConv() != CallingConv::SPIR_KERNEL &&
         F->getCallingConv() != CallingConv::AMDGPU_KERNEL)
       continue;
@@ -5052,6 +5119,7 @@ bool SPIRVToLLVM::transMetadata() {
       F->addFnAttr(Attribute::Convergent);
       F->addFnAttr(Attribute::MustProgress);
     }
+    // AMD customization end
 
     // Generate metadata for reqd_work_group_size
     if (auto *EM = BF->getExecutionMode(ExecutionModeLocalSize)) {
@@ -5134,12 +5202,14 @@ bool SPIRVToLLVM::transMetadata() {
     }
     // Generate metadata for max_work_group_size
     if (auto *EM = BF->getExecutionMode(ExecutionModeMaxWorkgroupSizeINTEL)) {
+      // AMD customization begin: Use amdgpu-flat-work-group-size attribute
       if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
         F->addFnAttr("amdgpu-flat-work-group-size",
                      "1," + llvm::utostr(EM->getLiterals().front()));
       else
         F->setMetadata(kSPIR2MD::MaxWGSize,
                        getMDNodeStringIntVec(Context, EM->getLiterals()));
+      // AMD customization end
     }
     // Generate metadata for no_global_work_offset
     if (BF->getExecutionMode(ExecutionModeNoGlobalOffsetINTEL)) {
@@ -5257,9 +5327,11 @@ bool SPIRVToLLVM::transMetadata() {
 bool SPIRVToLLVM::transOCLMetadata(SPIRVFunction *BF) {
   Function *F = static_cast<Function *>(getTranslatedValue(BF));
   assert(F && "Invalid translated function");
+  // AMD customization begin: Check for AMDGPU_KERNEL calling convention
   if (F->getCallingConv() != CallingConv::SPIR_KERNEL &&
       F->getCallingConv() != CallingConv::AMDGPU_KERNEL)
     return true;
+  // AMD customization end
 
   if (BF->hasDecorate(DecorationVectorComputeFunctionINTEL))
     return true;
@@ -5269,6 +5341,7 @@ bool SPIRVToLLVM::transOCLMetadata(SPIRVFunction *BF) {
       Context, SPIR_MD_KERNEL_ARG_ADDR_SPACE, BF, F,
       [=](SPIRVFunctionParameter *Arg) {
         SPIRVType *ArgTy = Arg->getType();
+        // AMD customization begin: AMDGPU address space mapping for kernel arguments
         SPIRAddressSpace AS =
           M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
             mapSPIRVAddrSpaceToAMDGPU(StorageClassFunction) : SPIRAS_Private;
@@ -5276,6 +5349,7 @@ bool SPIRVToLLVM::transOCLMetadata(SPIRVFunction *BF) {
           AS = M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
               mapSPIRVAddrSpaceToAMDGPU(ArgTy->getPointerStorageClass()) :
               SPIRSPIRVAddrSpaceMap::rmap(ArgTy->getPointerStorageClass());
+        // AMD customization end
         else if (ArgTy->isTypeOCLImage() || ArgTy->isTypePipe())
           AS = SPIRAS_Global;
         return ConstantAsMetadata::get(
@@ -5589,6 +5663,7 @@ bool SPIRVToLLVM::transAlign(SPIRVValue *BV, Value *V) {
   return true;
 }
 
+// AMD customization begin: Translate OpenCL extended instructions to LLVM intrinsics for AMDGCN
 Instruction *SPIRVToLLVM::transLLVMFromExtInst(SPIRVExtInst *BC, Type *RetTy,
                                                std::vector<Type *> ArgTys,
                                                BasicBlock *BB) {
@@ -5800,6 +5875,7 @@ Instruction *SPIRVToLLVM::transLLVMFromExtInst(SPIRVExtInst *BC, Type *RetTy,
 
   return CI;
 }
+// AMD customization end
 
 Instruction *SPIRVToLLVM::transOCLBuiltinFromExtInst(SPIRVExtInst *BC,
                                                      BasicBlock *BB) {
@@ -5864,8 +5940,10 @@ Instruction *SPIRVToLLVM::transOCLBuiltinFromExtInst(SPIRVExtInst *BC,
     }
     }
   }
+  // AMD customization begin: Use LLVM intrinsics for AMDGCN
   if (M->getTargetTriple().isAMDGCN())
     return transLLVMFromExtInst(BC, RetTy, std::move(ArgTypes), BB);
+  // AMD customization end
 
   std::string MangledName =
       getSPIRVFriendlyIRFunctionName(ExtOp, ArgTypes, RetTy);

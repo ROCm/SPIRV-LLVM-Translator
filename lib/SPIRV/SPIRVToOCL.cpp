@@ -239,8 +239,10 @@ void SPIRVToOCLBase::visitCastInst(CastInst &Cast) {
       !isa<UIToFPInst>(Cast) && !isa<SIToFPInst>(Cast))
     return;
 
+  // AMD customization begin: skip cast mutation for AMD target
   if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
     return;
+  // AMD customization end
 
   Type const *SrcTy = Cast.getSrcTy();
   Type *DstVecTy = Cast.getDestTy();

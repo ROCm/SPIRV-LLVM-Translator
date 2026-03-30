@@ -239,7 +239,9 @@ inline void SPIRVMap<Attribute::AttrKind, SPIRVFuncParamAttrKind>::init() {
   add(Attribute::ByVal, FunctionParameterAttributeByVal);
   add(Attribute::StructRet, FunctionParameterAttributeSret);
   add(Attribute::NoAlias, FunctionParameterAttributeNoAlias);
+  // AMD customization begin: Captures attribute mapping
   add(Attribute::Captures, FunctionParameterAttributeNoCapture);
+  // AMD customization end
   add(Attribute::ReadOnly, FunctionParameterAttributeNoWrite);
   add(Attribute::ReadNone, FunctionParameterAttributeNoReadWrite);
 }
