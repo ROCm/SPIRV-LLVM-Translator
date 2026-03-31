@@ -204,6 +204,17 @@ private:
 
   TypeToGEPOrUseMap GEPOrUseMap;
 
+  // This storage contains the mapping from AMDGCN feature predicate associated
+  // specialisation constant id to the actual value of the predicate, computed
+  // based on the offload architecture provided for the current translation.
+  std::unordered_map<SPIRVWord, bool> FeaturePredicateMap;
+  // This storage contains all direct users of any and all feature predicates,
+  // within the function currently being translated; as a precondition it is
+  // empty when function translation starts, is potentially filled during
+  // function translation, and it is cleared as a postcondition to function
+  // translation having completed.
+  std::vector<Instruction *> FeaturePredicateUsers;
+
   Type *mapType(SPIRVType *BT, Type *T);
 
   // If a value is mapped twice, the existing mapped value is a placeholder,
@@ -283,6 +294,11 @@ private:
   FastMathFlags translateFastMathFlags(SPIRVWord V) const;
   void parseFloatControls2ExecutionModeId(SPIRVFunction *BF, Function *F);
   void applyFPFastMathModeDecorations(const SPIRVValue *BV, Instruction *Inst);
+
+  // AMDGCN specific feature predicate handling.
+  void addFeaturePredicateMap(SPIRVValue *Map);
+  bool expandFeaturePredicate(SPIRVValue *Predicate, SPIRVWord SpecId) const;
+  void addFeaturePredicateUser(SPIRVValue *Predicate, llvm::Instruction *User);
 }; // class SPIRVToLLVM
 
 } // namespace SPIRV

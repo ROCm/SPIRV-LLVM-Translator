@@ -340,6 +340,12 @@ static cl::opt<bool> FnVarSpecEnable(
     cl::desc("Enable specialization of function variants according to "
              "SPV_INTEL_function_variants. Requires -r flag."));
 
+cl::opt<std::string> AMDGCNSPIRVOffloadArch(
+    "spirv-amdgcn-offload-arch",
+    cl::desc("Specify the AMDGCN offload architecture (e.g. gfx950) which is "
+             "targeted when translating AMDGCN flavoured SPIR-V to LLVM IR"),
+    cl::ValueRequired);
+
 static std::string removeExt(const std::string &FileName) {
   size_t Pos = FileName.find_last_of(".");
   if (Pos != std::string::npos)
@@ -460,7 +466,7 @@ static bool isFileEmpty(const std::string &FileName) {
 
 static int convertSPIRVToLLVM(const SPIRV::TranslatorOpts &Opts) {
   LLVMContext Context;
-  
+
   std::ifstream IFS(InputFile, std::ios::binary);
   Module *M;
   std::string Err;
@@ -960,6 +966,10 @@ int main(int Ac, char **Av) {
 
   if (!Opts.validateFnVarOpts()) {
     return -1;
+  }
+
+  if (AMDGCNSPIRVOffloadArch.getNumOccurrences() > 0) {
+    Opts.setAMDGCNSPIRVOffloadArch(AMDGCNSPIRVOffloadArch);
   }
 
 #ifdef _SPIRV_SUPPORT_TEXT_FMT

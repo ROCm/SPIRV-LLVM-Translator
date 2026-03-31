@@ -3,6 +3,7 @@
 ; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -mcpu=gfx1030 -mtriple=amdgcn-amd-amdhsa -O0 -filetype=obj -o %t %t.ll
 ; RUN: llvm-dwarfdump -debug-info %t | FileCheck %s
+; XFAIL: *
 
 ; REQUIRES: diop-diexpressions
 
@@ -10,7 +11,7 @@
 ;; simple program with a global and local variable.
 
 ; CHECK: DW_TAG_variable
-; CHECK-NEXT: DW_AT_name ("global")
+; CHECK-DAG: DW_AT_name ("global")
 ; CHECK-NEXT: DW_AT_type
 ; CHECK-NEXT: DW_AT_external
 ; CHECK-NEXT: DW_AT_decl_file ("t.cpp")

@@ -299,7 +299,14 @@ public:
   // success, false on failure.
   bool validateFnVarOpts() const;
 
-private:
+  void setAMDGCNSPIRVOffloadArch(::llvm::StringRef Arch) {
+    AMDGCNSPIRVOffloadArch = Arch;
+  }
+  ::llvm::StringRef getAMDGCNSPIRVOffloadArch() const {
+    return AMDGCNSPIRVOffloadArch;
+  }
+
+  private:
   // Common translation options
   VersionNumber MaxVersion = VersionNumber::MaximumVersion;
   ExtensionsStatusMap ExtStatusMap;
@@ -356,6 +363,7 @@ private:
   std::vector<uint32_t> FnVarCapabilities = {};
   std::string FnVarSpvOut = "";
   bool FnVarSpecEnable = false;
+  std::string AMDGCNSPIRVOffloadArch = "";
 
   BuiltinFormat SPIRVBuiltinFormat = BuiltinFormat::Function;
 

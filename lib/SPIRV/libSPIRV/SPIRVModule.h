@@ -653,6 +653,10 @@ public:
     return TranslationOpts.getFnVarSpvOut();
   }
 
+  ::llvm::StringRef getAMDGCNSPIRVOffloadArch() const {
+    return TranslationOpts.getAMDGCNSPIRVOffloadArch();
+  }
+
   // I/O functions
   friend spv_ostream &operator<<(spv_ostream &O, SPIRVModule &M);
   friend std::istream &operator>>(std::istream &I, SPIRVModule &M);

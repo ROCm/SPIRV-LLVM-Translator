@@ -58,6 +58,8 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Analysis/ConstantFolding.h"
+#include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/IR/AttributeMask.h"
@@ -81,8 +83,11 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/SaveAndRestore.h"
+#include "llvm/TargetParser/TargetParser.h"
+#include "llvm/Transforms/Utils/Local.h"
 
 #include <algorithm>
+#include <charconv>
 #include <cstdlib>
 #include <fstream>
 #include <functional>
@@ -1513,6 +1518,84 @@ void SPIRVToLLVM::transFunctionPointerCallArgumentAttributes(
   }
 }
 
+static bool isFeaturePredicate(
+    const std::unordered_map<SPIRVWord, bool> &FeaturePredicateMap,
+    SPIRVValue *MaybePredicate) {
+  if (MaybePredicate->getOpCode() != OpSpecConstantFalse)
+    return false;
+  SPIRVWord SpecId = UINT32_MAX;
+  return MaybePredicate->hasDecorate(DecorationSpecId, 0, &SpecId) &&
+      FeaturePredicateMap.count(SpecId) != 0;
+}
+
+static bool getPredicateValue(StringRef Predicate, StringRef GFXIp) {
+  if (Predicate.starts_with("is."))
+    return Predicate.substr(3) == GFXIp;
+
+  static const auto SupportedFeatures = [GFXIp]() {
+    StringMap<bool> Features;
+    AMDGPU::fillAMDGPUFeatureMap(GFXIp, Triple("amdgcn-amd-amdhsa"), Features);
+    return Features;
+  }();
+
+  for (auto &&F : SupportedFeatures)
+    llvm::errs() << F.getKey() << '\n';
+
+  Predicate = Predicate.substr(4);
+
+  SmallVector<StringRef> RequiredFeatures;
+  do {
+    auto Tmp = Predicate.split(',');
+    RequiredFeatures.push_back(Tmp.first);
+    Predicate = Tmp.second;
+  } while (!Predicate.empty());
+
+  return all_of(
+      RequiredFeatures, [](auto &&F) { return SupportedFeatures.contains(F); });
+}
+
+void SPIRVToLLVM::addFeaturePredicateMap(SPIRVValue *Map) {
+  assert(Map && "Expected initializer for llvm.amdgcn.feature.predicate.ids!");
+  assert(Map->getType()->isTypeArray() &&
+         "llvm.amdgcn.feature.predicate.ids' initializer should be an array!");
+
+  SmallVector<char> Tmp;
+  for (auto &&E : static_cast<SPIRVConstantComposite *>(Map)->getElements()) {
+    auto C =
+        static_cast<char>(BM->get<SPIRVConstant>(E->getId())->getZExtIntValue());
+
+    if (C == '\0') {
+      StringRef PId(Tmp.data(), Tmp.size());
+      StringRef Pred = PId.substr(0, PId.find(' '));
+      SPIRVWord Id;
+      std::from_chars(PId.substr(Pred.size() + 1).begin(), PId.end(), Id);
+
+      FeaturePredicateMap.emplace(
+          Id, getPredicateValue(Pred, BM->getAMDGCNSPIRVOffloadArch()));
+
+      Tmp.clear();
+    } else {
+      Tmp.push_back(C);
+    }
+  }
+}
+
+bool SPIRVToLLVM::expandFeaturePredicate(SPIRVValue *Predicate,
+                                         SPIRVWord SpecId) const {
+  if (auto It = FeaturePredicateMap.find(SpecId);
+      It != FeaturePredicateMap.end())
+    return It->second;
+  return false;
+}
+
+inline void SPIRVToLLVM::addFeaturePredicateUser(SPIRVValue *Predicate,
+                                                 Instruction *User) {
+  assert(Predicate && "Expected a valid feature predicate!");
+  assert(User && "Expected a valid user for the predicate!");
+
+  FeaturePredicateUsers.push_back(User);
+}
+
 /// For instructions, this function assumes they are created in order
 /// and appended to the given basic block. An instruction may use a
 /// instruction from another BB which has not been translated. Such
@@ -1612,9 +1695,10 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     SPIRVWord SpecId = 0;
     if (BV->hasDecorate(DecorationSpecId, 0, &SpecId)) {
       uint64_t ConstValue = 0;
-      if (BM->getSpecializationConstant(SpecId, ConstValue)) {
+      if (M->getTargetTriple().isAMDGCN())
+        IsTrue = expandFeaturePredicate(BV, SpecId);
+      else if (BM->getSpecializationConstant(SpecId, ConstValue))
         IsTrue = ConstValue;
-      }
     }
     return mapValue(BV, IsTrue ? ConstantInt::getTrue(*Context)
                                : ConstantInt::getFalse(*Context));
@@ -1954,6 +2038,9 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
         transValue(BR->getCondition(), F, BB),
         cast<BasicBlock>(transValue(BR->getTrueLabel(), F, BB)),
         cast<BasicBlock>(transValue(BR->getFalseLabel(), F, BB)), BB);
+    if (M->getTargetTriple().isAMDGCN() &&
+        isFeaturePredicate(FeaturePredicateMap, BR->getCondition()))
+      addFeaturePredicateUser(BR->getCondition(), BC);
     // Loop metadata will be translated in the end of function translation.
     return mapValue(BV, BC);
   }
@@ -2102,6 +2189,16 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
         False = False->stripPointerCasts();
       if (True->getType() != False->getType())
         llvm_unreachable("Ill-formed Select");
+    }
+    if (M->getTargetTriple().isAMDGCN() &&
+        isFeaturePredicate(FeaturePredicateMap, BS->getCondition())) {
+      // We have to do this to prevent the Folder in Builder from early folding,
+      // and thus breaking the usage chain; we do our own folding for
+      // predicates.
+      auto S = SelectInst::Create(Cond, True, False, BV->getName(),
+                                  Builder.GetInsertPoint());
+      addFeaturePredicateUser(BS->getCondition(), S);
+      return mapValue(BV, S);
     }
     return mapValue(BV, Builder.CreateSelect(Cond, True, False, BV->getName()));
   }
@@ -3494,6 +3591,47 @@ void SPIRVToLLVM::transFunctionAttrs(SPIRVFunction *BF, Function *F) {
 }
 
 namespace {
+template<unsigned N>
+inline void collectUsers(Value *V, SmallPtrSet<Instruction *, N> &C) {
+  assert(V && "Must pass an existing Value!");
+
+  for (auto &&U : V->users())
+    if (auto *I = dyn_cast<Instruction>(U))
+      C.insert(C.end(), I);
+}
+
+void maybeFoldFeaturePredicates(Function *F,
+                                std::vector<Instruction *> PredicateUsers) {
+  SmallPtrSet<Instruction *, 32> ToFold(PredicateUsers.cbegin(),
+                                        PredicateUsers.cend());
+  do {
+    Instruction *I = *ToFold.begin();
+    ToFold.erase(I);
+
+    I->dropDroppableUses();
+
+    if (auto *C = ConstantFoldInstruction(I, F->getDataLayout())) {
+      collectUsers(I, ToFold);
+      I->replaceAllUsesWith(C);
+      I->eraseFromParent();
+      continue;
+    } else if (I->isTerminator() &&
+               ConstantFoldTerminator(I->getParent(), true)) {
+      continue;
+    }
+
+    std::string Err;
+    raw_string_ostream S(Err);
+
+    S << "Impossible to constant fold feature predicate used in function: "
+        << F->getName() << ", by instruction:" << *I << ", please simplify.\n";
+
+    return reportFatalUsageError(Err.c_str());
+  } while (!ToFold.empty());
+
+  removeUnreachableBlocks(*F);
+}
+
 // One basic block can be a predecessor to another basic block more than
 // once (https://github.com/KhronosGroup/SPIRV-LLVM-Translator/issues/2702).
 // This function fixes any PHIs that break this rule.
@@ -3533,6 +3671,21 @@ static void validatePhiPredecessors(Function *F) {
         Phi.addIncoming(Vs[I], Bs[I]);
     }
   }
+}
+
+inline SmallVector<Function *> collectUsedFunctions(Module &M) {
+  SmallVector<Function *> Ret;
+  for (auto &&F : M) {
+    if (F.isIntrinsic() || F.isDeclaration())
+      continue;
+    if (!F.hasInternalLinkage() && !F.hasPrivateLinkage())
+      continue;
+    if (F.hasNUndroppableUses(0))
+      continue;
+    Ret.push_back(&F);
+  }
+
+  return Ret;
 }
 } // namespace
 
@@ -3623,7 +3776,8 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
       const auto &BFName = I.getFirst()->getName();
       if (BF->getName() == BFName) {
         auto *F = I.getSecond();
-        F->setCallingConv(CallingConv::SPIR_KERNEL);
+        F->setCallingConv(M->getTargetTriple().isAMDGCN()
+            ? CallingConv::AMDGPU_KERNEL : CallingConv::SPIR_KERNEL);
         F->setLinkage(GlobalValue::ExternalLinkage);
         F->setDSOLocal(false);
         F = cast<Function>(mapValue(BF, F));
@@ -3733,6 +3887,18 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
       SPIRVInstruction *BInst = BBB->getInst(BI);
       transValue(BInst, F, BB, false);
     }
+  }
+
+  // AMDGCN specific: feature predicate handling.
+  if (M->getTargetTriple().isAMDGCN() && !FeaturePredicateUsers.empty()) {
+    SmallVector<Function *> MaybeUnreachable = collectUsedFunctions(*M);
+    maybeFoldFeaturePredicates(F, ::std::move(FeaturePredicateUsers));
+    for_each(MaybeUnreachable, [](auto &&UF) {
+      if (UF->hasNUndroppableUses(0)) {
+        UF->dropDroppableUses();
+        UF->eraseFromParent();
+      }
+    });
   }
 
   validatePhiPredecessors(F);
@@ -4228,8 +4394,14 @@ bool SPIRVToLLVM::translate() {
 
   for (unsigned I = 0, E = BM->getNumVariables(); I != E; ++I) {
     auto *BV = BM->getVariable(I);
-    if (BV->getStorageClass() != StorageClassFunction)
-      transValue(BV, nullptr, nullptr);
+    if (BV->getStorageClass() != StorageClassFunction) {
+      // The feature predicate map is just a helper, we never emit it.
+      if (M->getTargetTriple().isAMDGCN() &&
+          BV->getName() == "llvm.amdgcn.feature.predicate.ids")
+        addFeaturePredicateMap(BV->getInitializer());
+      else
+        transValue(BV, nullptr, nullptr);
+    }
     transGlobalCtorDtors(BV);
   }
 
