@@ -100,7 +100,7 @@ All AMD-specific code is marked with `// AMD customization begin:` and
 | `lib/SPIRV/SPIRVUtil.cpp` | C calling convention for AMDGPU |
 | `lib/SPIRV/SPIRVToOCL.cpp` | Skip cast mutation for AMD |
 | `lib/SPIRV/OCLToSPIRV.cpp` | Barrier argument validation |
-| `lib/SPIRV/SPIRVLowerLLVMIntrinsic.cpp` | Extension name changes (INTEL→ALTERA) |
+| `lib/SPIRV/SPIRVLowerLLVMIntrinsic.cpp` | Extension name changes (INTEL->ALTERA) |
 
 ## Directory Structure
 
