@@ -3675,7 +3675,7 @@ inline SmallVector<Function *> collectUsedFunctions(Module &M) {
   for (auto &&F : M) {
     if (F.isIntrinsic() || F.isDeclaration())
       continue;
-    if (!F.hasInternalLinkage() && !F.hasPrivateLinkage())
+    if (!F.hasLocalLinkage())
       continue;
     if (F.hasNUndroppableUses(0))
       continue;
