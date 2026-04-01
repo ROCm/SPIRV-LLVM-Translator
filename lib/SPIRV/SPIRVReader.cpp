@@ -1538,9 +1538,6 @@ static bool getPredicateValue(StringRef Predicate, StringRef GFXIp) {
     return Features;
   }();
 
-  for (auto &&F : SupportedFeatures)
-    llvm::errs() << F.getKey() << '\n';
-
   Predicate = Predicate.substr(4);
 
   SmallVector<StringRef> RequiredFeatures;
