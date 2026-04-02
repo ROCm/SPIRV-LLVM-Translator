@@ -854,11 +854,11 @@ SPIRVType *LLVMToSPIRVBase::transScavengedType(Value *V) {
                                    SPIRVEC_UnsupportedVarArgFunction);
 
     SPIRVType *RT = transType(FnTy->getReturnType());
-    if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
-        F->isIntrinsic() && F->getReturnType()->isPointerTy() &&
-        F->getReturnType()->getPointerAddressSpace() ==
-            AMDGPUAS::CONSTANT_ADDRESS)
-      RT = transType(PointerType::get(F->getContext(), SPIRAS_Constant));
+    if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
+      if (Type *ReturnType = F->getReturnType();
+          ReturnType->isPtrOrPtrVectorTy())
+        RT = transType(ReturnType->getWithNewType(
+            PointerType::get(F->getContext(), SPIRAS_Constant)));
 
     std::vector<SPIRVType *> PT;
     for (Argument &Arg : F->args()) {
