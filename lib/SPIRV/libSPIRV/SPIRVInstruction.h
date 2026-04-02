@@ -461,6 +461,7 @@ protected:
 
 class SPIRVVariableBase : public SPIRVInstruction {
 public:
+  static const SPIRVWord FixedWC = 4;
   // Complete constructor for integer constant
   SPIRVVariableBase(Op OC, SPIRVType *TheType, SPIRVId TheId,
                     SPIRVValue *TheInitializer, const std::string &TheName,
@@ -521,7 +522,8 @@ protected:
   }
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
-    Initializer.resize(WordCount - 4);
+    SPIRVCK(WordCount >= FixedWC, InvalidWordCount, "");
+    Initializer.resize(WordCount - FixedWC);
   }
   _SPIRV_DEF_ENCDEC4(Type, Id, StorageClass, Initializer)
 
@@ -590,9 +592,9 @@ protected:
   }
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
-    if (TheWordCount > 4)
+    if (TheWordCount > FixedWC)
       DataType.resize(1);
-    if (TheWordCount > 5)
+    if (TheWordCount > FixedWC + 1)
       Initializer.resize(1);
   }
   _SPIRV_DEF_ENCDEC5(Type, Id, StorageClass, DataType, Initializer)
@@ -632,6 +634,7 @@ protected:
 
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWords, InvalidWordCount, "");
     MemoryAccess.resize(TheWordCount - FixedWords);
   }
   void encode(spv_ostream &O) const override {
@@ -689,6 +692,7 @@ public:
 protected:
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWords, InvalidWordCount, "");
     MemoryAccess.resize(TheWordCount - FixedWords);
   }
 
@@ -913,11 +917,12 @@ protected:
 class SPIRVBranchConditional : public SPIRVInstruction {
 public:
   static const Op OC = OpBranchConditional;
+  constexpr static SPIRVWord FixedWC = 4;
   // Complete constructor
   SPIRVBranchConditional(SPIRVValue *TheCondition, SPIRVLabel *TheTrueLabel,
                          SPIRVLabel *TheFalseLabel, SPIRVBasicBlock *TheBB)
-      : SPIRVInstruction(4, OC, TheBB), ConditionId(TheCondition->getId()),
-        TrueLabelId(TheTrueLabel->getId()),
+      : SPIRVInstruction(FixedWC, OC, TheBB),
+        ConditionId(TheCondition->getId()), TrueLabelId(TheTrueLabel->getId()),
         FalseLabelId(TheFalseLabel->getId()) {
     validate();
   }
@@ -946,13 +951,14 @@ public:
 protected:
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
-    BranchWeights.resize(TheWordCount - 4);
+    SPIRVCK(TheWordCount >= FixedWC, InvalidWordCount, "");
+    BranchWeights.resize(TheWordCount - FixedWC);
   }
   _SPIRV_DEF_ENCDEC4(ConditionId, TrueLabelId, FalseLabelId, BranchWeights)
   void validate() const override {
     SPIRVInstruction::validate();
-    assert(WordCount == 4 || WordCount == 6);
-    assert(WordCount == BranchWeights.size() + 4);
+    assert(WordCount == FixedWC || WordCount == FixedWC + 2);
+    assert(WordCount == BranchWeights.size() + FixedWC);
     assert(OpCode == OC);
     assert(getCondition()->isForward() ||
            getCondition()->getType()->isTypeBool());
@@ -1016,6 +1022,7 @@ public:
   }
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWordCount, InvalidWordCount, "");
     Pairs.resize(TheWordCount - FixedWordCount);
   }
   _SPIRV_DEF_ENCDEC3(Type, Id, Pairs)
@@ -1224,6 +1231,7 @@ public:
 
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWordCount, InvalidWordCount, "");
     LoopControlParameters.resize(TheWordCount - FixedWordCount);
   }
   _SPIRV_DEF_ENCDEC4(MergeBlock, ContinueTarget, LoopControl,
@@ -1295,6 +1303,7 @@ public:
   }
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWordCount, InvalidWordCount, "");
     Pairs.resize(TheWordCount - FixedWordCount);
   }
   _SPIRV_DEF_ENCDEC3(Select, Default, Pairs)
@@ -1837,6 +1846,7 @@ public:
 
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWordCount, InvalidWordCount, "");
     LoopControlParameters.resize(TheWordCount - FixedWordCount);
   }
   _SPIRV_DEF_ENCDEC2(LoopControl, LoopControlParameters)
@@ -1889,6 +1899,7 @@ public:
   }
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWordCount, InvalidWordCount, "");
     Args.resize(TheWordCount - FixedWordCount);
   }
   void validate() const override { SPIRVInstruction::validate(); }
@@ -2124,6 +2135,7 @@ public:
 protected:
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWordCount, InvalidWordCount, "");
     Constituents.resize(TheWordCount - FixedWordCount);
   }
   _SPIRV_DEF_ENCDEC3(Type, Id, Constituents)
@@ -2278,6 +2290,7 @@ public:
 protected:
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWords, InvalidWordCount, "");
     MemoryAccess.resize(TheWordCount - FixedWords);
   }
 
@@ -2347,6 +2360,7 @@ public:
 protected:
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWords, InvalidWordCount, "");
     MemoryAccess.resize(TheWordCount - FixedWords);
   }
 
