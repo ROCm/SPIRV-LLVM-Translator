@@ -1527,7 +1527,7 @@ static bool isFeaturePredicate(
       FeaturePredicateMap.count(SpecId) != 0;
 }
 
-static bool getPredicateValue(StringRef Predicate, StringRef GFXIp) {
+static bool evaluatePredicate(StringRef Predicate, StringRef GFXIp) {
   if (Predicate.starts_with("is."))
     return Predicate.substr(3) == GFXIp;
 
@@ -1562,7 +1562,7 @@ void SPIRVToLLVM::addFeaturePredicateMap(SPIRVValue *Map) {
       if (APInt Id; !IdStr.getAsInteger(10, Id))
         FeaturePredicateMap.emplace(
             Id.getZExtValue(),
-            getPredicateValue(Pred, BM->getAMDGCNSPIRVOffloadArch()));
+            evaluatePredicate(Pred, BM->getAMDGCNSPIRVOffloadArch()));
       else
         reportFatalUsageError("Predicate ID must be an integer!");
 
