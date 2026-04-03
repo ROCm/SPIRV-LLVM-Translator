@@ -213,7 +213,8 @@ private:
   // empty when function translation starts, is potentially filled during
   // function translation, and it is cleared as a postcondition to function
   // translation having completed.
-  std::vector<Instruction *> FeaturePredicateUsers;
+  std::unordered_map<Function*,
+                     std::vector<Instruction *>> FeaturePredicateUsers;
 
   Type *mapType(SPIRVType *BT, Type *T);
 
@@ -297,8 +298,8 @@ private:
 
   // AMDGCN specific feature predicate handling.
   void addFeaturePredicateMap(SPIRVValue *Map);
-  bool expandFeaturePredicate(SPIRVValue *Predicate, SPIRVWord SpecId) const;
-  void addFeaturePredicateUser(SPIRVValue *Predicate, llvm::Instruction *User);
+  bool expandFeaturePredicate(SPIRVWord SpecId) const;
+  void addFeaturePredicateUser(Instruction *User);
 }; // class SPIRVToLLVM
 
 } // namespace SPIRV

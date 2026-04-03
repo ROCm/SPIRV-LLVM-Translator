@@ -1577,20 +1577,17 @@ void SPIRVToLLVM::addFeaturePredicateMap(SPIRVValue *Map) {
   }
 }
 
-bool SPIRVToLLVM::expandFeaturePredicate(SPIRVValue *Predicate,
-                                         SPIRVWord SpecId) const {
+bool SPIRVToLLVM::expandFeaturePredicate(SPIRVWord SpecId) const {
   if (auto It = FeaturePredicateMap.find(SpecId);
       It != FeaturePredicateMap.end())
     return It->second;
   return false;
 }
 
-inline void SPIRVToLLVM::addFeaturePredicateUser(SPIRVValue *Predicate,
-                                                 Instruction *User) {
-  assert(Predicate && "Expected a valid feature predicate!");
+inline void SPIRVToLLVM::addFeaturePredicateUser(Instruction *User) {
   assert(User && "Expected a valid user for the predicate!");
 
-  FeaturePredicateUsers.push_back(User);
+  FeaturePredicateUsers[User->getParent()->getParent()].push_back(User);
 }
 
 /// For instructions, this function assumes they are created in order
@@ -1693,7 +1690,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     if (BV->hasDecorate(DecorationSpecId, 0, &SpecId)) {
       uint64_t ConstValue = 0;
       if (M->getTargetTriple().isAMDGCN())
-        IsTrue = expandFeaturePredicate(BV, SpecId);
+        IsTrue = expandFeaturePredicate(SpecId);
       else if (BM->getSpecializationConstant(SpecId, ConstValue))
         IsTrue = ConstValue;
     }
@@ -2037,7 +2034,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
         cast<BasicBlock>(transValue(BR->getFalseLabel(), F, BB)), BB);
     if (M->getTargetTriple().isAMDGCN() &&
         isFeaturePredicate(FeaturePredicateMap, BR->getCondition()))
-      addFeaturePredicateUser(BR->getCondition(), BC);
+      addFeaturePredicateUser(BC);
     // Loop metadata will be translated in the end of function translation.
     return mapValue(BV, BC);
   }
@@ -2192,9 +2189,9 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
       // We have to do this to prevent the Folder in Builder from early folding,
       // and thus breaking the usage chain; we do our own folding for
       // predicates.
-      auto S = SelectInst::Create(Cond, True, False, BV->getName(),
+      auto *S = SelectInst::Create(Cond, True, False, BV->getName(),
                                   Builder.GetInsertPoint());
-      addFeaturePredicateUser(BS->getCondition(), S);
+      addFeaturePredicateUser(S);
       return mapValue(BV, S);
     }
     return mapValue(BV, Builder.CreateSelect(Cond, True, False, BV->getName()));
@@ -3587,9 +3584,8 @@ void SPIRVToLLVM::transFunctionAttrs(SPIRVFunction *BF, Function *F) {
   });
 }
 
-namespace {
 template<unsigned N>
-inline void collectUsers(Value *V, SmallPtrSet<Instruction *, N> &C) {
+static inline void collectUsers(Value *V, SmallPtrSet<Instruction *, N> &C) {
   assert(V && "Must pass an existing Value!");
 
   for (auto &&U : V->users())
@@ -3597,8 +3593,8 @@ inline void collectUsers(Value *V, SmallPtrSet<Instruction *, N> &C) {
       C.insert(C.end(), I);
 }
 
-void maybeFoldFeaturePredicates(Function *F,
-                                std::vector<Instruction *> PredicateUsers) {
+static void maybeFoldFeaturePredicates(
+    Function *F, const ::std::vector<Instruction *>& PredicateUsers) {
   SmallPtrSet<Instruction *, 32> ToFold(PredicateUsers.cbegin(),
                                         PredicateUsers.cend());
   do {
@@ -3670,7 +3666,7 @@ static void validatePhiPredecessors(Function *F) {
   }
 }
 
-inline SmallVector<Function *> collectUsedFunctions(Module &M) {
+static inline SmallVector<Function *> collectUsedFunctions(Module &M) {
   SmallVector<Function *> Ret;
   for (auto &&F : M) {
     if (F.isIntrinsic() || F.isDeclaration())
@@ -3684,7 +3680,6 @@ inline SmallVector<Function *> collectUsedFunctions(Module &M) {
 
   return Ret;
 }
-} // namespace
 
 FastMathFlags SPIRVToLLVM::translateFastMathFlags(SPIRVWord V) const {
   FastMathFlags FMF;
@@ -3884,18 +3879,6 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
       SPIRVInstruction *BInst = BBB->getInst(BI);
       transValue(BInst, F, BB, false);
     }
-  }
-
-  // AMDGCN specific: feature predicate handling.
-  if (M->getTargetTriple().isAMDGCN() && !FeaturePredicateUsers.empty()) {
-    SmallVector<Function *> MaybeUnreachable = collectUsedFunctions(*M);
-    maybeFoldFeaturePredicates(F, ::std::move(FeaturePredicateUsers));
-    for_each(MaybeUnreachable, [](auto &&UF) {
-      if (UF->hasNUndroppableUses(0)) {
-        UF->dropDroppableUses();
-        UF->eraseFromParent();
-      }
-    });
   }
 
   validatePhiPredecessors(F);
@@ -4372,6 +4355,16 @@ Instruction *SPIRVToLLVM::transSPIRVBuiltinFromInst(SPIRVInstruction *BI,
                               BB);
 }
 
+static inline void removeUnreachableFunctions(
+    const SmallVector<Function *> &MaybeUnreachable) {
+  for_each(MaybeUnreachable, [](auto &&UF) {
+    if (UF->hasNUndroppableUses(0)) {
+      UF->dropDroppableUses();
+      UF->eraseFromParent();
+    }
+  });
+}
+
 bool SPIRVToLLVM::translate() {
   if (!transAddressingModel())
     return false;
@@ -4421,6 +4414,13 @@ bool SPIRVToLLVM::translate() {
   for (unsigned I = 0, E = BM->getNumFunctions(); I != E; ++I) {
     transFunction(BM->getFunction(I));
     transUserSemantic(BM->getFunction(I));
+  }
+
+  if (M->getTargetTriple().isAMDGCN()) {
+    SmallVector<Function *> MaybeUnreachable = collectUsedFunctions(*M);
+    for (auto &&[F, FPU] : FeaturePredicateUsers)
+      maybeFoldFeaturePredicates(F, FPU);
+    removeUnreachableFunctions(MaybeUnreachable);
   }
 
   transGlobalAnnotations();
