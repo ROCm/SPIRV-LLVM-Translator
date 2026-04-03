@@ -1541,11 +1541,7 @@ static bool getPredicateValue(StringRef Predicate, StringRef GFXIp) {
   Predicate = Predicate.substr(4);
 
   SmallVector<StringRef> RequiredFeatures;
-  do {
-    auto Tmp = Predicate.split(',');
-    RequiredFeatures.push_back(Tmp.first);
-    Predicate = Tmp.second;
-  } while (!Predicate.empty());
+  Predicate.split(RequiredFeatures, ',', -1, false);
 
   return all_of(
       RequiredFeatures, [](auto &&F) { return SupportedFeatures.contains(F); });
