@@ -1558,23 +1558,26 @@ void SPIRVToLLVM::addFeaturePredicateMap(SPIRVValue *Map) {
 
   SmallVector<char> Tmp;
   for (auto &&E : static_cast<SPIRVConstantComposite *>(Map)->getElements()) {
-    auto C =
-        static_cast<char>(BM->get<SPIRVConstant>(E->getId())->getZExtIntValue());
+    auto C = static_cast<char>(
+      BM->get<SPIRVConstant>(E->getId())->getZExtIntValue());
 
     if (C == '\0') {
       StringRef PId(Tmp.data(), Tmp.size());
-      StringRef Pred = PId.substr(0, PId.find(' '));
-      SPIRVWord Id;
-      std::from_chars(PId.substr(Pred.size() + 1).begin(), PId.end(), Id);
-
-      FeaturePredicateMap.emplace(
-          Id, getPredicateValue(Pred, BM->getAMDGCNSPIRVOffloadArch()));
+      auto [Pred, IdStr] = PId.split(' ');
+      if (APInt Id; !IdStr.getAsInteger(10, Id))
+        FeaturePredicateMap.emplace(
+            Id.getZExtValue(),
+            getPredicateValue(Pred, BM->getAMDGCNSPIRVOffloadArch()));
+      else
+        reportFatalUsageError("Predicate ID must be an integer!");
 
       Tmp.clear();
     } else {
       Tmp.push_back(C);
     }
   }
+  assert(Tmp.empty() &&
+         "Feature predicate id map should contain null-terminated strings");
 }
 
 bool SPIRVToLLVM::expandFeaturePredicate(SPIRVWord SpecId) const {
