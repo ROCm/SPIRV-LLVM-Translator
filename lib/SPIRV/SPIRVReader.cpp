@@ -1537,7 +1537,7 @@ static bool evaluatePredicate(StringRef Predicate, StringRef GFXIp) {
     return Features;
   }();
 
-  Predicate = Predicate.substr(4); // Skip the has. prefix
+  Predicate = Predicate.substr(4); // Skip the has. prefix.
 
   SmallVector<StringRef> RequiredFeatures;
   Predicate.split(RequiredFeatures, ',', -1, false);
