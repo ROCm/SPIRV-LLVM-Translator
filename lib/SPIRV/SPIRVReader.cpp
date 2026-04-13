@@ -1529,7 +1529,7 @@ static bool isFeaturePredicate(
 
 static bool evaluatePredicate(StringRef Predicate, StringRef GFXIp) {
   if (Predicate.starts_with("is."))
-    return Predicate.substr(3) == GFXIp;
+    return Predicate.substr(3) == GFXIp; // Skip the is. prefix.
 
   static const auto SupportedFeatures = [GFXIp]() {
     StringMap<bool> Features;
@@ -1537,7 +1537,7 @@ static bool evaluatePredicate(StringRef Predicate, StringRef GFXIp) {
     return Features;
   }();
 
-  Predicate = Predicate.substr(4);
+  Predicate = Predicate.substr(4); // Skip the has. prefix
 
   SmallVector<StringRef> RequiredFeatures;
   Predicate.split(RequiredFeatures, ',', -1, false);
@@ -1585,7 +1585,7 @@ bool SPIRVToLLVM::expandFeaturePredicate(SPIRVWord SpecId) const {
 inline void SPIRVToLLVM::addFeaturePredicateUser(Instruction *User) {
   assert(User && "Expected a valid user for the predicate!");
 
-  FeaturePredicateUsers[User->getParent()->getParent()].push_back(User);
+  FeaturePredicateUsers[User->getFunction()].push_back(User);
 }
 
 /// For instructions, this function assumes they are created in order
@@ -3588,7 +3588,7 @@ static inline void collectUsers(Value *V, SmallPtrSet<Instruction *, N> &C) {
 
   for (auto &&U : V->users())
     if (auto *I = dyn_cast<Instruction>(U))
-      C.insert(C.end(), I);
+      C.insert(I);
 }
 
 static void maybeFoldFeaturePredicates(
