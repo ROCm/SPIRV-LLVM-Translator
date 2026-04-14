@@ -133,7 +133,9 @@ enum InternalExecutionMode {
 constexpr LinkageType LinkageTypeInternal =
     static_cast<LinkageType>(ILTInternal);
 
+// AMD customization begin: Weak linkage support for SPV_AMD_weak_linkage
 constexpr LinkageType LinkageTypeWeak = static_cast<LinkageType>(3);
+// AMD customization end
 
 enum InternalJointMatrixLayout {
   RowMajor = 0,

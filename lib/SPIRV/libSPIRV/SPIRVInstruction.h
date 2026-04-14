@@ -650,6 +650,7 @@ protected:
     SPIRVInstruction::validate();
     if (getSrc()->isForward() || getDst()->isForward())
       return;
+    // AMD customization begin: Relax type check for untyped pointers
     assert(
         (getValueType(PtrId)
              ->getPointerElementType()
@@ -658,6 +659,7 @@ protected:
           getValueType(ValId)->isTypeUntypedPointerKHR()) ||
          getValueType(PtrId)->getPointerElementType() == getValueType(ValId)) &&
         "Inconsistent operand types");
+    // AMD customization end
   }
 
 private:
@@ -768,8 +770,10 @@ protected:
     } else if (isBinaryPtrOpCode(OpCode)) {
       assert((Op1Ty->isTypePointer() && Op2Ty->isTypePointer()) &&
              "Invalid types for PtrEqual, PtrNotEqual, or PtrDiff instruction");
+      // AMD customization begin: Fix untyped pointer check (|| -> &&)
       if (!Op1Ty->isTypeUntypedPointerKHR() &&
           !Op2Ty->isTypeUntypedPointerKHR())
+      // AMD customization end
         assert(
             static_cast<SPIRVTypePointer *>(Op1Ty)->getElementType() ==
                 static_cast<SPIRVTypePointer *>(Op2Ty)->getElementType() &&
@@ -1030,6 +1034,7 @@ public:
     assert(WordCount == Pairs.size() + FixedWordCount);
     assert(OpCode == OC);
     assert(Pairs.size() % 2 == 0);
+    // AMD customization begin: Relax PHI type validation for untyped pointers
     foreachPair([=](SPIRVValue *IncomingV, SPIRVBasicBlock *IncomingBB) {
       assert(IncomingV->isForward() || IncomingV->getType() == Type ||
              (IncomingV->getType()->isTypePointer() &&
@@ -1038,6 +1043,7 @@ public:
               Type->isTypePointer()));
       assert(IncomingBB->isBasicBlock() || IncomingBB->isForward());
     });
+    // AMD customization end
     SPIRVInstruction::validate();
   }
 
@@ -1157,9 +1163,11 @@ protected:
                            : getValueType(Condition);
     (void)ConTy;
     assert(ConTy->isTypeBool() && "Invalid type");
+    // AMD customization begin: Skip type check for untyped pointers
     if (getType()->getOpCode() != OpTypeUntypedPointerKHR &&
         getValueType(Op1)->getOpCode() != OpTypeUntypedPointerKHR &&
         getValueType(Op2)->getOpCode() != OpTypeUntypedPointerKHR)
+    // AMD customization end
     assert(getType() == getValueType(Op1) && getType() == getValueType(Op2) &&
            "Inconsistent type");
   }
@@ -1279,8 +1287,10 @@ public:
     return static_cast<SPIRVBasicBlock *>(getValue(Default));
   }
   size_t getLiteralSize() const {
+    // AMD customization begin: Ensure minimum byte width of 1
     unsigned ByteWidth =
         std::max(getSelect()->getType()->getBitWidth() / 8, 1u);
+    // AMD customization end
     unsigned Remainder = (ByteWidth % sizeof(SPIRVWord)) != 0;
     return (ByteWidth / sizeof(SPIRVWord)) + Remainder;
   }

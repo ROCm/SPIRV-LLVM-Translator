@@ -159,8 +159,10 @@ private:
   // DWARF expressions
   SPIRVEntry *transDbgExpression(const DIExpression *Expr);
 
+  // AMD customization begin: DIOp-based DIExpression support
   template <class OperandTy>
   void transDIOpOperand(SPIRVWordVec &Vec, unsigned Idx, OperandTy Operand);
+  // AMD customization end
 
   // Imported declarations and modules
   SPIRVEntry *transDbgImportedEntry(const DIImportedEntity *IE);

@@ -60,6 +60,7 @@ if(SPIRV_BACKEND_FOUND)
   list(APPEND SPIRVLIB_LINK_COMPONENTS "SPIRVCodeGen")
 endif()
 
+# AMD customization begin: Rename library to LLVMSPIRVAMDLib
 add_llvm_library(LLVMSPIRVAMDLib
   ${SRC_LIST}
   LINK_COMPONENTS
@@ -69,6 +70,7 @@ add_llvm_library(LLVMSPIRVAMDLib
   )
 
 target_include_directories(LLVMSPIRVAMDLib
+# AMD customization end
   PRIVATE
     ${LLVM_INCLUDE_DIRS}
     ${LLVM_SPIRV_INCLUDE_DIRS}

@@ -74,6 +74,7 @@ bool SPIRVToOCL20Base::runSPIRVToOCL(Module &Module) {
   return true;
 }
 
+// AMD customization begin: map OpenCL memory scope to AMDGPU sync scope
 static SyncScope::ID mapOpenCLScopeToAMDGPU(LLVMContext &Ctx, uint64_t S) {
   if (S == OCLMS_work_item)
     return SyncScope::SingleThread;
@@ -85,7 +86,9 @@ static SyncScope::ID mapOpenCLScopeToAMDGPU(LLVMContext &Ctx, uint64_t S) {
     return Ctx.getOrInsertSyncScopeID("wavefront");
   return SyncScope::System;
 }
+// AMD customization end
 
+// AMD customization begin: translate SPIR-V atomic compare exchange to LLVM atomic cmpxchg
 static void translateSPIRVCmpXchgToLLVM(CallInst *CI, Op OC) {
   auto Ptr = CI->getOperand(0);
   auto Cmp = CI->getOperand(1);
@@ -114,7 +117,9 @@ static void translateSPIRVCmpXchgToLLVM(CallInst *CI, Op OC) {
   CI->dropAllReferences();
   CI->eraseFromParent();
 }
+// AMD customization end
 
+// AMD customization begin: map SPIR-V atomic op to LLVM AtomicRMW BinOp
 static AtomicRMWInst::BinOp getAtomicRMWInstForOp(Op op) {
   switch (op) {
   case OpAtomicAnd:
@@ -151,7 +156,9 @@ static AtomicRMWInst::BinOp getAtomicRMWInstForOp(Op op) {
     llvm_unreachable("Undefined operation");
   }
 }
+// AMD customization end
 
+// AMD customization begin: translate SPIR-V atomic builtin to LLVM atomic instruction
 static void translateSPIRVAtomicBuiltinToLLVMAtomicOp(CallInst *CI, Op OC) {
   if (OC == OpAtomicCompareExchange || OC == OpAtomicCompareExchangeWeak)
     return translateSPIRVCmpXchgToLLVM(CI, OC);
@@ -183,7 +190,9 @@ static void translateSPIRVAtomicBuiltinToLLVMAtomicOp(CallInst *CI, Op OC) {
   CI->dropAllReferences();
   CI->eraseFromParent();
 }
+// AMD customization end
 
+// AMD customization begin: translate SPIR-V memory barrier to LLVM fence
 static void visitCallLLVMFence(CallInst *CI) { // TODO: AMDSPV JANK, this is incorrect
   auto MS = transSPIRVMemoryScopeIntoOCLMemoryScope(CI->getArgOperand(0), CI);
   auto MO = transSPIRVMemorySemanticsIntoOCLMemoryOrder(CI->getArgOperand(1),
@@ -201,10 +210,13 @@ static void visitCallLLVMFence(CallInst *CI) { // TODO: AMDSPV JANK, this is inc
   CI->dropAllReferences();
   CI->eraseFromParent();
 }
+// AMD customization end
 
 void SPIRVToOCL20Base::visitCallSPIRVMemoryBarrier(CallInst *CI) {
+  // AMD customization begin: use LLVM fence for AMD target
   if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
     return visitCallLLVMFence(CI);
+  // AMD customization end
 
   Value *MemScope =
       SPIRV::transSPIRVMemoryScopeIntoOCLMemoryScope(CI->getArgOperand(0), CI);
@@ -264,8 +276,10 @@ void SPIRVToOCL20Base::mutateAtomicName(CallInst *CI, Op OC) {
 void SPIRVToOCL20Base::visitCallSPIRVAtomicBuiltin(CallInst *CI, Op OC) {
   CallInst *CIG = mutateCommonAtomicArguments(CI, OC);
 
+  // AMD customization begin: translate to LLVM atomic ops for AMD target
   if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
     return translateSPIRVAtomicBuiltinToLLVMAtomicOp(CIG, OC);
+  // AMD customization end
 
   switch (OC) {
   case OpAtomicIIncrement:
@@ -306,6 +320,7 @@ CallInst *SPIRVToOCL20Base::mutateCommonAtomicArguments(CallInst *CI, Op OC) {
   auto OrderIdx = Ptr + 2;
   auto Mutator = mutateCallInst(CI, Name);
 
+  // AMD customization begin: use AMD address space mapping for atomics
   Mutator.mapArgs([=](IRBuilder<> &Builder, Value *PtrArg, Type *PtrArgTy) {
     if (auto *TypedPtrTy = dyn_cast<TypedPointerType>(PtrArgTy)) {
       unsigned AS = M->getTargetTriple().getVendor() == Triple::VendorType::AMD
@@ -321,6 +336,7 @@ CallInst *SPIRVToOCL20Base::mutateCommonAtomicArguments(CallInst *CI, Op OC) {
     }
     return std::make_pair(PtrArg, PtrArgTy);
   });
+  // AMD customization end
   Mutator.mapArg(ScopeIdx, [=](Value *Arg) {
     return SPIRV::transSPIRVMemoryScopeIntoOCLMemoryScope(Arg, CI);
   });
@@ -354,6 +370,7 @@ void SPIRVToOCL20Base::visitCallSPIRVAtomicCmpExchg(CallInst *CI) {
 
   // OpAtomicCompareExchangeWeak is not "weak" at all, but instead has the same
   // semantics as OpAtomicCompareExchange.
+  // AMD customization begin: use AMD address space mapping for cmpxchg
   mutateCallInst(CI, "atomic_compare_exchange_strong_explicit")
       .mapArg(1,
               [=](IRBuilder<> &Builder, Value *Expected) {
@@ -368,6 +385,7 @@ void SPIRVToOCL20Base::visitCallSPIRVAtomicCmpExchg(CallInst *CI) {
                     PExpected, PtrTyAS, PExpected->getName() + ".as");
                 return std::make_pair(V, TypedPointerType::get(MemTy, AddrSpc));
               })
+  // AMD customization end
       .moveArg(4, 2)
       .changeReturnType(Type::getInt1Ty(*Ctx), [=](IRBuilder<> &Builder,
                                                    CallInst *NewCI) {
@@ -403,6 +421,7 @@ void SPIRVToOCL20Base::visitCallSPIRVEnqueueKernel(CallInst *CI, Op OC) {
     FName = "__enqueue_kernel_events_varargs";
 
   auto Mutator = mutateCallInst(CI, FName.str());
+  // AMD customization begin: use AMD address space for enqueue kernel
   Mutator.mapArg(6, [=](IRBuilder<> &Builder, Value *Invoke) {
     unsigned AS = M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
         mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric) : SPIRAS_Generic;
@@ -411,6 +430,7 @@ void SPIRVToOCL20Base::visitCallSPIRVEnqueueKernel(CallInst *CI, Op OC) {
     return std::make_pair(
         Replace, TypedPointerType::get(Builder.getInt8Ty(), AS));
   });
+  // AMD customization end
 
   if (!HasVaargs) {
     // Remove arguments at indices 8 (Param Size), 9 (Param Align)

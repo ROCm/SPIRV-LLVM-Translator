@@ -500,6 +500,7 @@ inline OCLMemOrderKind mapSPIRVMemOrderToOCL(unsigned Sema) {
   return OCLMemOrderMap::rmap(extractSPIRVMemOrderSemantic(Sema));
 }
 
+// AMD customization begin: map AMDGCN address space to SPIR-V address space
 inline unsigned int mapAMDGCNAddrSpaceToSPIRV(unsigned int AS) {
   switch (AS) {
   case 0:
@@ -517,7 +518,9 @@ inline unsigned int mapAMDGCNAddrSpaceToSPIRV(unsigned int AS) {
     return UINT_MAX;
   }
 }
+// AMD customization end
 
+// AMD customization begin: map SPIR-V storage class to AMDGPU address space
 inline SPIRAddressSpace mapSPIRVAddrSpaceToAMDGPU(SPIRVStorageClassKind SPVAS) {
   switch (SPVAS) {
   case StorageClassCrossWorkgroup:
@@ -536,6 +539,7 @@ inline SPIRAddressSpace mapSPIRVAddrSpaceToAMDGPU(SPIRVStorageClassKind SPVAS) {
     return static_cast<SPIRAddressSpace>(UINT_MAX);
   }
 }
+// AMD customization end
 
 bool isPipeOrAddressSpaceCastBI(const StringRef MangledName);
 bool isEnqueueKernelBI(const StringRef MangledName);

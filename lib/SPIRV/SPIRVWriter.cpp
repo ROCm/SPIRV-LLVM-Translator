@@ -454,10 +454,12 @@ SPIRVType *LLVMToSPIRVBase::transType(Type *T) {
   if (T->isArrayTy()) {
     // SPIR-V 1.3 s3.32.6: Length is the number of elements in the array.
     //                     It must be at least 1.
+    // AMD customization begin: zero-sized array handling
     const auto ArraySize =
         T->getArrayNumElements() ? T->getArrayNumElements() :
             (M->getTargetTriple().getVendor() == Triple::VendorType::AMD
               ? UINT64_MAX : 1);
+    // AMD customization end
 
     Type *ElTy = T->getArrayElementType();
     SPIRVType *TransType = BM->addArrayType(
@@ -848,14 +850,18 @@ SPIRVType *LLVMToSPIRVBase::transScavengedType(Value *V) {
     // error. To be on the safe side, an assertion is added to check printf
     // never reaches this point.
     assert(F->getName() != "printf");
+    // AMD customization begin: variadic function support
     if (M->getTargetTriple().getVendor() != Triple::VendorType::AMD)
       BM->getErrorLog().checkError(!FnTy->isVarArg(),
                                    SPIRVEC_UnsupportedVarArgFunction);
+    // AMD customization end
 
     SPIRVType *RT = transType(FnTy->getReturnType());
+    // AMD customization begin: dispatch pointer return type handling
     if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
         F->hasName() && F->getName().contains("dispatch.ptr"))
       RT = transType(PointerType::get(F->getContext(), SPIRAS_Constant));
+    // AMD customization end
 
     std::vector<SPIRVType *> PT;
     for (Argument &Arg : F->args()) {
@@ -1639,21 +1645,25 @@ SPIRVValue *LLVMToSPIRVBase::transUnaryInst(UnaryInstruction *U,
       return BM->addUndef(ExpectedTy);
     }
   }
+  // AMD customization begin: variadic function support
   if (isa<VAArgInst>(U) &&
       M->getTargetTriple().getVendor() == Triple::VendorType::AMD) {
     SPIRVType *ExpectedTy = transScavengedType(U);
     return BM->addUndef(ExpectedTy);
   }
+  // AMD customization end
 
   Op BOC = OpNop;
   if (auto *Cast = dyn_cast<AddrSpaceCastInst>(U)) {
     const auto SrcAddrSpace = Cast->getSrcTy()->getPointerAddressSpace();
     const auto DestAddrSpace = Cast->getDestTy()->getPointerAddressSpace();
     if (DestAddrSpace == SPIRAS_Generic) {
+      // AMD customization begin: address space cast validation relaxation
       if (M->getTargetTriple().getVendor() != Triple::VendorType::AMD)
         getErrorLog().checkError(
             SrcAddrSpace != SPIRAS_Constant, SPIRVEC_InvalidModule, U,
             "Casts from constant address space to generic are illegal\n");
+      // AMD customization end
       BOC = OpPtrCastToGeneric;
       // In SPIR-V only casts to/from generic are allowed. But with
       // SPV_INTEL_usm_storage_classes we can also have casts from global_device
@@ -1697,10 +1707,12 @@ SPIRVValue *LLVMToSPIRVBase::transUnaryInst(UnaryInstruction *U,
           SrcAddrSpace == SPIRAS_Generic, SPIRVEC_InvalidModule, U,
           "Casts from private/local/global address space are allowed only to "
           "generic\n");
+      // AMD customization begin: address space cast validation relaxation
       if (M->getTargetTriple().getVendor() != Triple::VendorType::AMD)
         getErrorLog().checkError(
             DestAddrSpace != SPIRAS_Constant, SPIRVEC_InvalidModule, U,
             "Casts from generic address space to constant are illegal\n");
+      // AMD customization end
       BOC = OpGenericCastToPtr;
     }
   } else {
@@ -2186,10 +2198,12 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
                                                 : nullptr,
         GV->isConstant(), transLinkageType(GV), BVarInit, GV->getName().str(),
         StorageClass, nullptr));
+    // AMD customization begin: externally initialized global variable decoration
     if (GV->isExternallyInitialized() &&
         M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
       BVar->addDecorate(DecorationUserTypeGOOGLE,
                         BM->getString("externally_initialized")->getId());
+    // AMD customization end
 
     if (IsVectorCompute) {
       BVar->addDecorate(DecorationVectorComputeVariableINTEL);
@@ -2409,11 +2423,13 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
             BB));
 
   if (AllocaInst *Alc = dyn_cast<AllocaInst>(V)) {
+    // AMD customization begin: alloca type handling
     SPIRVType *TranslatedTy =
         M->getTargetTriple().getVendor() != Triple::VendorType::AMD
           ? transScavengedType(V)
           : BM->addPointerType(StorageClassFunction,
                                transType(Alc->getAllocatedType()));
+    // AMD customization end
     if (Alc->isArrayAllocation()) {
       SPIRVValue *Length = transValue(Alc->getArraySize(), BB);
       assert(Length && "Couldn't translate array size!");
@@ -2782,6 +2798,7 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
       // Implement FSub through FNegate and AtomicFAddExt
       Ops[3] = BM->addUnaryInst(OpFNegate, Ty, OpVals[3], BB)->getId();
       OC = OpAtomicFAddEXT;
+    // AMD customization begin: atomic inc/dec wrap handling
     } else if (Op == AtomicRMWInst::UIncWrap || Op == AtomicRMWInst::UDecWrap) {
       OC = LLVMSPIRVAtomicRmwOpCodeMap::map(Op);
       auto WrapV = Ops.back();
@@ -2791,6 +2808,7 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
                                             WrapV));
       return IncDec;
       // TODO: figure out handling of saturating val.
+    // AMD customization end
     } else
       OC = LLVMSPIRVAtomicRmwOpCodeMap::map(Op);
 
@@ -2885,12 +2903,14 @@ void addFuncPointerCallArgumentAttributes(CallInst *CI,
     for (const auto &I : CI->getAttributes().getParamAttrs(ArgNo)) {
       spv::FunctionParameterAttribute Attr = spv::FunctionParameterAttributeMax;
       SPIRSPIRVFuncParamAttrMap::find(I.getKindAsEnum(), &Attr);
+      // AMD customization begin: function pointer call argument attribute handling (Captures)
       if (Attr != spv::FunctionParameterAttributeMax &&
           (I.getKindAsEnum() != Attribute::Captures ||
            capturesNothing(I.getCaptureInfo())))
         FuncPtrCall->addDecorate(
             new SPIRVDecorate(spv::internal::DecorationArgumentAttributeINTEL,
                               FuncPtrCall, ArgNo, Attr));
+      // AMD customization end
     }
   }
 }
@@ -3405,9 +3425,11 @@ void LLVMToSPIRVBase::transMemAliasingINTELDecorations(Instruction *Inst,
   if (!BM->isAllowedToUseExtension(
           ExtensionID::SPV_INTEL_memory_access_aliasing))
     return;
+  // AMD customization begin: memory aliasing decoration handling for fences
   if (!BV->hasId() &&
       M->getTargetTriple().getVendor() == Triple::VendorType::AMD) // Fences
     return;
+  // AMD customization end
   if (MDNode *AliasingListMD = Inst->getMetadata(LLVMContext::MD_alias_scope)) {
     auto *MemAliasList = addMemAliasingINTELInstructions(BM, AliasingListMD);
     if (!MemAliasList)
@@ -6388,10 +6410,12 @@ bool isEmptyLLVMModule(Module *M) {
 }
 
 bool LLVMToSPIRVBase::translate() {
+  // AMD customization begin: generator version marking
   if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
     BM->setGeneratorVer(UINT16_MAX);
   else
     BM->setGeneratorVer(KTranslatorVer);
+  // AMD customization end
 
   if (isEmptyLLVMModule(M))
     BM->addCapability(CapabilityLinkage);
@@ -7480,9 +7504,11 @@ LLVMToSPIRVBase::transLinkageType(const GlobalValue *GV) {
   if (GV->hasLinkOnceODRLinkage())
     if (BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_linkonce_odr))
       return SPIRVLinkageTypeKind::LinkageTypeLinkOnceODR;
+  // AMD customization begin: weak linkage translation
   if (GV->hasWeakAnyLinkage())
     if (BM->isAllowedToUseExtension(ExtensionID::SPV_AMD_weak_linkage))
       return spv::internal::LinkageTypeWeak;
+  // AMD customization end
   return SPIRVLinkageTypeKind::LinkageTypeExport;
 }
 
@@ -7630,7 +7656,9 @@ bool runSpirvBackend(Module *M, std::string &Result, std::string &ErrMsg,
       SPIRV::ExtensionID::SPV_KHR_expect_assume,
       SPIRV::ExtensionID::SPV_KHR_bit_instructions,
       SPIRV::ExtensionID::SPV_KHR_linkonce_odr,
+      // AMD customization begin: SPV_AMD_weak_linkage extension support
       SPIRV::ExtensionID::SPV_AMD_weak_linkage,
+      // AMD customization end
       SPIRV::ExtensionID::SPV_INTEL_inline_assembly,
       SPIRV::ExtensionID::SPV_INTEL_bfloat16_conversion,
       SPIRV::ExtensionID::SPV_KHR_subgroup_rotate,

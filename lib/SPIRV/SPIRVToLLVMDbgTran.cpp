@@ -1151,10 +1151,12 @@ MDNode *SPIRVToLLVMDbgTran::transGlobalVariable(const SPIRVExtInst *DebugInst) {
   bool IsDefinition = Flags & SPIRVDebug::FlagIsDefinition;
   MDNode *VarDecl = nullptr;
   if (IsDefinition) {
+// AMD customization begin: expression poisoning for invalid DIOp expressions
 #ifdef SPIRV_HAS_DIOP_DIEXPRESSION
     if (DIExpr && DIExpr->holdsNewElements() && !DIExpr->isValid())
       DIExpr = DIExpr->getPoisoned();
 #endif
+// AMD customization end
     VarDecl = getDIBuilder(DebugInst).createGlobalVariableExpression(
         Parent, Name, LinkageName, File, LineNo, Ty, IsLocal, IsDefinition,
         DIExpr, StaticMemberDecl);
@@ -1419,6 +1421,7 @@ DINode *SPIRVToLLVMDbgTran::transModule(const SPIRVExtInst *DebugInst) {
       Scope, Name, ConfigMacros, IncludePath, ApiNotes, File, Line, IsDecl);
 }
 
+// AMD customization begin: DIOp-based DIExpression operand translation
 template <>
 Type *SPIRVToLLVMDbgTran::transDIOpOperand(const SPIRVExtInst *DbgOpInst,
                                            unsigned Idx) {
@@ -1442,7 +1445,9 @@ SPIRVToLLVMDbgTran::transDIOpOperand(const SPIRVExtInst *DbgOpInst,
   SPIRVValue *Val = BM->get<SPIRVValue>(Operands[Idx]);
   return cast<ConstantData>(SPIRVReader->transValue(Val, nullptr, nullptr));
 }
+// AMD customization end
 
+// AMD customization begin: DIOp-based DIExpression translation
 MDNode *
 SPIRVToLLVMDbgTran::tryTransDIOpDIExpression(const SPIRVExtInst *DebugInst) {
   using namespace SPIRVDebug::Operand::Operation;
@@ -1500,6 +1505,7 @@ SPIRVToLLVMDbgTran::tryTransDIOpDIExpression(const SPIRVExtInst *DebugInst) {
   return DIExpression::get(M->getContext(), bool(), DIOps);
 #endif
 }
+// AMD customization end
 
 DIMacroFile *
 SPIRVToLLVMDbgTran::getOrCreateMacroFile(DIFile *File,
@@ -1737,6 +1743,7 @@ SPIRVToLLVMDbgTran::transDebugIntrinsic(const SPIRVExtInst *DebugInst,
   auto GetExpression = [&](SPIRVId Id) -> DIExpression * {
     return transDebugInst<DIExpression>(BM->get<SPIRVExtInst>(Id));
   };
+  // AMD customization begin: expression poisoning for invalid DIOp expressions
   auto PoisonInvalidExpr = [&](DIExpression *Expr, DILocalVariable *Var,
                                const Value *Op) {
 #ifdef SPIRV_HAS_DIOP_DIEXPRESSION
@@ -1750,6 +1757,7 @@ SPIRVToLLVMDbgTran::transDebugIntrinsic(const SPIRVExtInst *DebugInst,
 #endif
     return Expr;
   };
+  // AMD customization end
   SPIRVWordVec Ops = DebugInst->getArguments();
   switch (DebugInst->getExtOp()) {
   case SPIRVDebug::Scope:

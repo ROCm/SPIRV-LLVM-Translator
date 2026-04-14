@@ -19,7 +19,88 @@ dependencies on anything but superficial semantics).
 
 ### Differences vs Upstream
 
-- TBA
+All AMD-specific code is marked with `// AMD customization begin:` and
+`// AMD customization end` comments in the source files.
+
+#### Build System Changes
+
+| File | Description |
+|------|-------------|
+| `CMakeLists.txt` | Disable SPIR-V backend for AMD's fork |
+| `lib/SPIRV/CMakeLists.txt` | Rename library to `LLVMSPIRVAMDLib` |
+| `tools/llvm-spirv/CMakeLists.txt` | Rename tool to `amd-llvm-spirv`, use `SPIRVAMDLib` |
+| `test/CMakeLists.txt` | Update target names for AMD |
+| `test/lit.cfg.py` | Use `amd-llvm-spirv` tool name and `LLVMSPIRVAMDLib` library |
+
+#### New Extensions
+
+| Extension | Description |
+|-----------|-------------|
+| `SPV_NV_shader_atomic_fp16_vector` | FP16 vector atomic support |
+| `SPV_AMD_weak_linkage` | Weak linkage support for AMDGPU |
+
+#### Weak Linkage Support
+
+| File | Description |
+|------|-------------|
+| `lib/SPIRV/libSPIRV/spirv_internal.hpp` | Define `LinkageTypeWeak` |
+| `lib/SPIRV/libSPIRV/SPIRVDecorate.h` | Extension requirement for weak linkage |
+| `lib/SPIRV/libSPIRV/SPIRVIsValidEnum.h` | Validate weak linkage type |
+| `lib/SPIRV/libSPIRV/SPIRVNameMapEnum.h` | Name mapping for weak linkage |
+
+#### DIOp-based DIExpression Support (Debug Info)
+
+| File | Description |
+|------|-------------|
+| `lib/SPIRV/libSPIRV/SPIRV.debug.h` | DIOp operations, expression opcodes, operand counts |
+| `lib/SPIRV/LLVMToSPIRVDbgTran.cpp` | DIOp operand translation, expression translation |
+| `lib/SPIRV/LLVMToSPIRVDbgTran.h` | `transDIOpOperand` template declaration |
+| `lib/SPIRV/SPIRVToLLVMDbgTran.cpp` | DIOp translation, expression poisoning |
+| `lib/SPIRV/SPIRVToLLVMDbgTran.h` | `transDIOpOperand`, `tryTransDIOpDIExpression` declarations |
+
+#### AMDGPU Target Support (SPIRVReader.cpp)
+
+| Category | Description |
+|----------|-------------|
+| Address Space Mapping | SPIR-V to AMDGPU address space mapping functions |
+| Calling Convention | Use `AMDGPU_KERNEL`/`C` instead of `SPIR_KERNEL`/`SPIR_FUNC` |
+| Type Handling | Zero-sized arrays, pointer type relaxation |
+| Intrinsics | OpenCL intrinsics to LLVM intrinsics translation |
+| Module Setup | AMDGCN target triple, data layout, COV flags |
+| Variable Handling | Workgroup variables, externally initialized globals |
+| Attribute Handling | ByVal→ByRef, Captures, kernel attributes |
+
+#### AMDGPU Target Support (SPIRVWriter.cpp)
+
+| Category | Description |
+|----------|-------------|
+| Generator Version | Use `UINT16_MAX` for AMD to identify AMDGPU binaries |
+| Zero-sized Arrays | Use `UINT64_MAX` sentinel |
+| Variadic Functions | Support vararg functions |
+| Atomics | UIncWrap/UDecWrap handling |
+| Validation | Relax address space cast checks |
+
+#### Atomic Operations (SPIRVToOCL20.cpp)
+
+| Feature | Description |
+|---------|-------------|
+| Memory Scope | Map OpenCL scope to AMDGPU sync scope |
+| Atomics | Translate SPIR-V atomics to LLVM atomic instructions |
+| Fences | Translate memory barrier to LLVM fence |
+| CmpXchg | Native LLVM atomicrmw/cmpxchg generation |
+
+#### Other Customizations
+
+| File | Description |
+|------|-------------|
+| `lib/SPIRV/libSPIRV/SPIRVInstruction.h` | Type validation relaxation for untyped pointers |
+| `lib/SPIRV/OCLUtil.h` | AMDGCN↔SPIR-V address space mapping functions |
+| `lib/SPIRV/OCLUtil.cpp` | Scope naming, atomic inc/dec wrap ops |
+| `lib/SPIRV/SPIRVInternal.h` | Captures attribute mapping |
+| `lib/SPIRV/SPIRVUtil.cpp` | C calling convention for AMDGPU |
+| `lib/SPIRV/SPIRVToOCL.cpp` | Skip cast mutation for AMD |
+| `lib/SPIRV/OCLToSPIRV.cpp` | Barrier argument validation |
+| `lib/SPIRV/SPIRVLowerLLVMIntrinsic.cpp` | Extension name changes (INTEL->ALTERA) |
 
 ## Directory Structure
 

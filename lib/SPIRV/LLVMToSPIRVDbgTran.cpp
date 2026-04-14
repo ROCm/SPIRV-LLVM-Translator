@@ -1221,6 +1221,7 @@ LLVMToSPIRVDbgTran::transDbgGlobalVariable(const DIGlobalVariable *GV) {
           // DIExpression is non-empty
           GVE->getExpression()->getNumElements()) {
         if (Ops[VariableIdx] != getDebugInfoNoneId()) {
+// AMD customization begin: DIOp-based global variable expression handling
 #ifdef SPIRV_HAS_DIOP_DIEXPRESSION
           if (GVE->getExpression()->holdsNewElements()) {
             Ops.resize(MaxOperandCount, getDebugInfoNoneId());
@@ -1228,6 +1229,7 @@ LLVMToSPIRVDbgTran::transDbgGlobalVariable(const DIGlobalVariable *GV) {
               transDbgExpression(GVE->getExpression())->getId();
           }
 #endif
+// AMD customization end
           break;
         }
         // Repurpose VariableIdx operand to hold the initial value held in the
@@ -1613,6 +1615,7 @@ LLVMToSPIRVDbgTran::transDbgLocalVariable(const DILocalVariable *Var) {
 
 // DWARF Operations and expressions
 
+// AMD customization begin: DIOp-based DIExpression operand translation
 template <>
 void LLVMToSPIRVDbgTran::transDIOpOperand(SPIRVWordVec &Vec, unsigned Idx,
                                           llvm::Type *Ty) {
@@ -1632,10 +1635,12 @@ void LLVMToSPIRVDbgTran::transDIOpOperand(SPIRVWordVec &Vec, unsigned Idx,
                                           llvm::ConstantData *Data) {
   Vec[Idx] = SPIRVWriter->transConstant(Data)->getId();
 }
+// AMD customization end
 
 SPIRVEntry *LLVMToSPIRVDbgTran::transDbgExpression(const DIExpression *Expr) {
   SPIRVWordVec Operations;
 
+// AMD customization begin: DIOp-based DIExpression translation
 #ifdef SPIRV_HAS_DIOP_DIEXPRESSION
   if (auto NewElems = Expr->getNewElementsRef()) {
     if (!(BM->allowExtraDIExpressions() ||
@@ -1690,6 +1695,7 @@ SPIRVEntry *LLVMToSPIRVDbgTran::transDbgExpression(const DIExpression *Expr) {
     return BM->addDebugInfo(SPIRVDebug::Expression, getVoidTy(), Operations);
   }
 #endif
+// AMD customization end
 
   for (unsigned I = 0, N = Expr->getNumElements(); I < N; ++I) {
     using namespace SPIRVDebug::Operand::Operation;

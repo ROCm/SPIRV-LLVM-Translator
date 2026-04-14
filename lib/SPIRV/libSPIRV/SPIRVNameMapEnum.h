@@ -58,7 +58,9 @@ template <> inline void SPIRVMap<LinkageType, std::string>::init() {
   add(LinkageTypeExport, "Export");
   add(LinkageTypeImport, "Import");
   add(LinkageTypeLinkOnceODR, "LinkOnceODR");
+  // AMD customization begin: Weak linkage support
   add(internal::LinkageTypeWeak, "Weak");
+  // AMD customization end
   add(internal::LinkageTypeInternal, "Internal");
   add(LinkageTypeMax, "Max");
 }

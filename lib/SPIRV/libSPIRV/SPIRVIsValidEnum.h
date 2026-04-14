@@ -143,7 +143,9 @@ inline bool isValid(spv::LinkageType V) {
   case LinkageTypeExport:
   case LinkageTypeImport:
   case LinkageTypeLinkOnceODR:
+  // AMD customization begin: Weak linkage support
   case internal::LinkageTypeWeak:
+  // AMD customization end
   case internal::LinkageTypeInternal:
     return true;
   default:

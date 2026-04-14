@@ -146,6 +146,7 @@ template <> void SPIRVMap<OCLScopeKind, Scope>::init() {
   add(OCLMS_sub_group, ScopeSubgroup);
 }
 
+// AMD customization begin: scope name change ("work_item" -> "singlethread")
 template <> void SPIRVMap<std::string, Scope>::init() {
   add("singlethread", ScopeInvocation);
   add("workgroup", ScopeWorkgroup);
@@ -153,6 +154,7 @@ template <> void SPIRVMap<std::string, Scope>::init() {
   add("all_svm_devices", ScopeCrossDevice);
   add("subgroup", ScopeSubgroup);
 }
+// AMD customization end
 
 template <> void SPIRVMap<std::string, SPIRVGroupOperationKind>::init() {
   add("reduce", GroupOperationReduce);
@@ -658,8 +660,10 @@ template <> void LLVMSPIRVAtomicRmwOpCodeMap::init() {
   add(llvm::AtomicRMWInst::FAdd, OpAtomicFAddEXT);
   add(llvm::AtomicRMWInst::FMin, OpAtomicFMinEXT);
   add(llvm::AtomicRMWInst::FMax, OpAtomicFMaxEXT);
+  // AMD customization begin: atomic inc/dec wrap operation mapping
   add(llvm::AtomicRMWInst::UIncWrap, OpAtomicIIncrement);
   add(llvm::AtomicRMWInst::UDecWrap, OpAtomicIDecrement);
+  // AMD customization end
 }
 
 } // namespace SPIRV
