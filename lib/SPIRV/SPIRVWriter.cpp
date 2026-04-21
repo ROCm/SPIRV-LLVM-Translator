@@ -84,6 +84,7 @@
 #include "llvm/IR/TypedPointerType.h"
 #include "llvm/Pass.h"
 #include "llvm/Passes/PassBuilder.h"
+#include "llvm/Support/AMDGPUAddrSpace.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -455,9 +456,11 @@ SPIRVType *LLVMToSPIRVBase::transType(Type *T) {
     // SPIR-V 1.3 s3.32.6: Length is the number of elements in the array.
     //                     It must be at least 1.
     const auto ArraySize =
-        T->getArrayNumElements() ? T->getArrayNumElements() :
-            (M->getTargetTriple().getVendor() == Triple::VendorType::AMD
-              ? UINT64_MAX : 1);
+        T->getArrayNumElements()
+            ? T->getArrayNumElements()
+            : (M->getTargetTriple().getVendor() == Triple::VendorType::AMD
+                   ? UINT64_MAX
+                   : 1);
 
     Type *ElTy = T->getArrayElementType();
     SPIRVType *TransType = BM->addArrayType(
@@ -853,9 +856,10 @@ SPIRVType *LLVMToSPIRVBase::transScavengedType(Value *V) {
                                    SPIRVEC_UnsupportedVarArgFunction);
 
     SPIRVType *RT = transType(FnTy->getReturnType());
-    if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
-        F->hasName() && F->getName().contains("dispatch.ptr"))
-      RT = transType(PointerType::get(F->getContext(), SPIRAS_Constant));
+    if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
+      if (F->getReturnType()->isPtrOrPtrVectorTy())
+        RT = transType(F->getReturnType()->getWithNewType(
+            PointerType::get(F->getContext(), SPIRAS_Constant)));
 
     std::vector<SPIRVType *> PT;
     for (Argument &Arg : F->args()) {
@@ -1604,8 +1608,7 @@ SPIRVInstruction *LLVMToSPIRVBase::transBinaryInst(BinaryOperator *B,
 SPIRVInstruction *LLVMToSPIRVBase::transCmpInst(CmpInst *Cmp,
                                                 SPIRVBasicBlock *BB) {
   auto *Op0 = Cmp->getOperand(0);
-  SPIRVValue *TOp0 =
-      transValue(Op0, BB, true, FuncTransMode::Pointer);
+  SPIRVValue *TOp0 = transValue(Op0, BB, true, FuncTransMode::Pointer);
   SPIRVValue *TOp1 =
       transValue(Cmp->getOperand(1), BB, true, FuncTransMode::Pointer);
   if (Op0->getType()->isPointerTy()) {
@@ -2411,9 +2414,9 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
   if (AllocaInst *Alc = dyn_cast<AllocaInst>(V)) {
     SPIRVType *TranslatedTy =
         M->getTargetTriple().getVendor() != Triple::VendorType::AMD
-          ? transScavengedType(V)
-          : BM->addPointerType(StorageClassFunction,
-                               transType(Alc->getAllocatedType()));
+            ? transScavengedType(V)
+            : BM->addPointerType(StorageClassFunction,
+                                 transType(Alc->getAllocatedType()));
     if (Alc->isArrayAllocation()) {
       SPIRVValue *Length = transValue(Alc->getArraySize(), BB);
       assert(Length && "Couldn't translate array size!");
@@ -2787,8 +2790,8 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
       auto WrapV = Ops.back();
       Ops.pop_back();
       auto IncDec = mapValue(V, BM->addInstTemplate(OC, Ops, BB, Ty));
-      IncDec->addDecorate(new SPIRVDecorate(DecorationMaxByteOffsetId, IncDec,
-                                            WrapV));
+      IncDec->addDecorate(
+          new SPIRVDecorate(DecorationMaxByteOffsetId, IncDec, WrapV));
       return IncDec;
       // TODO: figure out handling of saturating val.
     } else
@@ -4499,7 +4502,8 @@ SPIRVValue *LLVMToSPIRVBase::transIntrinsicInst(IntrinsicInst *II,
     SPIRVType *IntegralTy = transType(II->getType()->getStructElementType(1));
     // IntegralTy is the type of the result. We want to create a pointer to this
     // that we can pass to OpenCLLIB::modf to store the integral part.
-    SPIRVType *GenericPtrTy = BM->addPointerType(StorageClassFunction, IntegralTy);
+    SPIRVType *GenericPtrTy =
+        BM->addPointerType(StorageClassFunction, IntegralTy);
     auto *IntegralPtrTy = dyn_cast<SPIRVTypePointer>(GenericPtrTy);
     // We need to use the entry BB of the function calling llvm.modf.*, instead
     // of the current BB. For that, we'll find current BB's parent and get its
@@ -5667,21 +5671,18 @@ processMiniFPOrInt4Type(Type *LLVMTy, FPEncodingWrap Encoding,
   unsigned TyWidth = cast<IntegerType>(ScalarTy)->getBitWidth();
   unsigned VecSize = 0;
 
-  if (TyWidth == 32) {
-    // Int4 or FP4 packed in 32-bit integer, change type and vector size.
-    assert((Encoding == FPEncodingWrap::E2M1 ||
-            Encoding == FPEncodingWrap::Integer) &&
-           "Unknown FP encoding");
+  bool IsPacked =
+      Encoding == FPEncodingWrap::E2M1 || Encoding == FPEncodingWrap::Integer;
+  if (IsPacked &&
+      (TyWidth == 8 || TyWidth == 16 || TyWidth == 32 || TyWidth == 64)) {
+    // Int4 or FP4 packed in an integer: each N-bit integer holds N/4 values.
     assert(!isLLVMCooperativeMatrixType(LLVMTy) &&
            "FP4 and Int4 matrices must not be packed");
-    VecSize = 8;
-    TyWidth = 4;
-  } else if (TyWidth == 8 && (Encoding == FPEncodingWrap::E2M1 ||
-                              Encoding == FPEncodingWrap::Integer)) {
-    assert(!isLLVMCooperativeMatrixType(LLVMTy) &&
-           "FP4 and Int4 matrices must not be packed");
-    // Int4 or FP4 packed in 8-bit integer, change type and vector size.
-    VecSize = 2;
+    unsigned OuterVecLen =
+        LLVMTy->isVectorTy()
+            ? cast<VectorType>(LLVMTy)->getElementCount().getFixedValue()
+            : 1;
+    VecSize = (TyWidth / 4) * OuterVecLen;
     TyWidth = 4;
   } else {
     if (LLVMTy->isVectorTy())
@@ -5777,14 +5778,16 @@ SPIRVValue *LLVMToSPIRVBase::transDirectCallInst(CallInst *CI,
                   ->getArgs());
           SrcOp = BM->addUnaryInst(OpBitcast, SrcTy, SrcOp, BB);
         } else if (FPDesc.SrcEncoding != FPEncodingWrap::Integer ||
-                   (SrcTy->isTypeVector() && !LLVMSrcTy->isVectorTy())) {
-          // Create bitcast for FP4, FP8 and packed Int4.
+                   SrcVecSize > 0) {
+          // Create bitcast for FP4, FP8 and packed Int4 (including cases where
+          // both the LLVM and SPIR-V types are vectors but with different
+          // sizes, e.g. <2 x i8> repacked as <4 x Int4>).
           SrcOp = BM->addUnaryInst(OpBitcast, SrcTy, SrcOp, BB);
         }
       }
+      unsigned DstVecSize = 0;
       if (!DstTy) {
         // Dst type is 'mini' float or int4.
-        unsigned DstVecSize = 0;
         DstTy = processMiniFPOrInt4Type(LLVMDstTy, FPDesc.DstEncoding,
                                         GetScalarTy, BM, DstVecSize);
 
@@ -5812,10 +5815,9 @@ SPIRVValue *LLVMToSPIRVBase::transDirectCallInst(CallInst *CI,
       if (FPDesc.DstEncoding == FPEncodingWrap::IEEE754 ||
           FPDesc.DstEncoding == FPEncodingWrap::BF16)
         return Conv;
-      // Originally not-packed integer.
+      // Originally not-packed integer (no repacking, or cooperative matrix).
       if (FPDesc.DstEncoding == FPEncodingWrap::Integer &&
-          (DstTy->isTypeVector() == LLVMDstTy->isVectorTy() ||
-           isLLVMCooperativeMatrixType(LLVMDstTy)))
+          (DstVecSize == 0 || isLLVMCooperativeMatrixType(LLVMDstTy)))
         return Conv;
       // Need to adjust types: create bitcast for FP8 and packed Int4.
       SPIRVValue *BitCast =
