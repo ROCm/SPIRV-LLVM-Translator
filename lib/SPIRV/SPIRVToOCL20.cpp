@@ -177,6 +177,10 @@ static void translateSPIRVAtomicBuiltinToLLVMAtomicOp(CallInst *CI, Op OC) {
     auto RMW =
         Builder.CreateAtomicRMW(getAtomicRMWInstForOp(OC), CI->getOperand(0),
                                 CI->getOperand(1), {}, Order, S);
+    for (auto &&MD : {"amdgpu.no.fine.grained.memory",
+                      "amdgpu.no.remote.memory",
+                      "amdgpu.ignore.denormal.mode"})
+      RMW->setMetadata(MD, CI->getMetadata(MD));
     CI->replaceAllUsesWith(RMW);
   }
 
@@ -264,7 +268,7 @@ void SPIRVToOCL20Base::mutateAtomicName(CallInst *CI, Op OC) {
 void SPIRVToOCL20Base::visitCallSPIRVAtomicBuiltin(CallInst *CI, Op OC) {
   CallInst *CIG = mutateCommonAtomicArguments(CI, OC);
 
-  if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
+  if (M->getTargetTriple().isAMDGCN())
     return translateSPIRVAtomicBuiltinToLLVMAtomicOp(CIG, OC);
 
   switch (OC) {
