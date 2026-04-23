@@ -1,13 +1,13 @@
 // RUN: %clang_cc1 %s -triple spir -cl-std=CL1.2 -emit-llvm-bc -fdeclare-opencl-builtins -o %t.bc
-// RUN: amd-llvm-spirv %t.bc -o %t.spv
+// RUN: llvm-spirv %t.bc -o %t.spv
 // RUN: spirv-val %t.spv
-// RUN: amd-llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-TYPED-PTRS
-// RUN: amd-llvm-spirv %t.spv -r --spirv-target-env=CL1.2 -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
+// RUN: llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-TYPED-PTRS
+// RUN: llvm-spirv %t.spv -r --spirv-target-env=CL1.2 -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
 
-// RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_KHR_untyped_pointers
+// RUN: llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_KHR_untyped_pointers
 // RUN: spirv-val %t.spv
-// RUN: amd-llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-UNTYPED-PTRS
-// RUN: amd-llvm-spirv %t.spv -r --spirv-target-env=CL1.2 -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
+// RUN: llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-UNTYPED-PTRS
+// RUN: llvm-spirv %t.spv -r --spirv-target-env=CL1.2 -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
 
 // This test checks that the translator is capable to correctly translate
 // atomic_cmpxchg OpenCL C 1.2 built-in function [1] into corresponding SPIR-V
@@ -22,7 +22,7 @@ __kernel void test_atomic_cmpxchg(__global int *p, int cmp, int val) {
   atomic_cmpxchg(up, ucmp, uval);
 }
 
-// CHECK-SPIRV: Name [[TEST:[0-9]+]] "test_atomic_cmpxchg"
+// CHECK-SPIRV: EntryPoint [[#]] [[TEST:[0-9]+]] "test_atomic_cmpxchg"
 // CHECK-SPIRV-DAG: TypeInt [[UINT:[0-9]+]] 32 0
 // CHECK-SPIRV-TYPED-PTRS-DAG: TypePointer [[UINT_PTR:[0-9]+]] 5 [[UINT]]
 // CHECK-SPIRV-UNTYPED-PTRS-DAG: TypeUntypedPointerKHR [[UINT_PTR:[0-9]+]] 5
@@ -35,9 +35,8 @@ __kernel void test_atomic_cmpxchg(__global int *p, int cmp, int val) {
 // 0x2 Workgroup
 // CHECK-SPIRV-DAG: Constant [[UINT]] [[WORKGROUP_SCOPE:[0-9]+]] 2
 //
-// 0x0 Relaxed
-// TODO: do we need CrossWorkgroupMemory here as well?
-// CHECK-SPIRV-DAG: Constant [[UINT]] [[RELAXED:[0-9]+]] 0
+// 0x0 Relaxed | 0x200 CrossWorkgroupMemory
+// CHECK-SPIRV-DAG: Constant [[UINT]] [[RELAXED:[0-9]+]] 512
 //
 // CHECK-SPIRV: Function {{[0-9]+}} [[TEST]]
 // CHECK-SPIRV: FunctionParameter [[UINT_PTR]] [[PTR:[0-9]+]]

@@ -461,6 +461,7 @@ protected:
 
 class SPIRVVariableBase : public SPIRVInstruction {
 public:
+  static const SPIRVWord FixedWC = 4;
   // Complete constructor for integer constant
   SPIRVVariableBase(Op OC, SPIRVType *TheType, SPIRVId TheId,
                     SPIRVValue *TheInitializer, const std::string &TheName,
@@ -521,7 +522,8 @@ protected:
   }
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
-    Initializer.resize(WordCount - 4);
+    SPIRVCK(WordCount >= FixedWC, InvalidWordCount, "");
+    Initializer.resize(WordCount - FixedWC);
   }
   _SPIRV_DEF_ENCDEC4(Type, Id, StorageClass, Initializer)
 
@@ -590,9 +592,9 @@ protected:
   }
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
-    if (TheWordCount > 4)
+    if (TheWordCount > FixedWC)
       DataType.resize(1);
-    if (TheWordCount > 5)
+    if (TheWordCount > FixedWC + 1)
       Initializer.resize(1);
   }
   _SPIRV_DEF_ENCDEC5(Type, Id, StorageClass, DataType, Initializer)
@@ -632,6 +634,7 @@ protected:
 
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWords, InvalidWordCount, "");
     MemoryAccess.resize(TheWordCount - FixedWords);
   }
   void encode(spv_ostream &O) const override {
@@ -689,6 +692,7 @@ public:
 protected:
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWords, InvalidWordCount, "");
     MemoryAccess.resize(TheWordCount - FixedWords);
   }
 
@@ -913,11 +917,12 @@ protected:
 class SPIRVBranchConditional : public SPIRVInstruction {
 public:
   static const Op OC = OpBranchConditional;
+  constexpr static SPIRVWord FixedWC = 4;
   // Complete constructor
   SPIRVBranchConditional(SPIRVValue *TheCondition, SPIRVLabel *TheTrueLabel,
                          SPIRVLabel *TheFalseLabel, SPIRVBasicBlock *TheBB)
-      : SPIRVInstruction(4, OC, TheBB), ConditionId(TheCondition->getId()),
-        TrueLabelId(TheTrueLabel->getId()),
+      : SPIRVInstruction(FixedWC, OC, TheBB),
+        ConditionId(TheCondition->getId()), TrueLabelId(TheTrueLabel->getId()),
         FalseLabelId(TheFalseLabel->getId()) {
     validate();
   }
@@ -946,13 +951,14 @@ public:
 protected:
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
-    BranchWeights.resize(TheWordCount - 4);
+    SPIRVCK(TheWordCount >= FixedWC, InvalidWordCount, "");
+    BranchWeights.resize(TheWordCount - FixedWC);
   }
   _SPIRV_DEF_ENCDEC4(ConditionId, TrueLabelId, FalseLabelId, BranchWeights)
   void validate() const override {
     SPIRVInstruction::validate();
-    assert(WordCount == 4 || WordCount == 6);
-    assert(WordCount == BranchWeights.size() + 4);
+    assert(WordCount == FixedWC || WordCount == FixedWC + 2);
+    assert(WordCount == BranchWeights.size() + FixedWC);
     assert(OpCode == OC);
     assert(getCondition()->isForward() ||
            getCondition()->getType()->isTypeBool());
@@ -1016,6 +1022,7 @@ public:
   }
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWordCount, InvalidWordCount, "");
     Pairs.resize(TheWordCount - FixedWordCount);
   }
   _SPIRV_DEF_ENCDEC3(Type, Id, Pairs)
@@ -1224,6 +1231,7 @@ public:
 
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWordCount, InvalidWordCount, "");
     LoopControlParameters.resize(TheWordCount - FixedWordCount);
   }
   _SPIRV_DEF_ENCDEC4(MergeBlock, ContinueTarget, LoopControl,
@@ -1295,6 +1303,7 @@ public:
   }
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWordCount, InvalidWordCount, "");
     Pairs.resize(TheWordCount - FixedWordCount);
   }
   _SPIRV_DEF_ENCDEC3(Select, Default, Pairs)
@@ -1837,6 +1846,7 @@ public:
 
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWordCount, InvalidWordCount, "");
     LoopControlParameters.resize(TheWordCount - FixedWordCount);
   }
   _SPIRV_DEF_ENCDEC2(LoopControl, LoopControlParameters)
@@ -1889,6 +1899,7 @@ public:
   }
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWordCount, InvalidWordCount, "");
     Args.resize(TheWordCount - FixedWordCount);
   }
   void validate() const override { SPIRVInstruction::validate(); }
@@ -2124,6 +2135,7 @@ public:
 protected:
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWordCount, InvalidWordCount, "");
     Constituents.resize(TheWordCount - FixedWordCount);
   }
   _SPIRV_DEF_ENCDEC3(Type, Id, Constituents)
@@ -2137,8 +2149,6 @@ protected:
       break;
     case OpTypeArray:
     case OpTypeStruct:
-    case internal::OpTypeJointMatrixINTEL:
-    case internal::OpTypeJointMatrixINTELv2:
     case OpTypeCooperativeMatrixKHR:
       break;
     default:
@@ -2280,6 +2290,7 @@ public:
 protected:
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWords, InvalidWordCount, "");
     MemoryAccess.resize(TheWordCount - FixedWords);
   }
 
@@ -2349,6 +2360,7 @@ public:
 protected:
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWords, InvalidWordCount, "");
     MemoryAccess.resize(TheWordCount - FixedWords);
   }
 
@@ -2398,8 +2410,7 @@ protected:
     SPIRVInstruction::validate();
     if (getValue(VectorId)->isForward())
       return;
-    assert(getValueType(VectorId)->isTypeVector() ||
-           getValueType(VectorId)->isTypeJointMatrixINTEL());
+    assert(getValueType(VectorId)->isTypeVector());
   }
   SPIRVId VectorId;
   SPIRVId IndexId;
@@ -2436,8 +2447,7 @@ protected:
     SPIRVInstruction::validate();
     if (getValue(VectorId)->isForward())
       return;
-    assert(getValueType(VectorId)->isTypeVector() ||
-           getValueType(VectorId)->isTypeJointMatrixINTEL());
+    assert(getValueType(VectorId)->isTypeVector());
   }
   SPIRVId VectorId;
   SPIRVId IndexId;
@@ -2498,6 +2508,19 @@ public:
     return getValues(Operands);
   }
 
+  SPIRVCapVec getRequiredCapability() const override {
+    if (isDeviceBarrier()) {
+      return getVec(internal::CapabilityDeviceBarrierINTEL);
+    }
+    return SPIRVInstruction::getRequiredCapability();
+  }
+  std::optional<ExtensionID> getRequiredExtension() const override {
+    if (isDeviceBarrier()) {
+      return ExtensionID::SPV_INTEL_device_barrier;
+    }
+    return std::nullopt;
+  }
+
 protected:
   _SPIRV_DEF_ENCDEC3(ExecScope, MemScope, MemSema)
   void validate() const override {
@@ -2505,6 +2528,20 @@ protected:
     assert(WordCount == 4);
     SPIRVInstruction::validate();
   }
+
+  bool isDeviceBarrier() const {
+    if (!getModule()->isAllowedToUseExtension(
+            ExtensionID::SPV_INTEL_device_barrier))
+      return false;
+    SPIRVValue *ESV = getValue(ExecScope);
+    if (ESV && ESV->getOpCode() == OpConstant) {
+      if (static_cast<SPIRVConstant *>(ESV)->getZExtIntValue() != ScopeDevice) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   SPIRVId ExecScope;
   SPIRVId MemScope = SPIRVID_INVALID;
   SPIRVId MemSema = SPIRVID_INVALID;
@@ -2975,8 +3012,16 @@ public:
     // Besides, OpAtomicCompareExchangeWeak, OpAtomicFlagTestAndSet and
     // OpAtomicFlagClear instructions require the "kernel" capability. But this
     // capability should be added by setting the OpenCL memory model.
-    if (hasType() && getType()->isTypeInt(64))
-      return {CapabilityInt64Atomics};
+    if (hasType()) {
+      if (getType()->isTypeInt(64))
+        return {CapabilityInt64Atomics};
+      if (getType()->isTypeInt(16) &&
+          Module->isAllowedToUseExtension(
+              ExtensionID::SPV_INTEL_16bit_atomics)) {
+        Module->addExtension(ExtensionID::SPV_INTEL_16bit_atomics);
+        return {internal::CapabilityInt16AtomicsINTEL};
+      }
+    }
     return {};
   }
 
@@ -3014,7 +3059,24 @@ public:
   }
 };
 
-class SPIRVAtomicStoreInst : public SPIRVAtomicInstBase {
+// This specialization will handle smaller set of compare-and-swap instructions
+// that require only one capability. The instructions are: OpAtomicLoad,
+// OpAtomicStore, OpAtomicExchange, OpAtomicCompareExchange and
+// OpAtomicCompareExchangeWeak.
+class SPIRVAtomicCompareExchangeInstructions : public SPIRVAtomicInstBase {
+public:
+  SPIRVCapVec getRequiredCapability() const override {
+    if (hasType() && getType()->isTypeInt(16) &&
+        this->getModule()->isAllowedToUseExtension(
+            ExtensionID::SPV_INTEL_16bit_atomics)) {
+      Module->addExtension(ExtensionID::SPV_INTEL_16bit_atomics);
+      return {internal::CapabilityAtomicInt16CompareExchangeINTEL};
+    }
+    return SPIRVAtomicInstBase::getRequiredCapability();
+  }
+};
+
+class SPIRVAtomicStoreInst : public SPIRVAtomicCompareExchangeInstructions {
 public:
   // Overriding the following method because of 'const'-related
   // issues with overriding getRequiredCapability(). TODO: Resolve.
@@ -3030,6 +3092,8 @@ class SPIRVAtomicFAddEXTInst : public SPIRVAtomicInstBase {
 public:
   std::optional<ExtensionID> getRequiredExtension() const override {
     assert(hasType());
+    if (getType()->isTypeFloat(16, FPEncodingBFloat16KHR))
+      Module->addExtension(ExtensionID::SPV_INTEL_16bit_atomics);
     if (getType()->isTypeFloat(16))
       return ExtensionID::SPV_EXT_shader_atomic_float16_add;
     return ExtensionID::SPV_EXT_shader_atomic_float_add;
@@ -3037,6 +3101,8 @@ public:
 
   SPIRVCapVec getRequiredCapability() const override {
     assert(hasType());
+    if (getType()->isTypeFloat(16, FPEncodingBFloat16KHR))
+      return {internal::CapabilityAtomicBFloat16AddINTEL};
     if (getType()->isTypeFloat(16))
       return {CapabilityAtomicFloat16AddEXT};
     if (getType()->isTypeFloat(32))
@@ -3050,26 +3116,30 @@ public:
                                                         FPEncodingBFloat16KHR)))
       return {CapabilityAtomicFloat16VectorNV};
     llvm_unreachable(
-        "AtomicFAddEXT can only be generated for f16, f32, f64 types");
+        "AtomicFAddEXT can only be generated for bf16, f16, f32, f64 types");
   }
 };
 
 class SPIRVAtomicFMinMaxEXTBase : public SPIRVAtomicInstBase {
 public:
   std::optional<ExtensionID> getRequiredExtension() const override {
+    if (getType()->isTypeFloat(16, FPEncodingBFloat16KHR))
+      Module->addExtension(ExtensionID::SPV_INTEL_16bit_atomics);
     return ExtensionID::SPV_EXT_shader_atomic_float_min_max;
   }
 
   SPIRVCapVec getRequiredCapability() const override {
     assert(hasType());
+    if (getType()->isTypeFloat(16, FPEncodingBFloat16KHR))
+      return {internal::CapabilityAtomicBFloat16MinMaxINTEL};
     if (getType()->isTypeFloat(16))
       return {CapabilityAtomicFloat16MinMaxEXT};
     if (getType()->isTypeFloat(32))
       return {CapabilityAtomicFloat32MinMaxEXT};
     if (getType()->isTypeFloat(64))
       return {CapabilityAtomicFloat64MinMaxEXT};
-    llvm_unreachable(
-        "AtomicF(Min|Max)EXT can only be generated for f16, f32, f64 types");
+    llvm_unreachable("AtomicF(Min|Max)EXT can only be generated for bf16, f16, "
+                     "f32, f64 types");
   }
 };
 
@@ -3078,10 +3148,6 @@ public:
 // Atomic builtins
 _SPIRV_OP(AtomicFlagTestAndSet, true, 6)
 _SPIRV_OP(AtomicFlagClear, false, 4)
-_SPIRV_OP(AtomicLoad, true, 6)
-_SPIRV_OP(AtomicExchange, true, 7)
-_SPIRV_OP(AtomicCompareExchange, true, 9)
-_SPIRV_OP(AtomicCompareExchangeWeak, true, 9)
 _SPIRV_OP(AtomicIIncrement, true, 6)
 _SPIRV_OP(AtomicIDecrement, true, 6)
 _SPIRV_OP(AtomicIAdd, true, 7)
@@ -3098,7 +3164,11 @@ _SPIRV_OP(MemoryBarrier, false, 3)
 #define _SPIRV_OP(x, BaseClass, ...)                                           \
   typedef SPIRVInstTemplate<SPIRV##BaseClass, Op##x, __VA_ARGS__> SPIRV##x;
 // Specialized atomic builtins
+_SPIRV_OP(AtomicLoad, AtomicCompareExchangeInstructions, true, 6)
 _SPIRV_OP(AtomicStore, AtomicStoreInst, false, 5)
+_SPIRV_OP(AtomicExchange, AtomicCompareExchangeInstructions, true, 7)
+_SPIRV_OP(AtomicCompareExchange, AtomicCompareExchangeInstructions, true, 9)
+_SPIRV_OP(AtomicCompareExchangeWeak, AtomicCompareExchangeInstructions, true, 9)
 _SPIRV_OP(AtomicFAddEXT, AtomicFAddEXTInst, true, 7)
 _SPIRV_OP(AtomicFMinEXT, AtomicFMinMaxEXTBase, true, 7)
 _SPIRV_OP(AtomicFMaxEXT, AtomicFMinMaxEXTBase, true, 7)
@@ -3122,6 +3192,7 @@ _SPIRV_OP(ImageSampleImplicitLod, true, 5, true)
 _SPIRV_OP(ImageSampleExplicitLod, true, 7, true, 2)
 _SPIRV_OP(ImageRead, true, 5, true, 2)
 _SPIRV_OP(ImageWrite, false, 4, true, 3)
+_SPIRV_OP(Image, true, 4)
 _SPIRV_OP(ImageQueryFormat, true, 4)
 _SPIRV_OP(ImageQueryOrder, true, 4)
 _SPIRV_OP(ImageQuerySizeLod, true, 5)
@@ -3587,8 +3658,9 @@ protected:
   SPIRVCapVec getRequiredCapability() const override {
     SPIRVType *ResCompTy = this->getType();
     if (ResCompTy->isTypeCooperativeMatrixKHR())
-      return getVec(CapabilityBFloat16ConversionINTEL,
-                    internal::CapabilityJointMatrixBF16ComponentTypeINTEL);
+      return getVec(
+          CapabilityBFloat16ConversionINTEL,
+          internal::CapabilityCooperativeMatrixBFloat16ComponentTypeINTEL);
     return getVec(CapabilityBFloat16ConversionINTEL);
   }
 
@@ -3682,26 +3754,6 @@ protected:
     return ExtensionID::SPV_INTEL_joint_matrix;
   }
 };
-
-class SPIRVJointMatrixINTELInst : public SPIRVJointMatrixINTELInstBase {
-  SPIRVCapVec getRequiredCapability() const override {
-    return getVec(internal::CapabilityJointMatrixINTEL);
-  }
-};
-
-#define _SPIRV_OP(x, ...)                                                      \
-  typedef SPIRVInstTemplate<SPIRVJointMatrixINTELInst, internal::Op##x##INTEL, \
-                            __VA_ARGS__>                                       \
-      SPIRV##x##INTEL;
-_SPIRV_OP(JointMatrixLoad, true, 6, true)
-_SPIRV_OP(JointMatrixStore, false, 5, true)
-_SPIRV_OP(JointMatrixMad, true, 6, true)
-_SPIRV_OP(JointMatrixSUMad, true, 6, true)
-_SPIRV_OP(JointMatrixUSMad, true, 6, true)
-_SPIRV_OP(JointMatrixUUMad, true, 6, true)
-// TODO: move to SPIRVJointMatrixINTELWorkItemInst
-_SPIRV_OP(JointMatrixWorkItemLength, true, 4)
-#undef _SPIRV_OP
 
 class SPIRVJointMatrixINTELWorkItemInst : public SPIRVJointMatrixINTELInstBase {
 protected:
@@ -4014,8 +4066,9 @@ protected:
   SPIRVCapVec getRequiredCapability() const override {
     SPIRVType *ResCompTy = this->getType();
     if (ResCompTy->isTypeCooperativeMatrixKHR())
-      return getVec(CapabilityTensorFloat32RoundingINTEL,
-                    internal::CapabilityJointMatrixTF32ComponentTypeINTEL);
+      return getVec(
+          CapabilityTensorFloat32RoundingINTEL,
+          internal::CapabilityCooperativeMatrixTF32ComponentTypeINTEL);
     return getVec(CapabilityTensorFloat32RoundingINTEL);
   }
 
@@ -4369,6 +4422,46 @@ protected:
   std::vector<SPIRVId> CacheTy;
 };
 
+class SPIRVSubgroupBlockPrefetchINTELInst : public SPIRVInstTemplateBase {
+public:
+  std::optional<ExtensionID> getRequiredExtension() const override {
+    return ExtensionID::SPV_INTEL_subgroup_buffer_prefetch;
+  }
+  SPIRVCapVec getRequiredCapability() const override {
+    return getVec(CapabilitySubgroupBufferPrefetchINTEL);
+  }
+  // Operand 2, if present, is the Memory Operands bitmask.
+  bool isOperandLiteral(unsigned I) const override { return I == 2; }
+
+protected:
+  void validate() const override {
+    SPIRVInstruction::validate();
+    if (getValue(Ops[0])->isForward())
+      return;
+    SPIRVErrorLog &SPVErrLog = getModule()->getErrorLog();
+    SPIRVType *PtrType = getValueType(Ops[0]);
+    std::string InstName = "OpSubgroupBlockPrefetchINTEL";
+    SPVErrLog.checkError(
+        PtrType->isTypePointer() || PtrType->isTypeUntypedPointerKHR(),
+        SPIRVEC_InvalidInstruction, InstName + "\nPtr must be a pointer\n");
+    SPVErrLog.checkError(
+        PtrType->getPointerStorageClass() == StorageClassCrossWorkgroup,
+        SPIRVEC_InvalidInstruction,
+        InstName + "\nPtr must be in CrossWorkgroup storage class\n");
+    if (!PtrType->isTypeUntypedPointerKHR())
+      SPVErrLog.checkError(PtrType->getPointerElementType()->isTypeInt(),
+                           SPIRVEC_InvalidInstruction,
+                           InstName +
+                               "\nPtr must point to a scalar integer type\n");
+    SPVErrLog.checkError(
+        getValueType(Ops[1])->isTypeInt(32), SPIRVEC_InvalidInstruction,
+        InstName + "\nNumBytes must be a 32-bit integer scalar\n");
+  }
+};
+typedef SPIRVInstTemplate<SPIRVSubgroupBlockPrefetchINTELInst,
+                          OpSubgroupBlockPrefetchINTEL, false, 3, true>
+    SPIRVSubgroupBlockPrefetchINTEL;
+
 class SPIRVSubgroup2DBlockIOINTELInst : public SPIRVInstTemplateBase {
 public:
   std::optional<ExtensionID> getRequiredExtension() const override {
@@ -4420,6 +4513,66 @@ public:
   std::optional<ExtensionID> getRequiredExtension() const override {
     return ExtensionID::SPV_INTEL_subgroup_matrix_multiply_accumulate;
   }
+
+protected:
+  void validate() const override {
+    SPIRVInstTemplateBase::validate();
+
+    // Check if FP4 or FP8 matrix operands are used
+    // Operands parameter is the last operand (index 4)
+    auto *NonConstThis =
+        const_cast<SPIRVSubgroupMatrixMultiplyAccumulateINTELInst *>(this);
+    if (NonConstThis->getOperands().size() > 4) {
+      const SPIRVConstant *OperandsConst =
+          static_cast<const SPIRVConstant *>(NonConstThis->getOperand(4));
+      uint64_t OperandsMask = OperandsConst->getZExtIntValue();
+
+      // FP4 operand bits
+      constexpr uint64_t FP4Mask =
+          spv::internal::
+              IMatrixMultiplyAccumulateOperandsMatrixAPackedFloat4E2M1INTELMask |
+          spv::internal::
+              IMatrixMultiplyAccumulateOperandsMatrixBPackedFloat4E2M1INTELMask;
+
+      // FP8 operand bits
+      constexpr uint64_t FP8Mask =
+          spv::internal::
+              IMatrixMultiplyAccumulateOperandsMatrixAPackedFloat8E4M3INTELMask |
+          spv::internal::
+              IMatrixMultiplyAccumulateOperandsMatrixBPackedFloat8E4M3INTELMask |
+          spv::internal::
+              IMatrixMultiplyAccumulateOperandsMatrixAPackedFloat8E5M2INTELMask |
+          spv::internal::
+              IMatrixMultiplyAccumulateOperandsMatrixBPackedFloat8E5M2INTELMask;
+
+      if ((OperandsMask & FP4Mask) != 0) {
+        getModule()->getErrorLog().checkError(
+            getModule()->isAllowedToUseExtension(
+                ExtensionID::
+                    SPV_INTEL_subgroup_matrix_multiply_accumulate_float4),
+            SPIRVEC_RequiresExtension,
+            "SPV_INTEL_subgroup_matrix_multiply_accumulate_float4\n"
+            "SubgroupMatrixMultiplyAccumulateINTEL with FP4 operand flags "
+            "requires this extension");
+        getModule()->addExtension(
+            ExtensionID::SPV_INTEL_subgroup_matrix_multiply_accumulate_float4);
+      }
+
+      if ((OperandsMask & FP8Mask) != 0) {
+        getModule()->getErrorLog().checkError(
+            getModule()->isAllowedToUseExtension(
+                ExtensionID::
+                    SPV_INTEL_subgroup_matrix_multiply_accumulate_float8),
+            SPIRVEC_RequiresExtension,
+            "SPV_INTEL_subgroup_matrix_multiply_accumulate_float8\n"
+            "SubgroupMatrixMultiplyAccumulateINTEL with FP8 operand flags "
+            "requires this extension");
+        getModule()->addExtension(
+            ExtensionID::SPV_INTEL_subgroup_matrix_multiply_accumulate_float8);
+      }
+    }
+  }
+
   SPIRVCapVec getRequiredCapability() const override {
     return getVec(CapabilitySubgroupMatrixMultiplyAccumulateINTEL);
   }
@@ -4486,6 +4639,118 @@ public:
       SPIRV##x##INTEL;
 _SPIRV_OP(BitwiseFunction, true, 7)
 #undef _SPIRV_OP
+
+class SPIRVPredicatedIOINTELInst : public SPIRVInstTemplateBase {
+public:
+  std::optional<ExtensionID> getRequiredExtension() const override {
+    return ExtensionID::SPV_INTEL_predicated_io;
+  }
+  SPIRVCapVec getRequiredCapability() const override {
+    return getVec(internal::CapabilityPredicatedIOINTEL);
+  }
+};
+
+#define _SPIRV_OP(x, ...)                                                      \
+  typedef SPIRVInstTemplate<SPIRVPredicatedIOINTELInst,                        \
+                            internal::Op##x##INTEL, __VA_ARGS__>               \
+      SPIRV##x##INTEL;
+_SPIRV_OP(PredicatedLoad, true, 6, true)
+_SPIRV_OP(PredicatedStore, false, 4, true)
+#undef _SPIRV_OP
+
+template <Op OC> class SPIRVFSigmoidINTELInstBase : public SPIRVUnaryInst<OC> {
+public:
+  SPIRVCapVec getRequiredCapability() const override {
+    return getVec(internal::CapabilitySigmoidINTEL);
+  }
+
+  std::optional<ExtensionID> getRequiredExtension() const override {
+    return ExtensionID::SPV_INTEL_sigmoid;
+  }
+
+  void validate() const override {
+    SPIRVUnaryInst<OC>::validate();
+
+    SPIRVType *ResCompTy = this->getType();
+    SPIRVWord ResCompCount = 1;
+    if (ResCompTy->isTypeVector()) {
+      ResCompCount = ResCompTy->getVectorComponentCount();
+      ResCompTy = ResCompTy->getVectorComponentType();
+    }
+
+    // validate is a const method, whilst getOperand is non-const method
+    // because it may call a method of class Module that may modify LiteralMap
+    // of Module field. That modification is not impacting validate method for
+    // these instructions, so const_cast is safe here.
+    using SPVFSigmoidTy = SPIRVFSigmoidINTELInstBase<OC>;
+    const SPIRVValue *Input = const_cast<SPVFSigmoidTy *>(this)->getOperand(0);
+
+    SPIRVType *InCompTy = Input->getType();
+    SPIRVWord InCompCount = 1;
+    if (InCompTy->isTypeVector()) {
+      InCompCount = InCompTy->getVectorComponentCount();
+      InCompTy = InCompTy->getVectorComponentType();
+    }
+
+    auto InstName = OpCodeNameMap::map(OC);
+    SPIRVErrorLog &SPVErrLog = this->getModule()->getErrorLog();
+
+    SPVErrLog.checkError(
+        ResCompTy->isTypeFloat(16) || ResCompTy->isTypeFloat(32) ||
+            ResCompTy->isTypeFloat(16, FPEncodingBFloat16KHR),
+        SPIRVEC_InvalidInstruction,
+        InstName + "\nResult value must be a scalar or vector of floating-point"
+                   " 16-bit or 32-bit type\n");
+    SPVErrLog.checkError(
+        ResCompTy == InCompTy, SPIRVEC_InvalidInstruction,
+        InstName +
+            "\nInput type must have the same component type as result type\n");
+    SPVErrLog.checkError(
+        ResCompCount == InCompCount, SPIRVEC_InvalidInstruction,
+        InstName + "\nInput type must have the same number of components as "
+                   "result type\n");
+  }
+};
+
+#define _SPIRV_OP(x)                                                           \
+  typedef SPIRVFSigmoidINTELInstBase<internal::Op##x> SPIRV##x;
+_SPIRV_OP(FSigmoidINTEL)
+#undef _SPIRV_OP
+
+class SPIRVFPConversionINTELInstBase : public SPIRVInstTemplateBase {
+public:
+  SPIRVCapVec getRequiredCapability() const override {
+    return getVec(internal::CapabilityFloatConversionsINTEL);
+  }
+
+  std::optional<ExtensionID> getRequiredExtension() const override {
+    return ExtensionID::SPV_INTEL_fp_conversions;
+  }
+};
+#define _SPIRV_OP(x, ...)                                                      \
+  typedef SPIRVInstTemplate<SPIRVFPConversionINTELInstBase,                    \
+                            internal::Op##x##INTEL, __VA_ARGS__>               \
+      SPIRV##x##INTEL;
+_SPIRV_OP(ClampConvertFToF, true, 4, false)
+_SPIRV_OP(ClampConvertFToS, true, 4, false)
+_SPIRV_OP(StochasticRoundFToF, true, 5, true)
+_SPIRV_OP(ClampStochasticRoundFToF, true, 5, true)
+_SPIRV_OP(ClampStochasticRoundFToS, true, 5, true)
+#undef _SPIRV_OP
+
+class SPIRVFmaKHRInstBase : public SPIRVInstTemplateBase {
+public:
+  SPIRVCapVec getRequiredCapability() const override {
+    return getVec(CapabilityFMAKHR);
+  }
+
+  std::optional<ExtensionID> getRequiredExtension() const override {
+    return ExtensionID::SPV_KHR_fma;
+  }
+};
+
+typedef SPIRVInstTemplate<SPIRVFmaKHRInstBase, OpFmaKHR, true, 6, false>
+    SPIRVFmaKHR;
 
 } // namespace SPIRV
 #endif // SPIRV_LIBSPIRV_SPIRVINSTRUCTION_H

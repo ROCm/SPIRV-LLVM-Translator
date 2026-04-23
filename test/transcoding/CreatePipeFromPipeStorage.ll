@@ -1,14 +1,14 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -spirv-text -o %t.txt
+; RUN: llvm-spirv %t.bc -spirv-text -o %t.txt
 ; RUN: FileCheck < %t.txt %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-TYPED-PTR
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
-; RUN: amd-llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o %t.rev.bc
+; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-SPV-IR
 
-; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_KHR_untyped_pointers
-; RUN: amd-llvm-spirv %t.bc -spirv-text -o %t.txt --spirv-ext=+SPV_KHR_untyped_pointers
+; RUN: llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_KHR_untyped_pointers
+; RUN: llvm-spirv %t.bc -spirv-text -o %t.txt --spirv-ext=+SPV_KHR_untyped_pointers
 ; RUN: FileCheck < %t.txt %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-UNTYPED-PTR
-; RUN: amd-llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o %t.rev.bc
+; RUN: llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-SPV-IR
 
 

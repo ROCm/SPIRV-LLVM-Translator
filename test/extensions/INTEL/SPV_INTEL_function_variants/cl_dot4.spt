@@ -1,29 +1,29 @@
 ;;; 32-bit and 16-bit variants of a dot product kernel generated from OpenCL C.
 
-; RUN: amd-llvm-spirv --to-binary %s -o %t_multitarget.spv
+; RUN: llvm-spirv --to-binary %s -o %t_multitarget.spv
 
 ;;; The following should produce the base (32-bit float) variant:
-; RUN: amd-llvm-spirv -r \
+; RUN: llvm-spirv -r \
 ; RUN:   --spirv-ext=+SPV_INTEL_function_variants \
 ; RUN:   --fnvar-spec-enable \
 ; RUN:   --fnvar-spv-out %t_targeted.spv \
 ; RUN:   --fnvar-category 2 --fnvar-family 3 --fnvar-arch 1 \
 ; RUN:   --fnvar-target 7 \
 ; RUN:   %t_multitarget.spv -o %t_targeted.bc
-; RUN: amd-llvm-spirv %t_targeted.spv -to-text -o %t_targeted.spt
+; RUN: llvm-spirv %t_targeted.spv -to-text -o %t_targeted.spt
 ; RUN: FileCheck < %t_targeted.spt %s --check-prefixes=CHECK-SPIRV-COMMON,CHECK-SPIRV-BASE
 
-; RUN: amd-llvm-spirv -r \
+; RUN: llvm-spirv -r \
 ; RUN:   --spirv-ext=+SPV_INTEL_function_variants \
 ; RUN:   --fnvar-spec-enable \
 ; RUN:   --fnvar-spv-out %t_targeted.spv \
 ; RUN:   --fnvar-category 2 --fnvar-family 3 --fnvar-arch 3 \
 ; RUN:   --fnvar-target 8 --fnvar-features '1,2,3,4'\
 ; RUN:   %t_multitarget.spv -o %t_targeted.bc
-; RUN: amd-llvm-spirv %t_targeted.spv -to-text -o %t_targeted.spt
+; RUN: llvm-spirv %t_targeted.spv -to-text -o %t_targeted.spt
 ; RUN: FileCheck < %t_targeted.spt %s --check-prefixes=CHECK-SPIRV-COMMON,CHECK-SPIRV-BASE
 
-; RUN: amd-llvm-spirv -r \
+; RUN: llvm-spirv -r \
 ; RUN:   --spirv-ext=+SPV_INTEL_function_variants \
 ; RUN:   --fnvar-spec-enable \
 ; RUN:   --fnvar-spv-out %t_targeted.spv \
@@ -31,41 +31,41 @@
 ; RUN:   --fnvar-target 7 \
 ; RUN:   --fnvar-capabilities '4,5,6,11,39' \
 ; RUN:   %t_multitarget.spv -o %t_targeted.bc
-; RUN: amd-llvm-spirv %t_targeted.spv -to-text -o %t_targeted.spt
+; RUN: llvm-spirv %t_targeted.spv -to-text -o %t_targeted.spt
 ; RUN: FileCheck < %t_targeted.spt %s --check-prefixes=CHECK-SPIRV-COMMON,CHECK-SPIRV-BASE
 
 ;;; The following should produce 16-bit floating point  variant:
-; RUN: amd-llvm-spirv -r \
+; RUN: llvm-spirv -r \
 ; RUN:   --spirv-ext=+SPV_INTEL_function_variants \
 ; RUN:   --fnvar-spec-enable \
 ; RUN:   --fnvar-spv-out %t_targeted.spv \
 ; RUN:   --fnvar-category 2 --fnvar-family 3 --fnvar-arch 4 \
 ; RUN:   --fnvar-target 7 \
 ; RUN:   %t_multitarget.spv -o %t_targeted.bc
-; RUN: amd-llvm-spirv %t_targeted.spv -to-text -o %t_targeted.spt
+; RUN: llvm-spirv %t_targeted.spv -to-text -o %t_targeted.spt
 ; RUN: FileCheck < %t_targeted.spt %s --check-prefixes=CHECK-SPIRV-COMMON,CHECK-SPIRV-FP16
 
-; RUN: amd-llvm-spirv -r \
+; RUN: llvm-spirv -r \
 ; RUN:   --spirv-ext=+SPV_INTEL_function_variants \
 ; RUN:   --fnvar-spec-enable \
 ; RUN:   --fnvar-spv-out %t_targeted.spv \
 ; RUN:   --fnvar-category 2 --fnvar-family 3 \
 ; RUN:   --fnvar-target 7 \
 ; RUN:   %t_multitarget.spv -o %t_targeted.bc
-; RUN: amd-llvm-spirv %t_targeted.spv -to-text -o %t_targeted.spt
+; RUN: llvm-spirv %t_targeted.spv -to-text -o %t_targeted.spt
 ; RUN: FileCheck < %t_targeted.spt %s --check-prefixes=CHECK-SPIRV-COMMON,CHECK-SPIRV-FP16
 
-; RUN: amd-llvm-spirv -r \
+; RUN: llvm-spirv -r \
 ; RUN:   --spirv-ext=+SPV_INTEL_function_variants \
 ; RUN:   --fnvar-spec-enable \
 ; RUN:   --fnvar-spv-out %t_targeted.spv \
 ; RUN:   --fnvar-category 2 --fnvar-family 3 --fnvar-arch 5 \
 ; RUN:   --fnvar-target 8 --fnvar-features '1,2,3,4'\
 ; RUN:   %t_multitarget.spv -o %t_targeted.bc
-; RUN: amd-llvm-spirv %t_targeted.spv -to-text -o %t_targeted.spt
+; RUN: llvm-spirv %t_targeted.spv -to-text -o %t_targeted.spt
 ; RUN: FileCheck < %t_targeted.spt %s --check-prefixes=CHECK-SPIRV-COMMON,CHECK-SPIRV-FP16
 
-; RUN: amd-llvm-spirv -r \
+; RUN: llvm-spirv -r \
 ; RUN:   --spirv-ext=+SPV_INTEL_function_variants \
 ; RUN:   --fnvar-spec-enable \
 ; RUN:   --fnvar-spv-out %t_targeted.spv \
@@ -73,7 +73,7 @@
 ; RUN:   --fnvar-target 7 \
 ; RUN:   --fnvar-capabilities '4,5,6,8,9,11,39' \
 ; RUN:   %t_multitarget.spv -o %t_targeted.bc
-; RUN: amd-llvm-spirv %t_targeted.spv -to-text -o %t_targeted.spt
+; RUN: llvm-spirv %t_targeted.spv -to-text -o %t_targeted.spt
 ; RUN: FileCheck < %t_targeted.spt %s --check-prefixes=CHECK-SPIRV-COMMON,CHECK-SPIRV-FP16
 
 ; CHECK-SPIRV-COMMON: EntryPoint

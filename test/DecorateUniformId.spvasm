@@ -2,7 +2,7 @@
 
 ; RUN: spirv-as %s --target-env spv1.6 -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: amd-llvm-spirv -to-text -o - %t.spv | FileCheck %s
+; RUN: llvm-spirv -to-text -o - %t.spv | FileCheck %s
 
 ; Check that the translator does not add the Shader/Matrix capability
 ; requirements for SPIR-V 1.6.

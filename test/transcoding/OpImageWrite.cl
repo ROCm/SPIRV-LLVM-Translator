@@ -1,10 +1,10 @@
 // RUN: %clang_cc1 -O1 -triple spir-unknown-unknown -cl-std=CL2.0 %s -fdeclare-opencl-builtins -finclude-default-header -emit-llvm-bc -o %t.bc
-// RUN: amd-llvm-spirv %t.bc -spirv-text -o %t.txt
+// RUN: llvm-spirv %t.bc -spirv-text -o %t.txt
 // RUN: FileCheck < %t.txt %s --check-prefix=CHECK-SPIRV
-// RUN: amd-llvm-spirv %t.bc -o %t.spv
-// RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+// RUN: llvm-spirv %t.bc -o %t.spv
+// RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
-// RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc --spirv-target-env=SPV-IR
+// RUN: llvm-spirv -r %t.spv -o %t.rev.bc --spirv-target-env=SPV-IR
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-SPV-IR
 
 // CHECK-SPIRV: TypeVoid [[VOID_TY:[0-9]+]]

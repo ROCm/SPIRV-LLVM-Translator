@@ -143,6 +143,7 @@ inline bool isValid(spv::LinkageType V) {
   case LinkageTypeExport:
   case LinkageTypeImport:
   case LinkageTypeLinkOnceODR:
+  case internal::LinkageTypeWeak:
   case internal::LinkageTypeInternal:
     return true;
   default:
@@ -282,6 +283,7 @@ inline bool isValid(spv::BuiltIn V) {
   case BuiltInCullMaskKHR:
   case internal::BuiltInSubDeviceIDINTEL:
   case internal::BuiltInGlobalHWThreadIDINTEL:
+  case internal::BuiltInDeviceBarrierValidINTEL:
     return true;
   default:
     return false;

@@ -39,15 +39,15 @@
 #   # We need compile command database in order to perform clang-tidy check. So,
 #   # in order to perform configure step we need to setup llvm-dev package. This
 #   # env variable used to specify desired version of it
-#   LLVM_VERSION: 22
+#   LLVM_VERSION: 23
 
 # jobs:
 #   clang-format-and-tidy:
 #     name: clang-format & clang-tidy
-#     runs-on: ubuntu-22.04
+#     runs-on: ubuntu-24.04
 #     steps:
 #     - name: Checkout sources
-#       uses: actions/checkout@v4
+#       uses: actions/checkout@v5
 #       with:
 #         # In order to gather diff from PR we need to fetch not only the latest
 #         # commit. Depth of 2 is enough, because GitHub Actions supply us with
@@ -55,37 +55,37 @@
 #         # base between target branch and PR
 #         fetch-depth: 2
 
-    # - name: Gather list of changes
-    #   id: gather-list-of-changes
-    #   run: |
-    #     git diff -U0 --no-color ${{ github.sha }}^ -- include lib \
-    #         ':(exclude)include/LLVMSPIRVExtensions.inc' \
-    #         ':(exclude)lib/SPIRV/libSPIRV/SPIRVErrorEnum.h' \
-    #         ':(exclude)lib/SPIRV/libSPIRV/SPIRVOpCodeEnum.h' \
-    #         ':(exclude)lib/SPIRV/libSPIRV/SPIRVOpCodeEnumInternal.h' \
-    #         > diff-to-inspect.txt
-    #     if [ -s diff-to-inspect.txt ]; then
-    #       # Here we set an output of our step, which is used later to either
-    #       # perform or skip further steps, i.e. there is no sense to install
-    #       # clang-format if PR hasn't changed .cpp files at all
-    #       # See [workflow-commands] for reference
-    #       echo 'HAS_CHANGES=true' >> "$GITHUB_OUTPUT"
-    #     fi
+#     # - name: Gather list of changes
+#     #   id: gather-list-of-changes
+#     #   run: |
+#     #     git diff -U0 --no-color ${{ github.sha }}^ -- include lib \
+#     #         ':(exclude)include/LLVMSPIRVExtensions.inc' \
+#     #         ':(exclude)lib/SPIRV/libSPIRV/SPIRVErrorEnum.h' \
+#     #         ':(exclude)lib/SPIRV/libSPIRV/SPIRVOpCodeEnum.h' \
+#     #         ':(exclude)lib/SPIRV/libSPIRV/SPIRVOpCodeEnumInternal.h' \
+#     #         > diff-to-inspect.txt
+#     #     if [ -s diff-to-inspect.txt ]; then
+#     #       # Here we set an output of our step, which is used later to either
+#     #       # perform or skip further steps, i.e. there is no sense to install
+#     #       # clang-format if PR hasn't changed .cpp files at all
+#     #       # See [workflow-commands] for reference
+#     #       echo 'HAS_CHANGES=true' >> "$GITHUB_OUTPUT"
+#     #     fi
 
-    # - name: Install dependencies
-    #   if: ${{ steps.gather-list-of-changes.outputs.HAS_CHANGES }}
-    #   run: |
-    #     # clang-tidy requires compile command database in order to be properly
-    #     # launched, so, we need to setup llvm package to perform cmake
-    #     # configuration step to generate that database
-    #     curl -L "https://apt.llvm.org/llvm-snapshot.gpg.key" | sudo apt-key add -
-    #     echo "deb https://apt.llvm.org/jammy/ llvm-toolchain-jammy main" | sudo tee -a /etc/apt/sources.list
-    #     sudo apt-get update
-    #     sudo apt-get install -yqq \
-    #         clang-format-${{ env.LLVM_VERSION }} clang-tidy-${{ env.LLVM_VERSION }} \
-    #         clang-tools-${{ env.LLVM_VERSION }} llvm-${{ env.LLVM_VERSION }}-dev \
-    #         libomp-${{ env.LLVM_VERSION }}-dev libllvmlibc-${{ env.LLVM_VERSION }}-dev \
-    #         mlir-${{ env.LLVM_VERSION }}-tools libpolly-${{ env.LLVM_VERSION }}-dev \
+#     - name: Install dependencies
+#       if: ${{ steps.gather-list-of-changes.outputs.HAS_CHANGES }}
+#       run: |
+#         # clang-tidy requires compile command database in order to be properly
+#         # launched, so, we need to setup llvm package to perform cmake
+#         # configuration step to generate that database
+#         curl -L "https://apt.llvm.org/llvm-snapshot.gpg.key" | sudo apt-key add -
+#         echo "deb https://apt.llvm.org/noble/ llvm-toolchain-noble main" | sudo tee -a /etc/apt/sources.list
+#         sudo apt-get update
+#         sudo apt-get install -yqq \
+#             clang-format-${{ env.LLVM_VERSION }} clang-tidy-${{ env.LLVM_VERSION }} \
+#             clang-tools-${{ env.LLVM_VERSION }} llvm-${{ env.LLVM_VERSION }}-dev \
+#             libomp-${{ env.LLVM_VERSION }}-dev libllvmlibc-${{ env.LLVM_VERSION }}-dev \
+#             mlir-${{ env.LLVM_VERSION }}-tools libpolly-${{ env.LLVM_VERSION }}-dev \
 
 #     - name: Generate compile command database
 #       if: ${{ steps.gather-list-of-changes.outputs.HAS_CHANGES }}

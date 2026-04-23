@@ -1,11 +1,11 @@
 ; Check that translator generates atomic instructions for atomic builtins
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -spirv-text -o - | FileCheck %s
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv %t.bc -spirv-text -o - | FileCheck %s
+; RUN: llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
 
-; RUN: amd-llvm-spirv %t.bc -spirv-text --spirv-ext=+SPV_KHR_untyped_pointers -o - | FileCheck %s
-; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_KHR_untyped_pointers
+; RUN: llvm-spirv %t.bc -spirv-text --spirv-ext=+SPV_KHR_untyped_pointers -o - | FileCheck %s
+; RUN: llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_KHR_untyped_pointers
 ; RUN: spirv-val %t.spv
 
 ; CHECK-LABEL: Label

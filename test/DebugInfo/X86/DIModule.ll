@@ -1,12 +1,12 @@
 ; ModuleID = '/Volumes/Data/apple-internal/llvm/tools/clang/test/Modules/debug-info-moduleimport.m'
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_INTEL_debug_module %t.bc -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: llvm-spirv --spirv-ext=+SPV_INTEL_debug_module %t.bc -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -mtriple=x86_64-apple-macosx %t.ll -accel-tables=Dwarf -o %t -filetype=obj
 ; RUN: llvm-dwarfdump -debug-info %t | FileCheck %s
 ; RUN: llvm-dwarfdump -verify %t
 
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_INTEL_debug_module %t.bc -spirv-text -o - | FileCheck %s --check-prefix CHECK-SPIRV
+; RUN: llvm-spirv --spirv-ext=+SPV_INTEL_debug_module %t.bc -spirv-text -o - | FileCheck %s --check-prefix CHECK-SPIRV
 
 ; CHECK: DW_TAG_compile_unit
 ; CHECK-NOT: DW_TAG

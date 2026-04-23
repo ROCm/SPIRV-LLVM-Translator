@@ -3,9 +3,8 @@
 ;   - The parent scope of the local variable VAL is the lexical block LB
 ;   - The parent scope of the lexical block LB is the subprogram.
 
-; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv %s -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o %t.rev.ll
 ; RUN: FileCheck %s --input-file %t.rev.ll
 

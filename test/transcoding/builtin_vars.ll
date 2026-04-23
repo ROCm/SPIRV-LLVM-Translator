@@ -1,25 +1,25 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
-; RUN: amd-llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
 ; RUN: spirv-val %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.out.bc
+; RUN: llvm-spirv -r %t.spv -o %t.out.bc
 ; RUN: llvm-dis %t.out.bc -o - | FileCheck %s --check-prefix=CHECK-OCL-IR
-; RUN: amd-llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.out.bc
+; RUN: llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.out.bc
 ; RUN: llvm-dis %t.out.bc -o - | FileCheck %s --check-prefix=CHECK-SPV-IR
 
 ; Check that produced builtin-call-based SPV-IR is recognized by the translator
-; RUN: amd-llvm-spirv -spirv-text %t.out.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: llvm-spirv -spirv-text %t.out.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV
 
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers %t.bc -o %t.spv
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers %t.bc -o %t.spv
+; RUN: llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
 ; RUN: spirv-val %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.out.bc
+; RUN: llvm-spirv -r %t.spv -o %t.out.bc
 ; RUN: llvm-dis %t.out.bc -o - | FileCheck %s --check-prefix=CHECK-OCL-IR
-; RUN: amd-llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.out.bc
+; RUN: llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.out.bc
 ; RUN: llvm-dis %t.out.bc -o - | FileCheck %s --check-prefix=CHECK-SPV-IR
 
 ; Check that produced builtin-call-based SPV-IR is recognized by the translator
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers -spirv-text %t.out.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers -spirv-text %t.out.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV
 
 ; CHECK-SPIRV: Decorate [[Id:[0-9]+]] BuiltIn 34
 ; CHECK-SPIRV: {{(Variable|UntypedVariableKHR)}} {{[0-9]+}} [[Id:[0-9]+]]

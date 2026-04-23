@@ -1,14 +1,14 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -mtriple=x86_64-unknown-linux-gnu -filetype=obj -O0 < %t.ll  | llvm-dwarfdump -v -debug-info - | FileCheck %s
 
-; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-100
-; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-100
+; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -mtriple=x86_64-unknown-linux-gnu -filetype=obj -O0 < %t.ll  | llvm-dwarfdump -v -debug-info - | FileCheck %s
 
-; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-200
-; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-200
+; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -mtriple=x86_64-unknown-linux-gnu -filetype=obj -O0 < %t.ll  | llvm-dwarfdump -v -debug-info - | FileCheck %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
@@ -134,10 +134,10 @@ attributes #2 = { nounwind }
 !llvm.module.flags = !{!15, !16}
 !llvm.ident = !{!17}
 
-!0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus, file: !1, producer: "clang version 3.9.0 (trunk 264349)", isOptimized: false, runtimeVersion: 0, emissionKind: 1, enums: !2, imports: !10)
+!0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus, file: !1, producer: "clang version 3.9.0 (trunk 264349)", isOptimized: false, runtimeVersion: 0, emissionKind: 1, enums: !2)
 !1 = !DIFile(filename: "test.cpp", directory: "/")
 !2 = !{}
-!4 = distinct !DISubprogram(name: "bar", linkageName: "_Z3barv", scope: !1, file: !1, line: 2, type: !5, isLocal: false, isDefinition: true, scopeLine: 2, flags: DIFlagPrototyped, isOptimized: false, unit: !0, retainedNodes: !2)
+!4 = distinct !DISubprogram(name: "bar", linkageName: "_Z3barv", scope: !1, file: !1, line: 2, type: !5, isLocal: false, isDefinition: true, scopeLine: 2, flags: DIFlagPrototyped, isOptimized: false, unit: !0, retainedNodes: !10)
 !5 = !DISubroutineType(types: !6)
 !6 = !{!7}
 !7 = !DIBasicType(name: "int", size: 32, align: 32, encoding: DW_ATE_signed)

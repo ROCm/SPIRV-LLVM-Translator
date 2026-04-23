@@ -1,5 +1,5 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -spirv-text --spirv-preserve-auxdata -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: llvm-spirv %t.bc -spirv-text --spirv-preserve-auxdata -o - | FileCheck %s --check-prefix=CHECK-SPIRV
 
 ; CHECK-SPIRV: Capability
 ; CHECK-SPIRV-NOT: NonSemanticAuxData

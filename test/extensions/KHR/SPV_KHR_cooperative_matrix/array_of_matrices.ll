@@ -3,18 +3,18 @@
 ;; and then JointMatrixINTEL target ext type was replaced with CooperativeMatrixKHR
 
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_KHR_cooperative_matrix -o %t.spv
-; RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
+; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_KHR_cooperative_matrix -o %t.spv
+; RUN: llvm-spirv %t.spv -to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
-; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_KHR_cooperative_matrix,+SPV_KHR_untyped_pointers -o %t.spv
-; RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
+; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_KHR_cooperative_matrix,+SPV_KHR_untyped_pointers -o %t.spv
+; RUN: llvm-spirv %t.spv -to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: amd-llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o %t.rev.bc
+; RUN: llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; CHECK-SPIRV-DAG: Capability CooperativeMatrixKHR

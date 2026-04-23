@@ -1,12 +1,12 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_ternary_bitwise_function -o %t.spv
-; RUN: amd-llvm-spirv %t.spv --to-text -o %t.spt
+; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_ternary_bitwise_function -o %t.spv
+; RUN: llvm-spirv %t.spv --to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
-; RUN: not amd-llvm-spirv %t.bc 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
+; RUN: not llvm-spirv %t.bc 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
 ; CHECK-ERROR: RequiresExtension: Feature requires the following SPIR-V extension:
 ; CHECK-ERROR-NEXT: SPV_INTEL_ternary_bitwise_function
 

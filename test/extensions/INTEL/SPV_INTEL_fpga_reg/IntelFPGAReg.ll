@@ -54,13 +54,12 @@
 ;   A ca(213);
 ;   A cb = __builtin_intel_fpga_reg(ca);
 
-; RUN: llvm-as %s -o %t.bc
 ; FIXME: add more negative test cases
-; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_fpga_reg -o %t.spv
-; RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
+; RUN: llvm-spirv %s --spirv-ext=+SPV_INTEL_fpga_reg -o %t.spv
+; RUN: llvm-spirv %t.spv -to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; CHECK-SPIRV: Capability FPGARegINTEL

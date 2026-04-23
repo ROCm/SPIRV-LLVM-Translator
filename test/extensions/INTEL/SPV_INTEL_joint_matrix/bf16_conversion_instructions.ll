@@ -1,28 +1,28 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_KHR_cooperative_matrix,+SPV_INTEL_joint_matrix,+SPV_INTEL_bfloat16_conversion -o %t.spv
-; RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
+; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_KHR_cooperative_matrix,+SPV_INTEL_joint_matrix,+SPV_INTEL_bfloat16_conversion -o %t.spv
+; RUN: llvm-spirv %t.spv -to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-OCL-IR
 
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc --spirv-target-env=SPV-IR
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc --spirv-target-env=SPV-IR
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-SPV-IR
 
-; RUN: not amd-llvm-spirv %t.bc --spirv-ext=+SPV_KHR_cooperative_matrix,+SPV_INTEL_bfloat16_conversion 2>&1 \
+; RUN: not llvm-spirv %t.bc --spirv-ext=+SPV_KHR_cooperative_matrix,+SPV_INTEL_bfloat16_conversion 2>&1 \
 ; RUN: | FileCheck %s --check-prefix=CHECK-ERROR
 
-; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_KHR_cooperative_matrix,+SPV_INTEL_joint_matrix,+SPV_INTEL_bfloat16_conversion,+SPV_KHR_untyped_pointers -o %t.spv
-; RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
+; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_KHR_cooperative_matrix,+SPV_INTEL_joint_matrix,+SPV_INTEL_bfloat16_conversion,+SPV_KHR_untyped_pointers -o %t.spv
+; RUN: llvm-spirv %t.spv -to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-OCL-IR
 
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc --spirv-target-env=SPV-IR
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc --spirv-target-env=SPV-IR
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-SPV-IR
 
-; RUN: not amd-llvm-spirv %t.bc --spirv-ext=+SPV_KHR_cooperative_matrix,+SPV_INTEL_bfloat16_conversion,+SPV_KHR_untyped_pointers 2>&1 \
+; RUN: not llvm-spirv %t.bc --spirv-ext=+SPV_KHR_cooperative_matrix,+SPV_INTEL_bfloat16_conversion,+SPV_KHR_untyped_pointers 2>&1 \
 ; RUN: | FileCheck %s --check-prefix=CHECK-ERROR
 
 ; CHECK-ERROR: InvalidInstruction: Can't translate llvm instruction:
@@ -31,7 +31,7 @@
 
 ; CHECK-SPIRV-DAG: Capability CooperativeMatrixKHR
 ; CHECK-SPIRV-DAG: Capability Bfloat16ConversionINTEL
-; CHECK-SPIRV-DAG: Capability JointMatrixBF16ComponentTypeINTEL
+; CHECK-SPIRV-DAG: Capability CooperativeMatrixBFloat16ComponentTypeINTEL
 ; CHECK-SPIRV-DAG: Extension "SPV_INTEL_bfloat16_conversion"
 ; CHECK-SPIRV-DAG: Extension "SPV_KHR_cooperative_matrix"
 ; CHECK-SPIRV-DAG: Extension "SPV_INTEL_joint_matrix"

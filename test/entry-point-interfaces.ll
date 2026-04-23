@@ -1,20 +1,20 @@
 ; RUN: llvm-as %s -o %t.bc
 
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val --target-env spv1.4 %t.spv
-; RUN: amd-llvm-spirv -to-text %t.spv -o %t.from.spv.spt
+; RUN: llvm-spirv -to-text %t.spv -o %t.from.spv.spt
 ; RUN: FileCheck < %t.from.spv.spt %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-TYPED-PTR
 
-; RUN: amd-llvm-spirv -spirv-text %t.bc -o %t.from.bc.spt
+; RUN: llvm-spirv -spirv-text %t.bc -o %t.from.bc.spt
 ; RUN: FileCheck < %t.from.bc.spt %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-TYPED-PTR
 
 ; Check the same with untyped pointers enabled
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers %t.bc -o %t.spv
+; RUN: llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers %t.bc -o %t.spv
 ; RUN: spirv-val --target-env spv1.4 %t.spv
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers -to-text %t.spv -o %t.from.spv.spt
+; RUN: llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers -to-text %t.spv -o %t.from.spv.spt
 ; RUN: FileCheck < %t.from.spv.spt %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-UNTYPED-PTR
 
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers -spirv-text %t.bc -o %t.from.bc.spt
+; RUN: llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers -spirv-text %t.bc -o %t.from.bc.spt
 ; RUN: FileCheck < %t.from.bc.spt %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-UNTYPED-PTR
 
 ; CHECK-SPIRV: 7 EntryPoint 6 [[#]] "test" [[#Interface1:]] [[#Interface2:]]

@@ -1,25 +1,25 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_INTEL_long_composites %t.bc -o %t.spv
-; RUN: amd-llvm-spirv %t.spv --to-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-TYPED-PTR
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_INTEL_long_composites -spirv-text %t.rev.bc -o %t2.spt
+; RUN: llvm-spirv --spirv-ext=+SPV_INTEL_long_composites %t.bc -o %t.spv
+; RUN: llvm-spirv %t.spv --to-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-TYPED-PTR
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv --spirv-ext=+SPV_INTEL_long_composites -spirv-text %t.rev.bc -o %t2.spt
 ; RUN: FileCheck --input-file=%t2.spt %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-TYPED-PTR
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 ; TODO: run validator once it supports the extension
 ; RUNx: spirv-val %t.spv
 
-; RUN: not amd-llvm-spirv %t.bc -o %t.spv 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
+; RUN: not llvm-spirv %t.bc -o %t.spv 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
 
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_INTEL_long_composites,+SPV_KHR_untyped_pointers %t.bc -o %t.spv
-; RUN: amd-llvm-spirv %t.spv --to-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-UNTYPED-PTR
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_INTEL_long_composites,+SPV_KHR_untyped_pointers -spirv-text %t.rev.bc -o %t2.spt
+; RUN: llvm-spirv --spirv-ext=+SPV_INTEL_long_composites,+SPV_KHR_untyped_pointers %t.bc -o %t.spv
+; RUN: llvm-spirv %t.spv --to-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-UNTYPED-PTR
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv --spirv-ext=+SPV_INTEL_long_composites,+SPV_KHR_untyped_pointers -spirv-text %t.rev.bc -o %t2.spt
 ; RUN: FileCheck --input-file=%t2.spt %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-UNTYPED-PTR
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 ; TODO: run validator once it supports the extension
 ; RUNx: spirv-val %t.spv
 
-; RUN: not amd-llvm-spirv %t.bc -o %t.spv 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
+; RUN: not llvm-spirv %t.bc -o %t.spv 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
 
 ; CHECK-SPIRV: Capability LongCompositesINTEL
 ; CHECK-SPIRV: Extension "SPV_INTEL_long_composites"

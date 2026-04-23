@@ -1,11 +1,12 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
-; RUN: amd-llvm-spirv %t.spv -o %t.spt --to-text
-; RUN: amd-llvm-spirv -r -spirv-target-env="SPV-IR" %t.spv -o %t.bc
+; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv %t.spv -o %t.spt --to-text
+; RUN: llvm-spirv -r -spirv-target-env="SPV-IR" %t.spv -o %t.bc
 ; RUN: llvm-dis %t.bc -o %t.ll
 ; RUN: FileCheck %s --input-file %t.spt -check-prefix=SPV
 ; RUN: FileCheck %s --input-file %t.ll  -check-prefix=LLVM
 ; RUN: spirv-val %t.spv
+; FIXME: FILECHECK_FAIL during llvm-spirv -r in llc compilation flow
 
 ; The IR was generated from the following source:
 ; void __kernel K(global float* A, int B) {

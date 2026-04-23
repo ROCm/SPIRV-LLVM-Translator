@@ -1,16 +1,16 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -mtriple=x86_64-pc-linux-gnu %t.ll -o %t -filetype=obj
 ; RUN: llvm-dwarfdump -v -debug-info %t | FileCheck %s
 
-; RUNx: amd-llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-100
-; RUNx: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUNx: llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-100
+; RUNx: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUNx: llc -mtriple=x86_64-pc-linux-gnu %t.ll -o %t -filetype=obj
 ; RUNx: llvm-dwarfdump -v -debug-info %t | FileCheck %s
 
-; RUNx: amd-llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-200
-; RUNx: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUNx: llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-200
+; RUNx: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUNx: llc -mtriple=x86_64-pc-linux-gnu %t.ll -o %t -filetype=obj
 ; RUNx: llvm-dwarfdump -v -debug-info %t | FileCheck %s
 
@@ -62,17 +62,16 @@ attributes #1 = { nounwind readnone }
 
 ; CHECK: DW_TAG_variable
 ; CHECK-NOT: DW_TAG
-; CHECK: DW_AT_name [DW_FORM_strp]       ( .debug_str[0x{{[0-9a-f]*}}] = "GLB")
-; CHECK-NOT: DW_TAG
-; CHECK: DW_AT_decl_file [DW_FORM_data1] ("/work/llvm/vanilla/test/DebugInfo{{[/\\]}}test.c")
-; CHECK-NOT: DW_TAG
-; CHECK: DW_AT_decl_line [DW_FORM_data1] (1)
-
-; CHECK: DW_TAG_variable
-; CHECK-NOT: DW_TAG
 ; CHECK: DW_AT_name [DW_FORM_strp]   ( .debug_str[0x{{[0-9a-f]*}}] = "LOC")
 ; CHECK-NOT: DW_TAG
 ; CHECK: DW_AT_decl_file [DW_FORM_data1]     ("/work/llvm/vanilla/test/DebugInfo{{[/\\]}}test.c")
 ; CHECK-NOT: DW_TAG
 ; CHECK: DW_AT_decl_line [DW_FORM_data1]     (4)
 
+; CHECK: DW_TAG_variable
+; CHECK-NOT: DW_TAG
+; CHECK: DW_AT_name [DW_FORM_strp]       ( .debug_str[0x{{[0-9a-f]*}}] = "GLB")
+; CHECK-NOT: DW_TAG
+; CHECK: DW_AT_decl_file [DW_FORM_data1] ("/work/llvm/vanilla/test/DebugInfo{{[/\\]}}test.c")
+; CHECK-NOT: DW_TAG
+; CHECK: DW_AT_decl_line [DW_FORM_data1] (1)

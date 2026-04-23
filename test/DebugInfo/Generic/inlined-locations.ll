@@ -1,9 +1,9 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefixes=CHECK,CHECK-DEFAULT
+; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefixes=CHECK,CHECK-DEFAULT
 
-; RUN: amd-llvm-spirv %t.bc --spirv-debug-info-version=nonsemantic-shader-200 -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefixes=CHECK,CHECK-200
+; RUN: llvm-spirv %t.bc --spirv-debug-info-version=nonsemantic-shader-200 -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefixes=CHECK,CHECK-200
 
 ; Check that the "inlinedAt" attribute of a DILocation references another
 ; DILocation that is marked as distinct.  Note that the checks for distinct

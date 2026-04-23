@@ -3,7 +3,7 @@
 ; REQUIRES: spirv-as
 
 ; RUN: spirv-as %s --target-env spv1.1 -o %t.spv
-; RUN: amd-llvm-spirv -r -o %t.rev.bc %t.spv
+; RUN: llvm-spirv -r -o %t.rev.bc %t.spv
 ; RUN: llvm-dis %t.rev.bc -o %t.rev.ll
 ; RUN: FileCheck %s --input-file %t.rev.ll --check-prefix CHECK-LLVM
 
@@ -22,7 +22,7 @@
           %1 = OpExtInstImport "OpenCL.std"
           %2 = OpExtInstImport "OpenCL.DebugInfo.100"
                OpMemoryModel Physical32 OpenCL
-               OpEntryPoint Kernel %23 "do_add_sub" %__spirv_BuiltInGlobalInvocationId
+               OpEntryPoint Kernel %23 "kernel" %__spirv_BuiltInGlobalInvocationId
          %27 = OpString "/app/<stdin>"
          %28 = OpString "//__CSK_MD5:df3c6ff4eef4b9de43419af39216b003"
          %31 = OpString "short4"

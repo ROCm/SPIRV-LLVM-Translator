@@ -1,11 +1,13 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv -s %t.bc -o %t.regularized.bc
+; RUN: llvm-spirv -s %t.bc -o %t.regularized.bc
 ; RUN: llvm-dis %t.regularized.bc -o %t.regularized.ll
 ; RUN: FileCheck < %t.regularized.ll %s
 
 ; Translation cycle should be successful:
-; RUN: amd-llvm-spirv %t.regularized.bc -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv %t.regularized.bc -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: %if spirv-backend %{ llc -O0 -mtriple=spirv64-unknown-unknown -filetype=obj %s -o %t.llc.spv %}
+; RUN: %if spirv-backend %{ llvm-spirv -r %t.llc.spv -o %t.llc.rev.bc %}
 
 ; CHECK: %[[#Base:]] = load i1, ptr addrspace(4){{.*}}, align 1
 ; CHECK: %[[#LoadShift:]] = load i32, ptr addrspace(4){{.*}} align 4

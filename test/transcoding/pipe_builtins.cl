@@ -1,22 +1,22 @@
 // Pipe built-ins are mangled accordingly to SPIR2.0/C++ ABI.
 
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir64-unknown-unknown -emit-llvm-bc -fdeclare-opencl-builtins -finclude-default-header -Dcl_khr_subgroups %s -o %t.bc
-// RUN: amd-llvm-spirv %t.bc -spirv-text -o %t.spt
+// RUN: llvm-spirv %t.bc -spirv-text -o %t.spt
 // RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
-// RUN: amd-llvm-spirv %t.bc -o %t.spv
+// RUN: llvm-spirv %t.bc -o %t.spv
 // RUN: spirv-val %t.spv
-// RUN: amd-llvm-spirv -r %t.spv -o %t.bc
+// RUN: llvm-spirv -r %t.spv -o %t.bc
 // RUN: llvm-dis < %t.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
-// CHECK-SPIRV-DAG: Name [[#ConvenienceWriteUint:]] "test_pipe_convenience_write_uint"
-// CHECK-SPIRV-DAG: Name [[#ConvenienceReadUint:]] "test_pipe_convenience_read_uint"
-// CHECK-SPIRV-DAG: Name [[#Write:]] "test_pipe_write"
-// CHECK-SPIRV-DAG: Name [[#Query:]] "test_pipe_query_functions"
-// CHECK-SPIRV-DAG: Name [[#Read:]] "test_pipe_read"
-// CHECK-SPIRV-DAG: Name [[#WorkgroupWriteChar:]] "__clang_ocl_kern_imp_test_pipe_workgroup_write_char"
-// CHECK-SPIRV-DAG: Name [[#WorkgroupReadChar:]] "__clang_ocl_kern_imp_test_pipe_workgroup_read_char"
-// CHECK-SPIRV-DAG: Name [[#SubgroupWriteUint:]] "__clang_ocl_kern_imp_test_pipe_subgroup_write_uint"
-// CHECK-SPIRV-DAG: Name [[#SubgroupReadUint:]] "__clang_ocl_kern_imp_test_pipe_subgroup_read_uint"
+// CHECK-SPIRV-DAG: EntryPoint [[#]] [[#ConvenienceWriteUint:]] "test_pipe_convenience_write_uint"
+// CHECK-SPIRV-DAG: EntryPoint [[#]] [[#ConvenienceReadUint:]] "test_pipe_convenience_read_uint"
+// CHECK-SPIRV-DAG: EntryPoint [[#]] [[#Write:]] "test_pipe_write"
+// CHECK-SPIRV-DAG: EntryPoint [[#]] [[#Query:]] "test_pipe_query_functions"
+// CHECK-SPIRV-DAG: EntryPoint [[#]] [[#Read:]] "test_pipe_read"
+// CHECK-SPIRV-DAG: EntryPoint [[#]] [[#WorkgroupWriteChar:]] "test_pipe_workgroup_write_char"
+// CHECK-SPIRV-DAG: EntryPoint [[#]] [[#WorkgroupReadChar:]] "test_pipe_workgroup_read_char"
+// CHECK-SPIRV-DAG: EntryPoint [[#]] [[#SubgroupWriteUint:]] "test_pipe_subgroup_write_uint"
+// CHECK-SPIRV-DAG: EntryPoint [[#]] [[#SubgroupReadUint:]] "test_pipe_subgroup_read_uint"
 
 // CHECK-SPIRV-DAG: TypePipe [[ROPipeTy:[0-9]+]] 0
 // CHECK-SPIRV-DAG: TypePipe [[WOPipeTy:[0-9]+]] 1

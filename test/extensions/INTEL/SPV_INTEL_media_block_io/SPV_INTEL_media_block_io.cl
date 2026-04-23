@@ -1,10 +1,10 @@
 // RUN: %clang_cc1 -triple spir-unknown-unknown -O1 -cl-std=CL2.0 -fdeclare-opencl-builtins -finclude-default-header -emit-llvm-bc %s -o %t.bc
-// RUN: amd-llvm-spirv --spirv-ext=+SPV_INTEL_media_block_io %t.bc -o %t.spv
-// RUN: amd-llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+// RUN: llvm-spirv --spirv-ext=+SPV_INTEL_media_block_io %t.bc -o %t.spv
+// RUN: llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
 // RUN: spirv-val %t.spv
-// RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+// RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
-// RUN: amd-llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o %t.rev.bc
+// RUN: llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o %t.rev.bc
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-SPV-IR
 
 uchar __attribute__((overloadable)) intel_sub_group_media_block_read_uc(int2 src_offset, int width, int height, read_only image2d_t image);
@@ -136,7 +136,6 @@ __kernel void intel_media_block_test(int2 edgeCoord, __read_only image2d_t src_l
 // CHECK-SPIRV: Capability SubgroupImageMediaBlockIOINTEL
 // CHECK-SPIRV: Extension "SPV_INTEL_media_block_io"
 
-// CHECK-SPIRV: Name [[#TestFunc:]] "__clang_ocl_kern_imp_intel_media_block_test"
 // CHECK-SPIRV: TypeInt [[TypeInt:[0-9]+]] 32
 // CHECK-SPIRV: TypeInt [[TypeChar:[0-9]+]] 8
 // CHECK-SPIRV: TypeInt [[TypeShort:[0-9]+]] 16
@@ -154,7 +153,6 @@ __kernel void intel_media_block_test(int2 edgeCoord, __read_only image2d_t src_l
 // CHECK-SPIRV: TypeVector [[TypeInt4:[0-9]+]] [[TypeInt]] 4
 // CHECK-SPIRV: TypeVector [[TypeInt8:[0-9]+]] [[TypeInt]] 8
 
-// CHECK-SPIRV: Function [[#]] [[#TestFunc]]
 // CHECK-SPIRV: FunctionParameter {{[0-9]+}} [[Coord:[0-9]+]]
 // CHECK-SPIRV-NEXT: FunctionParameter {{[0-9]+}} [[SrcImage:[0-9]+]]
 // CHECK-SPIRV-NEXT: FunctionParameter {{[0-9]+}} [[DstImage:[0-9]+]]

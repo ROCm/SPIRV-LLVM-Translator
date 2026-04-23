@@ -1,16 +1,15 @@
-; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_arbitrary_precision_integers -o %t.spv
-; RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
+; RUN: llvm-spirv %s --spirv-ext=+SPV_ALTERA_arbitrary_precision_integers -o %t.spv
+; RUN: llvm-spirv %t.spv -to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
-; RUN: amd-llvm-spirv -spirv-text -r %t.spt -o %t.rev.bc
+; RUN: llvm-spirv -spirv-text -r %t.spt -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; CHECK-SPIRV: Capability ArbitraryPrecisionIntegersINTEL
-; CHECK-SPIRV: Extension "SPV_INTEL_arbitrary_precision_integers"
+; CHECK-SPIRV: Extension "SPV_ALTERA_arbitrary_precision_integers"
 
 ; CHECK-SPIRV-DAG: TypeInt {{[0-9]+}} 13 0
 ; CHECK-SPIRV-DAG: TypeInt {{[0-9]+}} 58 0

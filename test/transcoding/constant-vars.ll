@@ -1,16 +1,16 @@
 ; Check that we can handle constant expressions correctly.
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -spirv-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-TYPED-PTR
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv %t.bc -spirv-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-TYPED-PTR
+; RUN: llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o - | FileCheck %s --check-prefix=CHECK-LLVM
 
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers %t.bc -spirv-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-UNTYPED-PTR
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers %t.bc -o %t.spv
+; RUN: llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers %t.bc -spirv-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-UNTYPED-PTR
+; RUN: llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers %t.bc -o %t.spv
 ; TODO: enable once spirv tools support untyped access instructions as spec constants arguments.
 ; R/UN: spirv-val %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o - | FileCheck %s --check-prefix=CHECK-LLVM
 
 target datalayout = "e-p:32:32-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
@@ -39,7 +39,7 @@ target triple = "spir-unknown-unknown"
 ; CHECK-SPIRV-TYPED-PTR: 7 SpecConstantOp [[AS2]] [[ASTRC:[0-9]+]] 70 [[ASTR]] [[I320]] [[I320]]
 ; CHECK-SPIRV-UNTYPED-PTR: 8 SpecConstantOp [[AS2]] [[ASTRC:[0-9]+]] 4424 [[#]] [[ASTR]] [[I320]] [[I320]]
 ; CHECK-SPIRV: 5 SpecConstantOp [[AS1]] [[I64ARRC:[0-9]+]] 124 [[I64ARR]]
-; CHECK-SPIRV: 5 ConstantComposite [[STRUCTTY]] [[STRUCT_INIT:[0-9]+]] [[ASTRC]] [[I64ARRC]]
+; CHECK-SPIRV: 5 SpecConstantComposite [[STRUCTTY]] [[STRUCT_INIT:[0-9]+]] [[ASTRC]] [[I64ARRC]]
 ; CHECK-SPIRV-TYPED-PTR: 5 Variable {{[0-9]+}} [[STRUCT:[0-9]+]] 5 [[STRUCT_INIT]]
 ; CHECK-SPIRV-UNTYPED-PTR: 6 UntypedVariableKHR {{[0-9]+}} [[STRUCT:[0-9]+]] 5 [[STRUCTTY]] [[STRUCT_INIT]]
 
@@ -49,8 +49,8 @@ target triple = "spir-unknown-unknown"
 ; CHECK-SPIRV-TYPED-PTR: 5 SpecConstantOp [[AS1]] [[STRUCTC:[0-9]+]] 124 [[STRUCT]]
 ; CHECK-SPIRV-TYPED-PTR: 7 SpecConstantOp {{[0-9]+}} [[GEP:[0-9]+]] 67 [[I64ARR]]
 ; CHECK-SPIRV-UNTYPED-PTR: 8 SpecConstantOp {{[0-9]+}} [[GEP:[0-9]+]] 4423 [[#]] [[I64ARR]]
-; CHECK-SPIRV-TYPED-PTR: 6 ConstantComposite [[ARRAYTY]] [[ARRAY_INIT:[0-9]+]] [[I64ARRC2]] [[STRUCTC]] [[GEP]]
-; CHECK-SPIRV-UNTYPED-PTR: 6 ConstantComposite [[ARRAYTY]] [[ARRAY_INIT:[0-9]+]] [[I64ARRC2]] [[STRUCT]] [[GEP]]
+; CHECK-SPIRV-TYPED-PTR: 6 SpecConstantComposite [[ARRAYTY]] [[ARRAY_INIT:[0-9]+]] [[I64ARRC2]] [[STRUCTC]] [[GEP]]
+; CHECK-SPIRV-UNTYPED-PTR: 6 SpecConstantComposite [[ARRAYTY]] [[ARRAY_INIT:[0-9]+]] [[I64ARRC2]] [[STRUCT]] [[GEP]]
 ; CHECK-SPIRV: 5 Variable {{[0-9]+}} [[ARRAY:[0-9]+]] 5 [[ARRAY_INIT]]
 
 ; CHECK-LLVM: %structtype = type { ptr addrspace(2), ptr addrspace(1) }

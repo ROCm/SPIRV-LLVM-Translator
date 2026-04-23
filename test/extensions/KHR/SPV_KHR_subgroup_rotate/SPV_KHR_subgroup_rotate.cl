@@ -1,30 +1,30 @@
 // RUN: %clang_cc1 -triple spir-unknown-unknown -O1 -cl-std=CL2.0 -fdeclare-opencl-builtins -finclude-default-header -emit-llvm-bc %s -o %t.bc
-// RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_subgroup_rotate %t.bc -o %t.spv
-// RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_subgroup_rotate %t.spv -to-text -o %t.spt
+// RUN: llvm-spirv --spirv-ext=+SPV_KHR_subgroup_rotate %t.bc -o %t.spv
+// RUN: llvm-spirv --spirv-ext=+SPV_KHR_subgroup_rotate %t.spv -to-text -o %t.spt
 // RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-// RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+// RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefixes=CHECK-COMMON,CHECK-LLVM
-// RUN: amd-llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.rev.bc
+// RUN: llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o %t.rev.bc
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefixes=CHECK-COMMON,CHECK-SPV-IR
 
 // From SPIR-V friendly IR:
-// RUN: amd-llvm-spirv %t.rev.bc --spirv-ext=+SPV_KHR_subgroup_rotate -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+// RUN: llvm-spirv %t.rev.bc --spirv-ext=+SPV_KHR_subgroup_rotate -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
 
 // CHECK-SPIRV-DAG: {{[0-9]*}} Capability GroupNonUniformRotateKHR
 // CHECK-SPIRV-DAG: Extension "SPV_KHR_subgroup_rotate"
 
-// CHECK-SPIRV-DAG: Name [[#testRotateCharFn:]] "testRotateChar"
-// CHECK-SPIRV-DAG: Name [[#testRotateUCharFn:]] "testRotateUChar"
-// CHECK-SPIRV-DAG: Name [[#testRotateShortFn:]] "testRotateShort"
-// CHECK-SPIRV-DAG: Name [[#testRotateUShortFn:]] "testRotateUShort"
-// CHECK-SPIRV-DAG: Name [[#testRotateIntFn:]] "testRotateInt"
-// CHECK-SPIRV-DAG: Name [[#testRotateUIntFn:]] "testRotateUInt"
-// CHECK-SPIRV-DAG: Name [[#testRotateLongFn:]] "testRotateLong"
-// CHECK-SPIRV-DAG: Name [[#testRotateULongFn:]] "testRotateULong"
-// CHECK-SPIRV-DAG: Name [[#testRotateFloatFn:]] "testRotateFloat"
-// CHECK-SPIRV-DAG: Name [[#testRotateHalfFn:]] "testRotateHalf"
-// CHECK-SPIRV-DAG: Name [[#testRotateDoubleFn:]] "testRotateDouble"
+// CHECK-SPIRV-DAG: EntryPoint [[#]] [[#testRotateCharFn:]] "testRotateChar"
+// CHECK-SPIRV-DAG: EntryPoint [[#]] [[#testRotateUCharFn:]] "testRotateUChar"
+// CHECK-SPIRV-DAG: EntryPoint [[#]] [[#testRotateShortFn:]] "testRotateShort"
+// CHECK-SPIRV-DAG: EntryPoint [[#]] [[#testRotateUShortFn:]] "testRotateUShort"
+// CHECK-SPIRV-DAG: EntryPoint [[#]] [[#testRotateIntFn:]] "testRotateInt"
+// CHECK-SPIRV-DAG: EntryPoint [[#]] [[#testRotateUIntFn:]] "testRotateUInt"
+// CHECK-SPIRV-DAG: EntryPoint [[#]] [[#testRotateLongFn:]] "testRotateLong"
+// CHECK-SPIRV-DAG: EntryPoint [[#]] [[#testRotateULongFn:]] "testRotateULong"
+// CHECK-SPIRV-DAG: EntryPoint [[#]] [[#testRotateFloatFn:]] "testRotateFloat"
+// CHECK-SPIRV-DAG: EntryPoint [[#]] [[#testRotateHalfFn:]] "testRotateHalf"
+// CHECK-SPIRV-DAG: EntryPoint [[#]] [[#testRotateDoubleFn:]] "testRotateDouble"
 
 // CHECK-SPIRV-DAG: TypeInt   [[char:[0-9]+]]   8  0
 // CHECK-SPIRV-DAG: TypeInt   [[short:[0-9]+]]  16 0

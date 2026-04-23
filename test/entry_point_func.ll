@@ -1,8 +1,8 @@
 ;; Test to check that an LLVM spir_kernel gets translated into an
 ;; Entrypoint wrapper and Function with LinkageAttributes
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -o - -spirv-text | FileCheck %s --check-prefix=CHECK-SPIRV
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv %t.bc -o - -spirv-text | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
 ; XFAIL: *
 ; TODO: Re-enable / rewrite.

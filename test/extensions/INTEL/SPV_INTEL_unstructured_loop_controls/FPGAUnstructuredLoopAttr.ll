@@ -1,18 +1,18 @@
 ; RUN: llvm-as < %s > %t.bc
-; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_unstructured_loop_controls --spirv-ext=+SPV_INTEL_fpga_loop_controls -o - -spirv-text | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_unstructured_loop_controls --spirv-ext=+SPV_INTEL_fpga_loop_controls -o - -spirv-text | FileCheck %s --check-prefix=CHECK-SPIRV
 
-; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_unstructured_loop_controls --spirv-ext=+SPV_INTEL_fpga_loop_controls -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_unstructured_loop_controls --spirv-ext=+SPV_INTEL_fpga_loop_controls -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; CHECK-SPIRV: 2 Capability UnstructuredLoopControlsINTEL
 ; CHECK-SPIRV: 2 Capability FPGALoopControlsINTEL
 ; CHECK-SPIRV: 9 Extension "SPV_INTEL_fpga_loop_controls"
 ; CHECK-SPIRV: 11 Extension "SPV_INTEL_unstructured_loop_controls"
-; CHECK-SPIRV: 3 Name [[FOO:[0-9]+]] "foo"
+; CHECK-SPIRV: EntryPoint [[#]] [[FOO:[0-9]+]] "foo"
+; CHECK-SPIRV: EntryPoint [[#]] [[BOO:[0-9]+]] "boo"
 ; CHECK-SPIRV: 4 Name [[ENTRY_1:[0-9]+]] "entry"
 ; CHECK-SPIRV: 5 Name [[FOR:[0-9]+]] "for.cond"
-; CHECK-SPIRV: 3 Name [[BOO:[0-9]+]] "boo"
 ; CHECK-SPIRV: 4 Name [[ENTRY_2:[0-9]+]] "entry"
 ; CHECK-SPIRV: 5 Name [[WHILE:[0-9]+]] "while.body"
 

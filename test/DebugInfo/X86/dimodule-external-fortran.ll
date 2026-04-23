@@ -21,16 +21,16 @@
 ; The test would be in em.ll.
 
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_INTEL_debug_module %t.bc -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: llvm-spirv --spirv-ext=+SPV_INTEL_debug_module %t.bc -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -mtriple=x86_64-unknown-linux-gnu -filetype=obj  %t.ll -o - | llvm-dwarfdump - | FileCheck %s
 
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_INTEL_debug_module %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-100
-; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: llvm-spirv --spirv-ext=+SPV_INTEL_debug_module %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-100
+; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -mtriple=x86_64-unknown-linux-gnu -filetype=obj  %t.ll -o - | llvm-dwarfdump - | FileCheck %s
 
-; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-200
-; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-200
+; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -mtriple=x86_64-unknown-linux-gnu -filetype=obj  %t.ll -o - | llvm-dwarfdump - | FileCheck %s
 
 ; CHECK: [[DIE_ID:0x[0-9a-f]+]]: DW_TAG_module
@@ -40,7 +40,7 @@
 ; CHECK:      DW_TAG_imported_module
 ; CHECK-NEXT:   DW_AT_decl_file
 ; CHECK-NEXT:   DW_AT_decl_line
-; CHECK-NEXT:   DW_AT_import  ([[DIE_ID]])
+; CHECK-NEXT:   DW_AT_import  ([[DIE_ID]] "external_module")
 
 ; When the debugger sees the module being imported is a declaration,
 ; it should go to the global scope to find the module's definition.
@@ -84,13 +84,13 @@ attributes #1 = { nofree nosync nounwind readnone speculatable willreturn }
 !3 = !DIFile(filename: "em.f90", directory: "tests")
 !4 = !DISubroutineType(types: !5)
 !5 = !{null}
-!6 = distinct !DICompileUnit(language: DW_LANG_Fortran95, file: !3, producer: "Intel(R) Fortran 21.0-2165", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !7, globals: !8, imports: !9, splitDebugInlining: false, nameTableKind: None)
+!6 = distinct !DICompileUnit(language: DW_LANG_Fortran95, file: !3, producer: "Intel(R) Fortran 21.0-2165", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !7, globals: !8, splitDebugInlining: false, nameTableKind: None)
 !7 = !{}
 !8 = !{!0}
-!9 = !{!10}
+!9 = !{}
 !10 = !DIImportedEntity(tag: DW_TAG_imported_module, scope: !2, entity: !11, file: !3, line: 2)
 !11 = !DIModule(scope: !2, name: "external_module", isDecl: true)
-!12 = !{!13}
+!12 = !{!10, !13}
 !13 = !DILocalVariable(name: "x", scope: !2, file: !3, line: 5, type: !14)
 !14 = !DIBasicType(name: "REAL*4", size: 32, encoding: DW_ATE_float)
 !15 = !{i32 2, !"Debug Info Version", i32 3}

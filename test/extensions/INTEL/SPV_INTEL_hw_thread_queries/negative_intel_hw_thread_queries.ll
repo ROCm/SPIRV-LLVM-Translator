@@ -2,7 +2,7 @@
 ; Check for errors in case if LLVM IR module contains HW thread queries as a for of
 ; SPIR-V friendly LLVM IR.
 ; RUN: llvm-as %s -o %t.bc
-; RUN: not amd-llvm-spirv %t.bc -o %t.spv 2>&1 | FileCheck %s
+; RUN: not llvm-spirv %t.bc -o %t.spv 2>&1 | FileCheck %s
 
 ; CHECK: DeprecatedExtension: Feature requires the following deprecated SPIR-V extension:
 ; CHECK: SPV_INTEL_hw_thread_queries

@@ -1,19 +1,19 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_EXT_arithmetic_fence -spirv-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV-EXT,CHECK-SPIRV
-; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_arithmetic_fence -spirv-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV-INTEL,CHECK-SPIRV
-; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_EXT_arithmetic_fence,+SPV_INTEL_arithmetic_fence -spirv-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV-EXT,CHECK-SPIRV
+; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_EXT_arithmetic_fence -spirv-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV-EXT,CHECK-SPIRV
+; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_arithmetic_fence -spirv-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV-INTEL,CHECK-SPIRV
+; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_EXT_arithmetic_fence,+SPV_INTEL_arithmetic_fence -spirv-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV-EXT,CHECK-SPIRV
 
 
-; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_EXT_arithmetic_fence -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_EXT_arithmetic_fence -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
 
-; RUN: amd-llvm-spirv %t.bc -o %t.negative.spv
-; RUN: amd-llvm-spirv %t.negative.spv --to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV-NEG
+; RUN: llvm-spirv %t.bc -o %t.negative.spv
+; RUN: llvm-spirv %t.negative.spv --to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV-NEG
 
 
-; RUN: amd-llvm-spirv -r %t.negative.spv -o %t.negative.rev.bc
+; RUN: llvm-spirv -r %t.negative.spv -o %t.negative.rev.bc
 ; RUN: llvm-dis < %t.negative.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM-NEG
 
 

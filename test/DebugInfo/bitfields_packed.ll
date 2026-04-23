@@ -1,22 +1,22 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv --spirv-debug-info-version=ocl-100 %t.bc
-; RUN: amd-llvm-spirv %t.spv -o %t.spt --to-text
+; RUN: llvm-spirv --spirv-debug-info-version=ocl-100 %t.bc
+; RUN: llvm-spirv %t.spv -o %t.spt --to-text
 ; RUN: FileCheck %s --input-file %t.spt -check-prefixes=CHECK-SPIRV,CHECK-SPIRV-NO-BITFIELD
-; RUN: amd-llvm-spirv -r %t.spv -o %t_1.bc
+; RUN: llvm-spirv -r %t.spv -o %t_1.bc
 ; RUN: llvm-dis %t_1.bc -o %t_1.ll
 ; RUN: FileCheck %s --input-file %t_1.ll  -check-prefixes=CHECK-LLVM,CHECK-LLVM-NO-BITFIELD
 
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_non_semantic_info --spirv-debug-info-version=nonsemantic-shader-100 %t.bc
-; RUN: amd-llvm-spirv %t.spv -o %t.spt --to-text
+; RUN: llvm-spirv --spirv-ext=+SPV_KHR_non_semantic_info --spirv-debug-info-version=nonsemantic-shader-100 %t.bc
+; RUN: llvm-spirv %t.spv -o %t.spt --to-text
 ; RUN: FileCheck %s --input-file %t.spt -check-prefixes=CHECK-SPIRV,CHECK-SPIRV-BITFIELD
-; RUN: amd-llvm-spirv -r %t.spv -o %t_1.bc
+; RUN: llvm-spirv -r %t.spv -o %t_1.bc
 ; RUN: llvm-dis %t_1.bc -o %t_1.ll
 ; RUN: FileCheck %s --input-file %t_1.ll  -check-prefixes=CHECK-LLVM,CHECK-LLVM-NO-BITFIELD
 
-; RUN: amd-llvm-spirv --spirv-debug-info-version=nonsemantic-shader-200 %t.bc -o %t.spv
-; RUN: amd-llvm-spirv %t.spv -o %t.spt --to-text
+; RUN: llvm-spirv --spirv-debug-info-version=nonsemantic-shader-200 %t.bc -o %t.spv
+; RUN: llvm-spirv %t.spv -o %t.spt --to-text
 ; RUN: FileCheck %s --input-file %t.spt -check-prefixes=CHECK-SPIRV,CHECK-SPIRV-BITFIELD
-; RUN: amd-llvm-spirv -r %t.spv -o %t_1.bc
+; RUN: llvm-spirv -r %t.spv -o %t_1.bc
 ; RUN: llvm-dis %t_1.bc -o %t_1.ll
 ; RUN: FileCheck %s --input-file %t_1.ll  -check-prefixes=CHECK-LLVM,CHECK-LLVM-BITFIELD
 

@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: not amd-llvm-spirv %t.bc -o %t.spv 2>&1 | FileCheck %s
+; RUN: not llvm-spirv %t.bc -o %t.spv 2>&1 | FileCheck %s
 
 ; CHECK: InvalidModule: Invalid SPIR-V module: Casts from global_device/global_host only allowed to global/generic
 

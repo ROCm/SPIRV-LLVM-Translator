@@ -1,18 +1,18 @@
 // RUN: %clang_cc1 -triple spir-unknown-unknown -O1 -cl-std=CL2.0 -fdeclare-opencl-builtins -finclude-default-header -emit-llvm-bc %s -o %t.bc
-// RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_KHR_bit_instructions -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-// RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_KHR_bit_instructions -o %t.spv
-// RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+// RUN: llvm-spirv %t.bc --spirv-ext=+SPV_KHR_bit_instructions -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+// RUN: llvm-spirv %t.bc --spirv-ext=+SPV_KHR_bit_instructions -o %t.spv
+// RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
-// RUN: amd-llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o %t.rev.bc
+// RUN: llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o %t.rev.bc
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-SPV-IR
 
 // CHECK-SPIRV: Capability BitInstructions
 // CHECK-SPIRV: Extension "SPV_KHR_bit_instructions"
 
-// CHECK-SPIRV: Name [[#testInsertFn:]] "testInsert"
-// CHECK-SPIRV: Name [[#testExtractSFn:]] "testExtractS"
-// CHECK-SPIRV: Name [[#testExtractUFn:]] "testExtractU"
-// CHECK-SPIRV: Name [[#testBitReverseFn:]] "testBitReverse"
+// CHECK-SPIRV: EntryPoint [[#]] [[#testInsertFn:]] "testInsert"
+// CHECK-SPIRV: EntryPoint [[#]] [[#testExtractSFn:]] "testExtractS"
+// CHECK-SPIRV: EntryPoint [[#]] [[#testExtractUFn:]] "testExtractU"
+// CHECK-SPIRV: EntryPoint [[#]] [[#testBitReverseFn:]] "testBitReverse"
 
 // CHECK-LLVM-LABEL: @testInsert
 // CHECK-LLVM: call spir_func <2 x i32> @_Z15bitfield_insertDv2_iS_jj(

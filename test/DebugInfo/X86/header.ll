@@ -1,14 +1,14 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -mtriple x86_64-pc-linux < %t.ll  | FileCheck %s
 
-; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-100
-; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-100
+; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -mtriple x86_64-pc-linux < %t.ll  | FileCheck %s
 
-; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-200
-; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: llvm-spirv %t.bc -o %t.spv --spirv-debug-info-version=nonsemantic-shader-200
+; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -mtriple x86_64-pc-linux < %t.ll  | FileCheck %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
@@ -19,7 +19,7 @@ target triple = "spir64-unknown-unknown"
 ; CHECK: .file	"<stdin>"
 ; CHECK-NEXT: .text
 ; CHECK-NEXT: .globl	f
-; CHECK-NEXT: .p2align	4
+; CHECK-NEXT: {{.p2align 4|.prefalign       4, .Lfunc_end0, nop}}
 ; CHECK-NEXT: .type	f,@function
 ; CHECK-NEXT: f:                                      # @f
 

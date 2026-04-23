@@ -1,14 +1,18 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: amd-llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-; RUN: amd-llvm-spirv %t.spv -r -o %t.rev.bc
+; RUN: llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: llvm-spirv %t.spv -r -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o - | FileCheck %s --check-prefixes=CHECK-LLVM,CHECK-LLVM-OCL
-; RUN: amd-llvm-spirv %t.spv -r --spirv-target-env=SPV-IR -o %t.rev.bc
+; RUN: llvm-spirv %t.spv -r --spirv-target-env=SPV-IR -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o - | FileCheck %s --check-prefixes=CHECK-LLVM,CHECK-LLVM-SPV
 
 ; Check that produced builtin-call-based SPV-IR is recognized by the translator
-; RUN: amd-llvm-spirv %t.rev.bc -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: llvm-spirv %t.rev.bc -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: %if spirv-backend %{ llc -O0 -mtriple=spirv64-unknown-unknown -filetype=obj %s -o %t.llc.spv %}
+; RUN: %if spirv-backend %{ llvm-spirv -r --spirv-target-env=SPV-IR %t.llc.spv -o %t.llc.rev.bc %}
+; RUN: %if spirv-backend %{ llvm-dis %t.llc.rev.bc -o %t.llc.rev.ll %}
+; RUN: %if spirv-backend %{ FileCheck %s --check-prefixes=CHECK-LLVM,CHECK-LLVM-SPV < %t.llc.rev.ll %}
 
 ; The IR was generated from the following source:
 ; #include <CL/sycl.hpp>
@@ -33,7 +37,7 @@
 ; }
 ; Command line:
 ; clang++ -fsycl -fsycl-device-only emit-llvm tmp.cpp -o tmp.bc
-; amd-llvm-spirv tmp.bc -spirv-text -o builtin_vars_arithmetics.ll
+; llvm-spirv tmp.bc -spirv-text -o builtin_vars_arithmetics.ll
 
 ; CHECK-SPIRV-DAG: Decorate [[GlobalInvocationId:[0-9]+]] BuiltIn 28
 ; CHECK-SPIRV-DAG: Decorate [[GlobalSize:[0-9]+]] BuiltIn 31

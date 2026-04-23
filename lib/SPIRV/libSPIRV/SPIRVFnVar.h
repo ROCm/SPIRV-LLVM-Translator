@@ -59,9 +59,9 @@ public:
                         TheModule->get<SPIRVFunction>(TheId),
                         getSizeInWords(TheName) + Variables.size() + 4),
         Condition(Condition), ExecModel(TheExecModel), Name(TheName),
-        Variables(Variables) {}
+        Variables(std::move(Variables)) {}
   SPIRVConditionalEntryPointINTEL()
-      : SPIRVAnnotation(OpConditionalEntryPointINTEL) {}
+      : SPIRVAnnotation(OpConditionalEntryPointINTEL), Condition() {}
 
   SPIRVId getCondition() const { return Condition; }
   SPIRVExecutionModelKind getExecModel() const { return ExecModel; }
@@ -75,7 +75,9 @@ protected:
 
   void decode(std::istream &I) override {
     getDecoder(I) >> Condition >> ExecModel >> Target >> Name;
-    Variables.resize(WordCount - FixedWC - getSizeInWords(Name) + 1);
+    SPIRVWord NameWC = getSizeInWords(Name);
+    SPIRVCK(WordCount >= FixedWC + NameWC - 1, InvalidWordCount, "");
+    Variables.resize(WordCount - FixedWC - NameWC + 1);
     getDecoder(I) >> Variables;
     Module->setName(getOrCreateTarget(), Name);
     Module->addConditionalEntryPoint(Condition, ExecModel, Target, Name,
@@ -95,7 +97,7 @@ public:
   SPIRVConditionalExtensionINTEL(SPIRVModule *M, SPIRVId C,
                                  const std::string &SS)
       : SPIRVEntryNoId(M, 2 + getSizeInWords(SS)), Condition(C), S(SS) {}
-  SPIRVConditionalExtensionINTEL() {}
+  SPIRVConditionalExtensionINTEL() : Condition() {}
 
   std::string getExtensionName() const { return S; }
   SPIRVId getCondition() const { return Condition; }
@@ -124,7 +126,7 @@ public:
       : SPIRVEntryNoId(M, 3), Condition(C), Kind(K) {
     updateModuleVersion();
   }
-  SPIRVConditionalCapabilityINTEL() {}
+  SPIRVConditionalCapabilityINTEL() : Condition(), Kind() {}
 
   SPIRVId getCondition() const { return Condition; }
 
@@ -170,6 +172,7 @@ public:
 protected:
   void setWordCount(SPIRVWord TheWordCount) override {
     SPIRVEntry::setWordCount(TheWordCount);
+    SPIRVCK(TheWordCount >= FixedWordCount, InvalidWordCount, "");
     Constituents.resize(TheWordCount - FixedWordCount);
   }
   _SPIRV_DEF_ENCDEC3(Type, Id, Constituents)
@@ -202,7 +205,7 @@ public:
     validate();
   }
   // Incomplete constructor
-  SPIRVSpecConstantTargetINTEL() : SPIRVValue(OC) {}
+  SPIRVSpecConstantTargetINTEL() : SPIRVValue(OC), NumWords(), Target() {}
 
   SPIRVWord getTarget() const { return Target; }
   bool matchesDevice() {
@@ -251,6 +254,7 @@ protected:
   _SPIRV_DEF_ENCDEC4(Type, Id, Target, Features);
   void setWordCount(SPIRVWord WordCount) override {
     SPIRVEntry::setWordCount(WordCount);
+    SPIRVCK(WordCount >= FixedWC, InvalidWordCount, "");
     Features.resize(WordCount - FixedWC);
     NumWords = WordCount - FixedWC;
   }
@@ -279,7 +283,8 @@ public:
     validate();
   }
   // Incomplete constructor
-  SPIRVSpecConstantArchitectureINTEL() : SPIRVValue(OC) {}
+  SPIRVSpecConstantArchitectureINTEL()
+      : SPIRVValue(OC), Category(), Family(), CmpOp(), Architecture() {}
 
   SPIRVWord getCategory() { return Category; }
   SPIRVWord getFamily() { return Family; }
@@ -375,7 +380,7 @@ public:
     validate();
   }
   // Incomplete constructor
-  SPIRVSpecConstantCapabilitiesINTEL() : SPIRVValue(OC) {}
+  SPIRVSpecConstantCapabilitiesINTEL() : SPIRVValue(OC), NumWords() {}
 
   std::vector<SPIRVWord> getCapabilities() const { return Capabilities; }
   bool matchesDevice() {
@@ -426,6 +431,7 @@ protected:
 
   void setWordCount(SPIRVWord WordCount) override {
     SPIRVEntry::setWordCount(WordCount);
+    SPIRVCK(WordCount >= FixedWC, InvalidWordCount, "");
     Capabilities.resize(WordCount - FixedWC);
     NumWords = WordCount - FixedWC;
   }

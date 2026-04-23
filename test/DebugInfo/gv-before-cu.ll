@@ -1,6 +1,6 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: FileCheck < %t.ll %s
 
 ; CHECK: [[#GVExpr:]] = !DIGlobalVariableExpression(var: ![[#GV:]], expr: !DIExpression())

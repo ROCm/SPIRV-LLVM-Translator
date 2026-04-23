@@ -25,21 +25,22 @@
 ; clang -cc1 -triple spir -disable-llvm-passes t.cl -emit-llvm -o t.ll
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc --spirv-max-version=1.3 -spirv-text -o %t.txt
+; RUN: llvm-spirv %t.bc --spirv-max-version=1.3 -spirv-text -o %t.txt
 ; RUN: FileCheck < %t.txt %s --check-prefix=CHECK-SPIRV
-; RUN: amd-llvm-spirv %t.bc --spirv-max-version=1.3 -o %t.spv
+; RUN: llvm-spirv %t.bc --spirv-max-version=1.3 -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc
 ; RUN: FileCheck < %t.rev.ll %s --check-prefix=CHECK-LLVM
 
-; RUN: amd-llvm-spirv %t.bc --spirv-max-version=1.4 -spirv-text -o %t.txt
+; RUN: llvm-spirv %t.bc --spirv-max-version=1.4 -spirv-text -o %t.txt
 ; RUN: FileCheck < %t.txt %s --check-prefix=ALIGN-MATCH-SPIRV
-; RUN: amd-llvm-spirv %t.bc --spirv-max-version=1.4 -o %t.spv
+; RUN: llvm-spirv %t.bc --spirv-max-version=1.4 -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc
 ; RUN: FileCheck < %t.rev.ll %s --check-prefix=ALIGN-MATCH-LLVM
+; FIXME: FILECHECK_FAIL during llvm-spirv -r in llc compilation flow
 
 target datalayout = "e-p:32:32-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir"

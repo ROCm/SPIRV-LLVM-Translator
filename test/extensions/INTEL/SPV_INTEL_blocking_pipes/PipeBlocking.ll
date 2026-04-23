@@ -1,12 +1,12 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_blocking_pipes,+SPV_INTEL_arbitrary_precision_integers -spirv-text -o %t.spt
+; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_blocking_pipes,+SPV_ALTERA_arbitrary_precision_integers -spirv-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 ; FIXME: add more negative test cases
-; RUN: amd-llvm-spirv %t.spt -to-binary -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.bc
+; RUN: llvm-spirv %t.spt -to-binary -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o %t.bc
 ; RUN: llvm-dis < %t.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
-; RUN: amd-llvm-spirv -r %t.spv -o %t.bc --spirv-target-env=SPV-IR
+; RUN: llvm-spirv -r %t.spv -o %t.bc --spirv-target-env=SPV-IR
 ; RUN: llvm-dis < %t.bc | FileCheck %s --check-prefix=CHECK-SPV-IR
 
 ; ModuleID = 'test/CodeGenOpenCL/pipe_builtin.cl'

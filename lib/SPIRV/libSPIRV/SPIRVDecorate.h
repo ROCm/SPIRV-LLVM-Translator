@@ -314,6 +314,9 @@ public:
   std::optional<ExtensionID> getRequiredExtension() const override {
     if (getLinkageType() == SPIRVLinkageTypeKind::LinkageTypeLinkOnceODR)
       return ExtensionID::SPV_KHR_linkonce_odr;
+    if (getLinkageType() ==
+        static_cast<SPIRVLinkageTypeKind>(spv::internal::LinkageTypeWeak))
+      return ExtensionID::SPV_AMD_weak_linkage;
     return {};
   }
 };
@@ -436,7 +439,8 @@ public:
 
   void setWordCount(SPIRVWord WC) override {
     SPIRVEntryNoIdGeneric::setWordCount(WC);
-    Targets.resize(WC - FixedWC);
+    SPIRVCK(WordCount >= FixedWC, InvalidWordCount, "");
+    Targets.resize(WordCount - FixedWC);
   }
   virtual void decorateTargets() = 0;
   _SPIRV_DCL_ENCDEC

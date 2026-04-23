@@ -1,7 +1,7 @@
 ; Check whether the translator reports an error for a module with token type
 
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: not amd-llvm-spirv %t.bc 2>&1 --spirv-allow-unknown-intrinsics | FileCheck %s
+; RUN: not llvm-spirv %t.bc 2>&1 --spirv-allow-unknown-intrinsics | FileCheck %s
 
 ; CHECK: InvalidModule: Invalid SPIR-V module: LLVM module contains token type, which doesn't have a counterpart in SPIR-V
 

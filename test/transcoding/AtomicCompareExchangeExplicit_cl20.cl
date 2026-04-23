@@ -1,16 +1,16 @@
 // RUN: %clang_cc1 -triple spir-unknown-unknown -O1 -cl-std=CL2.0 -fdeclare-opencl-builtins -finclude-default-header -emit-llvm-bc %s -o %t.bc
-// RUN: amd-llvm-spirv %t.bc -spirv-text -o %t.txt
+// RUN: llvm-spirv %t.bc -spirv-text -o %t.txt
 // RUN: FileCheck < %t.txt %s --check-prefix=CHECK-SPIRV
-// RUN: amd-llvm-spirv %t.bc -o %t.spv
+// RUN: llvm-spirv %t.bc -o %t.spv
 // RUN: spirv-val %t.spv
-// RUN: amd-llvm-spirv -r --spirv-target-env=CL2.0 %t.spv -o %t.rev.bc
+// RUN: llvm-spirv -r --spirv-target-env=CL2.0 %t.spv -o %t.rev.bc
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
-// RUN: amd-llvm-spirv %t.bc -spirv-text -o %t.txt --spirv-ext=+SPV_KHR_untyped_pointers
+// RUN: llvm-spirv %t.bc -spirv-text -o %t.txt --spirv-ext=+SPV_KHR_untyped_pointers
 // RUN: FileCheck < %t.txt %s --check-prefix=CHECK-SPIRV
-// RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_KHR_untyped_pointers
+// RUN: llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_KHR_untyped_pointers
 // RUN: spirv-val %t.spv
-// RUN: amd-llvm-spirv -r --spirv-target-env=CL2.0 %t.spv -o %t.rev.bc
+// RUN: llvm-spirv -r --spirv-target-env=CL2.0 %t.spv -o %t.rev.bc
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
 #define DEFINE_KERNEL(TYPE)                                                            \
@@ -49,9 +49,13 @@ DEFINE_KERNEL(double)
 //; Constants below correspond to the SPIR-V spec
 //CHECK-SPIRV-DAG: Constant [[int32]] [[DeviceScope:[0-9]+]] 1
 //CHECK-SPIRV-DAG: Constant [[int32]] [[WorkgroupScope:[0-9]+]] 2
-//CHECK-SPIRV-DAG: Constant [[int32]] [[ReleaseMemSem:[0-9]+]] 4
-//CHECK-SPIRV-DAG: Constant [[int32]] [[RelaxedMemSem:[0-9]+]] 0
-//CHECK-SPIRV-DAG: Constant [[int32]] [[AcqRelMemSem:[0-9]+]] 8
+//; Memory semantics include both memory order and storage class bits
+//; 516 = CrossWorkgroupMemory (512) | Release (4)
+//; 512 = CrossWorkgroupMemory (512) | Relaxed (0)
+//; 520 = CrossWorkgroupMemory (512) | AcqRel (8)
+//CHECK-SPIRV-DAG: Constant [[int32]] [[ReleaseMemSem:[0-9]+]] 516
+//CHECK-SPIRV-DAG: Constant [[int32]] [[RelaxedMemSem:[0-9]+]] 512
+//CHECK-SPIRV-DAG: Constant [[int32]] [[AcqRelMemSem:[0-9]+]] 520
 
 //CHECK-SPIRV: AtomicCompareExchange [[int32]] {{[0-9]+}} {{[0-9]+}} [[DeviceScope]] [[ReleaseMemSem]] [[RelaxedMemSem]]
 //CHECK-SPIRV: AtomicCompareExchange [[int32]] {{[0-9]+}} {{[0-9]+}} [[WorkgroupScope]] [[AcqRelMemSem]] [[RelaxedMemSem]]

@@ -1,9 +1,9 @@
 // RUN: %clang_cc1 %s -triple spir -cl-std=CL2.0 -fdeclare-opencl-builtins -finclude-default-header -emit-llvm-bc -o %t.bc
 //
-// RUN: amd-llvm-spirv %t.bc -o %t.spv
+// RUN: llvm-spirv %t.bc -o %t.spv
 // RUN: spirv-val %t.spv
-// RUN: amd-llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-// RUN: amd-llvm-spirv %t.spv -r --spirv-target-env=CL2.0 -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
+// RUN: llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+// RUN: llvm-spirv %t.spv -r --spirv-target-env=CL2.0 -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
 
 // This test checks that the translator is capable to correctly translate
 // atomic_work_item_fence OpenCL C 2.0 built-in function [1] into corresponding
@@ -23,7 +23,7 @@ __kernel void test_mem_fence_non_const_flags(cl_mem_fence_flags flags, memory_or
   // atomic_work_item_fence(flags, order, scope);
 }
 
-// CHECK-SPIRV: Name [[TEST_CONST_FLAGS:[0-9]+]] "test_mem_fence_const_flags"
+// CHECK-SPIRV: EntryPoint [[#]] [[TEST_CONST_FLAGS:[0-9]+]] "test_mem_fence_const_flags"
 // CHECK-SPIRV: TypeInt [[UINT:[0-9]+]] 32 0
 //
 // 0x0 Relaxed + 0x100 WorkgroupMemory

@@ -1,10 +1,10 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_INTEL_cache_controls -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_INTEL_cache_controls %t.bc -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
+; RUN: llvm-spirv --spirv-ext=+SPV_INTEL_cache_controls -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: llvm-spirv --spirv-ext=+SPV_INTEL_cache_controls %t.bc -o %t.spv
+; RUN: llvm-spirv -r %t.spv --spirv-target-env=SPV-IR -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
 
-; CHECK-SPIRV-DAG: Name [[#Func:]] "test"
-; CHECK-SPIRV-DAG: Name [[#FuncGEP:]] "test_gep"
+; CHECK-SPIRV-DAG: EntryPoint [[#]] [[#Func:]] "test"
+; CHECK-SPIRV-DAG: EntryPoint [[#]] [[#FuncGEP:]] "test_gep"
 ; CHECK-SPIRV-DAG: TypeInt [[#Int32:]] 32 0
 ; CHECK-SPIRV-DAG: Constant [[#Int32]] [[#Zero:]] 0
 ; CHECK-SPIRV-DAG: Decorate [[#GEP1:]] CacheControlLoadINTEL 1 1

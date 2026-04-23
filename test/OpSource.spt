@@ -33,6 +33,6 @@
 
 1 FunctionEnd
 
-; RUN: amd-llvm-spirv %s -to-binary -o %t.spv
+; RUN: llvm-spirv %s -to-binary -o %t.spv
 ; Reverse translation shouldn't crash:
-; RUN: amd-llvm-spirv -r %t.spv -o %t.bc
+; RUN: llvm-spirv -r %t.spv -o %t.bc

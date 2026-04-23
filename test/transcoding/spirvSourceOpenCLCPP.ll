@@ -1,9 +1,13 @@
 ; RUN: llvm-as < %s > %t.bc
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
-; RUN: amd-llvm-spirv -to-text %t.spv -o %t.spt
+; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv -to-text %t.spv -o %t.spt
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o - | FileCheck %s --check-prefixes=CHECK-LLVM
+; RUN: %if spirv-backend %{ llc -O0 -mtriple=spirv64-unknown-unknown -filetype=obj %s -o %t.llc.spv %}
+; RUN: %if spirv-backend %{ llvm-spirv -r %t.llc.spv -o %t.llc.rev.bc %}
+; RUN: %if spirv-backend %{ llvm-dis %t.llc.rev.bc -o %t.llc.rev.ll %}
+; RUN: %if spirv-backend %{ FileCheck %s --check-prefixes=CHECK-LLVM < %t.llc.rev.ll %}
 
 ; CHECK-SPIRV: Source 4 100000
 ; CHECK-LLVM-NOT: opencl.cxx.version

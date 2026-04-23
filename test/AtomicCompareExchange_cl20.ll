@@ -1,10 +1,10 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -spirv-text -o - | FileCheck %s --check-prefixes=CHECK,CHECK-TYPED-PTR
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv %t.bc -spirv-text -o - | FileCheck %s --check-prefixes=CHECK,CHECK-TYPED-PTR
+; RUN: llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
 
-; RUN: amd-llvm-spirv %t.bc -spirv-text --spirv-ext=+SPV_KHR_untyped_pointers -o - | FileCheck %s --check-prefixes=CHECK,CHECK-UNTYPED-PTR
-; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_KHR_untyped_pointers
+; RUN: llvm-spirv %t.bc -spirv-text --spirv-ext=+SPV_KHR_untyped_pointers -o - | FileCheck %s --check-prefixes=CHECK,CHECK-UNTYPED-PTR
+; RUN: llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_KHR_untyped_pointers
 ; RUN: spirv-val %t.spv
 
 target datalayout = "e-p:32:32-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
@@ -17,7 +17,9 @@ target triple = "spir-unknown-unknown"
 
 ; CHECK: 4 TypeInt [[int:[0-9]+]] 32 0
 ; CHECK: Constant [[int]] [[DeviceScope:[0-9]+]] 1
-; CHECK: Constant [[int]] [[SequentiallyConsistent_MS:[0-9]+]] 16
+; For generic AS with SequentiallyConsistent: 784 = 768 (storage class) + 16 (SeqCst)
+; Where 768 = CrossWorkgroupMemory (512) | WorkgroupMemory (256)
+; CHECK: Constant [[int]] [[SequentiallyConsistent_MS:[0-9]+]] 784
 ; CHECK-TYPED-PTR: 4 TypePointer [[int_ptr:[0-9]+]] 8 [[int]]
 ; CHECK-UNTYPED-PTR: 3 TypeUntypedPointerKHR [[int_ptr:[0-9]+]] 8
 ; CHECK: 2 TypeBool [[bool:[0-9]+]]

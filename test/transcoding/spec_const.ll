@@ -1,11 +1,15 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: amd-llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
-; RUN: amd-llvm-spirv -r -spec-const "0:i1:1 1:i8:11 2:i16:22 3:i32:33 4:i64:4609589727908835759 5:f16:5.5 6:f32:6.6 7:f64:7.7" %t.spv -o %t.rev.spec.bc
+; RUN: llvm-spirv -r -spec-const "0:i1:1 1:i8:11 2:i16:22 3:i32:33 4:i64:4609589727908835759 5:f16:5.5 6:f32:6.6 7:f64:7.7" %t.spv -o %t.rev.spec.bc
 ; RUN: llvm-dis < %t.rev.spec.bc | FileCheck %s --check-prefix=CHECK-LLVM-SPEC
+; RUN: %if spirv-backend %{ llc -O0 -mtriple=spirv64-unknown-unknown -filetype=obj %s -o %t.llc.spv %}
+; RUN: %if spirv-backend %{ llvm-spirv -r %t.llc.spv -o %t.llc.rev.bc %}
+; RUN: %if spirv-backend %{ llvm-dis %t.llc.rev.bc -o %t.llc.rev.ll %}
+; RUN: %if spirv-backend %{ FileCheck %s --check-prefix=CHECK-LLVM < %t.llc.rev.ll %}
 
 ; CHECK-SPIRV-NOT: Capability Matrix
 ; CHECK-SPIRV-NOT: Capability Shader

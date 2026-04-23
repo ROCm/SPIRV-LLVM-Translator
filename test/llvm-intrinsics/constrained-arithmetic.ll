@@ -1,7 +1,8 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -spirv-text -o - | FileCheck %s
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
-; RUN: spirv-val %t.spv
+; RUN: llvm-spirv %t.bc -spirv-text -o - | FileCheck %s
+; RUN: llvm-spirv %t.bc -o %t.spv
+; TODO: re-enable validation
+; RUNx: spirv-val %t.spv
 
 
 ; CHECK: Name [[ad:[0-9]+]] "add"

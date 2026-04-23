@@ -1,21 +1,22 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -spirv-text -o %t.txt
+; RUN: llvm-spirv %t.bc -spirv-text -o %t.txt
 ; RUN: FileCheck < %t.txt %s --check-prefix=CHECK-SPIRV
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
-; RUN: amd-llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o %t.rev.bc
+; RUN: llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-SPV-IR
+; FIXME: FILECHECK_FAIL during llvm-spirv -r in llc compilation flow
 
 ; CHECK-LLVM: call spir_func target("spirv.Event") @_Z29async_work_group_strided_copyPU3AS1Dv2_hPU3AS3KS_jj9ocl_event(
 ; CHECK-LLVM: call spir_func void @_Z17wait_group_eventsiPU3AS49ocl_event(
 ; CHECK-LLVM: declare spir_func target("spirv.Event") @_Z29async_work_group_strided_copyPU3AS1Dv2_hPU3AS3KS_jj9ocl_event(ptr addrspace(1), ptr addrspace(3), i32, i32, target("spirv.Event"))
 ; CHECK-LLVM: declare spir_func void @_Z17wait_group_eventsiPU3AS49ocl_event(i32, ptr addrspace(4))
 
-; CHECK-SPV-IR: call spir_func target("spirv.Event") @_Z22__spirv_GroupAsyncCopyiPU3AS1Dv2_cPU3AS3S_jjP13__spirv_Event(i32 2
+; CHECK-SPV-IR: call spir_func target("spirv.Event") @_Z22__spirv_GroupAsyncCopyiPU3AS1Dv2_cPU3AS3KS_jjP13__spirv_Event(i32 2
 ; CHECK-SPV-IR: call spir_func void @_Z23__spirv_GroupWaitEventsiiPU3AS4P13__spirv_Event(i32 2
-; CHECK-SPV-IR: declare spir_func target("spirv.Event") @_Z22__spirv_GroupAsyncCopyiPU3AS1Dv2_cPU3AS3S_jjP13__spirv_Event(i32, ptr addrspace(1), ptr addrspace(3), i32, i32, target("spirv.Event")
+; CHECK-SPV-IR: declare spir_func target("spirv.Event") @_Z22__spirv_GroupAsyncCopyiPU3AS1Dv2_cPU3AS3KS_jjP13__spirv_Event(i32, ptr addrspace(1), ptr addrspace(3), i32, i32, target("spirv.Event")
 ; CHECK-SPV-IR: declare spir_func void @_Z23__spirv_GroupWaitEventsiiPU3AS4P13__spirv_Event(i32, i32, ptr addrspace(4))
 
 ; CHECK-SPIRV-DAG: GroupAsyncCopy {{[0-9]+}} {{[0-9]+}} [[Scope:[0-9]+]]

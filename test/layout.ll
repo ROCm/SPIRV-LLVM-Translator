@@ -1,12 +1,12 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -spirv-text -o %t
+; RUN: llvm-spirv %t.bc -spirv-text -o %t
 ; RUN: FileCheck < %t %s --check-prefixes=CHECK,CHECK-TYPED-PTR
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
 
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers %t.bc -spirv-text -o %t
+; RUN: llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers %t.bc -spirv-text -o %t
 ; RUN: FileCheck < %t %s --check-prefixes=CHECK,CHECK-UNTYPED-PTR
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers %t.bc -o %t.spv
+; RUN: llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers %t.bc -o %t.spv
 ; TODO: enable back once we support untyped ptr access chaing instructions as spec constant operand
 ; R/UN: spirv-val %t.spv
 

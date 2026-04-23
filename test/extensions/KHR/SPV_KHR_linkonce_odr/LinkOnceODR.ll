@@ -1,12 +1,12 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_linkonce_odr %t.bc -o %t.spv
-; RUN: amd-llvm-spirv %t.spv --to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv --spirv-ext=+SPV_KHR_linkonce_odr %t.bc -o %t.spv
+; RUN: llvm-spirv %t.spv --to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; No extension -> no LinkOnceODR
-; RUN: amd-llvm-spirv %t.bc -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV-NOEXT
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv %t.bc -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV-NOEXT
+; RUN: llvm-spirv %t.bc -o %t.spv
 
 ; CHECK-SPIRV: Capability Linkage
 ; CHECK-SPIRV: Extension "SPV_KHR_linkonce_odr"

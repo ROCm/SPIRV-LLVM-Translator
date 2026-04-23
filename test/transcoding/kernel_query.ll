@@ -16,17 +16,17 @@
 ; clang -cc1 -triple spir-unknown-unknown -O0 -cl-std=CL2.0 -emit-llvm kernel_query.cl
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -spirv-text -o %t.spv.txt
+; RUN: llvm-spirv %t.bc -spirv-text -o %t.spv.txt
 ; RUN: FileCheck < %t.spv.txt %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-TYPED-PTR
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc
 ; RUN: FileCheck < %t.rev.ll %s --check-prefix=CHECK-LLVM
 
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers %t.bc -spirv-text -o %t.spv.txt
+; RUN: llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers %t.bc -spirv-text -o %t.spv.txt
 ; RUN: FileCheck < %t.spv.txt %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-UNTYPED-PTR
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers %t.bc -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv --spirv-ext=+SPV_KHR_untyped_pointers %t.bc -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc
 ; RUN: FileCheck < %t.rev.ll %s --check-prefix=CHECK-LLVM
 
@@ -36,14 +36,14 @@ target triple = "spir-unknown-unknown"
 
 %struct.ndrange_t = type { i32 }
 
+; CHECK-SPIRV: EntryPoint [[#]] [[BlockKer1:[0-9]+]] "__device_side_enqueue_block_invoke_kernel"
+; CHECK-SPIRV: EntryPoint [[#]] [[BlockKer2:[0-9]+]] "__device_side_enqueue_block_invoke_2_kernel"
+; CHECK-SPIRV: EntryPoint [[#]] [[BlockKer3:[0-9]+]] "__device_side_enqueue_block_invoke_3_kernel"
+; CHECK-SPIRV: EntryPoint [[#]] [[BlockKer4:[0-9]+]] "__device_side_enqueue_block_invoke_4_kernel"
 ; CHECK-SPIRV: Name [[BlockGlb1:[0-9]+]] "__block_literal_global"
 ; CHECK-SPIRV: Name [[BlockGlb2:[0-9]+]] "__block_literal_global.1"
 ; CHECK-SPIRV: Name [[BlockGlb3:[0-9]+]] "__block_literal_global.2"
 ; CHECK-SPIRV: Name [[BlockGlb4:[0-9]+]] "__block_literal_global.3"
-; CHECK-SPIRV: Name [[BlockKer1:[0-9]+]] "__device_side_enqueue_block_invoke_kernel"
-; CHECK-SPIRV: Name [[BlockKer2:[0-9]+]] "__device_side_enqueue_block_invoke_2_kernel"
-; CHECK-SPIRV: Name [[BlockKer3:[0-9]+]] "__device_side_enqueue_block_invoke_3_kernel"
-; CHECK-SPIRV: Name [[BlockKer4:[0-9]+]] "__device_side_enqueue_block_invoke_4_kernel"
 
 ; CHECK-LLVM: [[BlockTy:%[0-9a-z\.]+]] = type { i32, i32 }
 %1 = type <{ i32, i32 }>

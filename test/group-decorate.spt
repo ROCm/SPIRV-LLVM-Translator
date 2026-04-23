@@ -31,8 +31,8 @@
 
 1 FunctionEnd
 
-; RUN: amd-llvm-spirv %s -to-binary -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.bc
+; RUN: llvm-spirv %s -to-binary -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o %t.bc
 ; RUN: llvm-dis < %t.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; CHECK-LLVM: define spir_kernel void @test(ptr addrspace(1) captures(none) %src1, ptr addrspace(1) captures(none) %src2, ptr addrspace(1) captures(none) %dst) {{.*}}

@@ -1,9 +1,8 @@
-; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -o %t.spt -spirv-text -spirv-ext=+SPV_INTEL_function_pointers
+; RUN: llvm-spirv %s -o %t.spt -spirv-text -spirv-ext=+SPV_INTEL_function_pointers
 ; RUN: FileCheck < %t.spt %s --check-prefix CHECK-SPIRV
 
-; RUN: amd-llvm-spirv %t.spt -o %t.spv -to-binary
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv %t.spt -o %t.spv -to-binary
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o %t.rev.ll
 ; RUN: FileCheck < %t.rev.ll %s --check-prefix CHECK-LLVM
 

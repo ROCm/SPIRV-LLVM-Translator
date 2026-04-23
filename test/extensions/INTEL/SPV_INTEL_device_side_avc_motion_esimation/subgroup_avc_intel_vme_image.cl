@@ -1,14 +1,14 @@
 // RUN: %clang_cc1 -O1 -triple spir-unknown-unknown -cl-std=CL2.0 %s -finclude-default-header -emit-llvm-bc -o %t.bc
-// RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_device_side_avc_motion_estimation -o %t.spv
-// RUN: amd-llvm-spirv %t.spv --to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+// RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_device_side_avc_motion_estimation -o %t.spv
+// RUN: llvm-spirv %t.spv --to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
 // There is no validation for SPV_INTEL_device_side_avc_motion_estimation implemented in
 // SPIRV-Tools. TODO: spirv-val %t.spv
-// RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+// RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefixes=CHECK-LLVM
-// RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc --spirv-target-env=SPV-IR
+// RUN: llvm-spirv -r %t.spv -o %t.rev.bc --spirv-target-env=SPV-IR
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefixes=CHECK-LLVM-SPIRV
-// RUN: amd-llvm-spirv %t.rev.bc --spirv-ext=+SPV_INTEL_device_side_avc_motion_estimation -o %t.rev.spv
-// RUN: amd-llvm-spirv %t.rev.spv --to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+// RUN: llvm-spirv %t.rev.bc --spirv-ext=+SPV_INTEL_device_side_avc_motion_estimation -o %t.rev.spv
+// RUN: llvm-spirv %t.rev.spv --to-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV
 
 #pragma OPENCL EXTENSION cl_intel_device_side_avc_motion_estimation : enable
 

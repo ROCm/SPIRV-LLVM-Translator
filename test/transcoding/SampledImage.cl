@@ -1,13 +1,13 @@
 // RUN: %clang_cc1 -triple spir -cl-std=CL2.0 %s -fdeclare-opencl-builtins -finclude-default-header -emit-llvm-bc -o %t.bc
-// RUN: amd-llvm-spirv %t.bc -spirv-text -o %t.txt
+// RUN: llvm-spirv %t.bc -spirv-text -o %t.txt
 // RUN: FileCheck < %t.txt %s --check-prefix=CHECK-SPIRV
-// RUN: amd-llvm-spirv --spirv-max-version=1.3 %t.bc -o %t.spv
+// RUN: llvm-spirv --spirv-max-version=1.3 %t.bc -o %t.spv
 // RUN: spirv-val %t.spv
-// RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+// RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
-// RUN: amd-llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o %t.rev.bc
+// RUN: llvm-spirv -r --spirv-target-env=SPV-IR %t.spv -o %t.rev.bc
 // RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-SPV-IR
-// RUN: amd-llvm-spirv %t.rev.bc -spirv-text -o %t.rev.spt
+// RUN: llvm-spirv %t.rev.bc -spirv-text -o %t.rev.spt
 // RUN: FileCheck < %t.rev.spt %s --check-prefix=CHECK-SPIRV
 
 constant sampler_t constSampl = CLK_FILTER_LINEAR;
@@ -27,8 +27,8 @@ void sample_kernel_int(image2d_t input, float2 coords, global int4 *results, sam
 }
 
 // CHECK-SPIRV: Capability LiteralSampler
-// CHECK-SPIRV: Name [[sample_kernel_float:[0-9]+]] "sample_kernel_float"
-// CHECK-SPIRV: Name [[sample_kernel_int:[0-9]+]] "sample_kernel_int"
+// CHECK-SPIRV: EntryPoint [[#]] [[sample_kernel_float:[0-9]+]] "sample_kernel_float"
+// CHECK-SPIRV: EntryPoint [[#]] [[sample_kernel_int:[0-9]+]] "sample_kernel_int"
 
 // CHECK-SPIRV: TypeSampler [[TypeSampler:[0-9]+]]
 // CHECK-SPIRV: TypeSampledImage [[SampledImageTy:[0-9]+]]

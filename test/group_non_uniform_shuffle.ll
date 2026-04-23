@@ -1,14 +1,14 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -spirv-text -o - | FileCheck --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-TYPED-PTR %s
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv %t.bc -spirv-text -o - | FileCheck --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-TYPED-PTR %s
+; RUN: llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o - | FileCheck --check-prefix CHECK-LLVM %s
 
-; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_KHR_untyped_pointers -spirv-text -o - | FileCheck --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-UNTYPED-PTR %s
-; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_KHR_untyped_pointers -o %t.spv
+; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_KHR_untyped_pointers -spirv-text -o - | FileCheck --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-UNTYPED-PTR %s
+; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_KHR_untyped_pointers -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o - | FileCheck --check-prefix CHECK-LLVM %s
 
 ; CHECK-SPIRV-DAG: TypeInt [[#I32:]] 32 0

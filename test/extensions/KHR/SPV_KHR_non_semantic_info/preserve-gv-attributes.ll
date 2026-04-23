@@ -1,18 +1,18 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: not amd-llvm-spirv %t.bc -spirv-text --spirv-preserve-auxdata --spirv-max-version=1.5 --spirv-ext=-SPV_KHR_non_semantic_info,+SPV_INTEL_global_variable_decorations -o - 2>&1 | FileCheck %s --check-prefix=CHECK-SPIRV-EXT-DISABLED
-; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-preserve-auxdata --spirv-max-version=1.5 --spirv-ext=+SPV_INTEL_global_variable_decorations
-; RUN: amd-llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-EXT
-; RUN: amd-llvm-spirv -r --spirv-preserve-auxdata %t.spv -o %t.rev.bc
+; RUN: not llvm-spirv %t.bc -spirv-text --spirv-preserve-auxdata --spirv-max-version=1.5 --spirv-ext=-SPV_KHR_non_semantic_info,+SPV_INTEL_global_variable_decorations -o - 2>&1 | FileCheck %s --check-prefix=CHECK-SPIRV-EXT-DISABLED
+; RUN: llvm-spirv %t.bc -o %t.spv --spirv-preserve-auxdata --spirv-max-version=1.5 --spirv-ext=+SPV_INTEL_global_variable_decorations
+; RUN: llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-EXT
+; RUN: llvm-spirv -r --spirv-preserve-auxdata %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o - | FileCheck %s --check-prefix=CHECK-LLVM
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.without.bc
+; RUN: llvm-spirv -r %t.spv -o %t.rev.without.bc
 ; RUN: llvm-dis %t.rev.without.bc -o - | FileCheck %s --implicit-check-not="{{foo|bar|baz}}"
 
-; RUN: amd-llvm-spirv %t.bc -spirv-text --spirv-preserve-auxdata --spirv-ext=+SPV_KHR_non_semantic_info,+SPV_INTEL_global_variable_decorations -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-NOEXT
-; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-preserve-auxdata --spirv-ext=+SPV_INTEL_global_variable_decorations
-; RUN: amd-llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-NOEXT
-; RUN: amd-llvm-spirv -r --spirv-preserve-auxdata %t.spv -o %t.rev.bc
+; RUN: llvm-spirv %t.bc -spirv-text --spirv-preserve-auxdata --spirv-ext=+SPV_KHR_non_semantic_info,+SPV_INTEL_global_variable_decorations -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-NOEXT
+; RUN: llvm-spirv %t.bc -o %t.spv --spirv-preserve-auxdata --spirv-ext=+SPV_INTEL_global_variable_decorations
+; RUN: llvm-spirv %t.spv -to-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-NOEXT
+; RUN: llvm-spirv -r --spirv-preserve-auxdata %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o - | FileCheck %s --check-prefix=CHECK-LLVM
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.without.bc
+; RUN: llvm-spirv -r %t.spv -o %t.rev.without.bc
 ; RUN: llvm-dis %t.rev.without.bc -o - | FileCheck %s --implicit-check-not="{{foo|bar|baz}}"
 
 ; Check SPIR-V versions in a format magic number + version

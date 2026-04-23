@@ -1,6 +1,6 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: amd-llvm-spirv --spirv-debug-info-version=nonsemantic-shader-200 %t.bc -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s
+; RUN: llvm-spirv --spirv-debug-info-version=nonsemantic-shader-200 %t.bc -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s
 
 ; REQUIRES: diop-diexpressions
 

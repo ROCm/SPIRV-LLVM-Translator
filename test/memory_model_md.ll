@@ -1,10 +1,14 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
-; RUN: amd-llvm-spirv %t.spv -o %t.spt --to-text
-; RUN: amd-llvm-spirv -r %t.spv -o %t.bc
+; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv %t.spv -o %t.spt --to-text
+; RUN: llvm-spirv -r %t.spv -o %t.bc
 ; RUN: llvm-dis %t.bc -o %t.ll
 ; RUN: FileCheck %s --input-file %t.ll  -check-prefix=LLVM
 ; RUN: FileCheck %s --input-file %t.spt -check-prefix=SPV
+; RUN: %if spirv-backend %{ llc -O0 -mtriple=spirv32-unknown-unknown -filetype=obj %s -o %t.llc.spv %}
+; RUN: %if spirv-backend %{ llvm-spirv -r %t.llc.spv -o %t.llc.rev.bc %}
+; RUN: %if spirv-backend %{ llvm-dis %t.llc.rev.bc -o %t.llc.rev.ll %}
+; RUN: %if spirv-backend %{ FileCheck %s --check-prefix=LLVM < %t.llc.rev.ll %}
 
 ; ModuleID = 'float_control_empty.bc'
 source_filename = "float_control_empty.cpp"

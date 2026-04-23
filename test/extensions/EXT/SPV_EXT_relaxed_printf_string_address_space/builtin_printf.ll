@@ -13,11 +13,11 @@
 ;   }
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: not amd-llvm-spirv %t.bc -o %t.spv 2>&1 | FileCheck %s --check-prefix=CHECK-WO-EXT
+; RUN: not llvm-spirv %t.bc -o %t.spv 2>&1 | FileCheck %s --check-prefix=CHECK-WO-EXT
 
-; RUN: amd-llvm-spirv -spirv-text %t.bc -o %t.spt --spirv-ext=+SPV_EXT_relaxed_printf_string_address_space
+; RUN: llvm-spirv -spirv-text %t.bc -o %t.spt --spirv-ext=+SPV_EXT_relaxed_printf_string_address_space
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
-; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_EXT_relaxed_printf_string_address_space
+; RUN: llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_EXT_relaxed_printf_string_address_space
 ; R/UN: spirv-val %t.spv
 
 

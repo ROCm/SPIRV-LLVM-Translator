@@ -85,15 +85,15 @@
 ; clang -cc1 -cl-std=clc++2021 -triple spir64-unknown-unknown -emit-llvm -finclude-default-header mma.cl -o tmp.ll
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_INTEL_subgroup_matrix_multiply_accumulate
-; RUN: amd-llvm-spirv %t.spv -o %t.spt --to-text
+; RUN: llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_INTEL_subgroup_matrix_multiply_accumulate
+; RUN: llvm-spirv %t.spv -o %t.spt --to-text
 ; RUN: FileCheck < %t.spt %s --check-prefix=CHECK-SPIRV
 
-; RUN: amd-llvm-spirv %t.spv -o %t.rev.bc -r --spirv-target-env=SPV-IR
+; RUN: llvm-spirv %t.spv -o %t.rev.bc -r --spirv-target-env=SPV-IR
 ; RUN: llvm-dis %t.rev.bc -o %t.rev.ll
 ; RUN: FileCheck < %t.rev.ll %s --check-prefix=CHECK-LLVM
 
-; RUN: not amd-llvm-spirv %t.bc 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
+; RUN: not llvm-spirv %t.bc 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
 ; CHECK-ERROR: RequiresExtension: Feature requires the following SPIR-V extension:
 ; CHECK-ERROR-NEXT: SPV_INTEL_subgroup_matrix_multiply_accumulate
 

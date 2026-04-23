@@ -1,18 +1,18 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_EXT_optnone -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV-EXT
-; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_optnone -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV-INTEL
-; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_EXT_optnone,+SPV_INTEL_optnone -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV-BOTH
+; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_EXT_optnone -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV-EXT
+; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_optnone -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV-INTEL
+; RUN: llvm-spirv %t.bc --spirv-ext=+SPV_EXT_optnone,+SPV_INTEL_optnone -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV-BOTH
 
 
-; RUN: amd-llvm-spirv --spirv-ext=+SPV_EXT_optnone %t.bc -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv --spirv-ext=+SPV_EXT_optnone %t.bc -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; Check that optnone is correctly ignored when extension is not enabled
-; RUN: amd-llvm-spirv %t.bc -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV-NONE
+; RUN: llvm-spirv %t.bc -spirv-text -o - | FileCheck %s --check-prefix=CHECK-SPIRV-NONE
 
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis < %t.rev.bc | FileCheck %s --check-prefix=CHECK-LLVM-NONE
 
 ; Note: The capability is unconditionally printed with the EXT suffix.

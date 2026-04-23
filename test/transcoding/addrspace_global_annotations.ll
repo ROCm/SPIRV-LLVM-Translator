@@ -2,10 +2,9 @@
 ;   Assertion `C->getType() == Ty->getElementType() && "Wrong type in array element initializer"' failed
 ; It also verifies that all the different address spaces were casted to the "common" one.
 
-; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc --spirv-ext=+SPV_INTEL_fpga_memory_attributes
+; RUN: llvm-spirv %s --spirv-ext=+SPV_INTEL_fpga_memory_attributes -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.rev.bc
+; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc
 ; RUN: FileCheck < %t.rev.ll %s
 

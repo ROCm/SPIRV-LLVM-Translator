@@ -1,11 +1,11 @@
 ; RUN: llvm-as < %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
-; RUN: amd-llvm-spirv -to-text %t.spv -o - | FileCheck %s
+; RUN: llvm-spirv -to-text %t.spv -o - | FileCheck %s
 
-; RUN: amd-llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_KHR_untyped_pointers
+; RUN: llvm-spirv %t.bc -o %t.spv --spirv-ext=+SPV_KHR_untyped_pointers
 ; RUN: spirv-val %t.spv
-; RUN: amd-llvm-spirv -to-text %t.spv -o - | FileCheck %s
+; RUN: llvm-spirv -to-text %t.spv -o - | FileCheck %s
 
 ; CHECK-DAG: Constant [[#]] [[#CrossDeviceScope:]] 0
 ; CHECK-DAG: Constant [[#]] [[#Release:]] 4

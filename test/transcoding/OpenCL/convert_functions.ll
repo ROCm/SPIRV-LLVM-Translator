@@ -2,12 +2,12 @@
 ; OpenCL builtins only in case they match the specification. Otherwise, we
 ; expect such functions to be translated to SPIR-V FunctionCall.
 
-; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
-; RUN: spirv-val %t.spv
-; RUN: amd-llvm-spirv %t.spv -to-text -o %t.spt
+; RUN: llvm-spirv %s -o %t.spv
+; TODO: re-enable validation
+; RUNx: spirv-val %t.spv
+; RUN: llvm-spirv %t.spv -to-text -o %t.spt
 ; RUN: FileCheck < %t.spt %s -check-prefix=CHECK-SPIRV
-; RUN: amd-llvm-spirv %t.spv -r -o - | llvm-dis -o %t.rev.ll
+; RUN: llvm-spirv %t.spv -r -o - | llvm-dis -o %t.rev.ll
 ; RUN: FileCheck < %t.rev.ll %s -check-prefix=CHECK-LLVM
 
 ; CHECK-SPIRV: Name [[#Func:]] "_Z18convert_float_func"

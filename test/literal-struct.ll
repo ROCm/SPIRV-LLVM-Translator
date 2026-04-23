@@ -12,9 +12,9 @@
 ; }
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -spirv-text -o %t
+; RUN: llvm-spirv %t.bc -spirv-text -o %t
 ; RUN: FileCheck < %t %s
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
 
 ; CHECK: TypeInt [[Int:[0-9]+]] 32 0

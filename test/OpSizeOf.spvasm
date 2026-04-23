@@ -2,7 +2,7 @@
 ; RUN: spirv-as --target-env spv1.1 -o %t.spv %s
 ; TODO: reenable spirv-val when OpSizeOf is supported.
 ; R/U/N: spirv-val %t.spv
-; RUN: amd-llvm-spirv -r -o - %t.spv | llvm-dis | FileCheck %s
+; RUN: llvm-spirv -r -o - %t.spv | llvm-dis | FileCheck %s
                OpCapability Addresses
                OpCapability Kernel
                OpMemoryModel Physical64 OpenCL

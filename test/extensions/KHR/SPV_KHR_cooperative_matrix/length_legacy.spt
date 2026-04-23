@@ -1,8 +1,8 @@
 ; This test is used to check that we do not break backward translation of `CooperativeMatrixLengthKHR`,
 ; even in case when it was generated not specification conformant (as value, not type) in forward translation.
 
-; RUN: amd-llvm-spirv %s -to-binary -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: llvm-spirv %s -to-binary -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: FileCheck %s --input-file %t.ll
 
 ; CHECK: call spir_func i32 @_Z34__spirv_CooperativeMatrixLengthKHRPU3AS144__spirv_CooperativeMatrixKHR__uint_3_12_48_0(target("spirv.CooperativeMatrixKHR", i32, 3, 12, 48, 0)

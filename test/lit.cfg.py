@@ -55,7 +55,12 @@ tool_dirs = [config.llvm_spirv_dir, config.llvm_tools_dir]
 tools = ['llvm-as', 'llvm-dis', 'amd-llvm-spirv', 'not']
 if not config.spirv_skip_debug_info_tests:
     tools.extend(['llc', 'llvm-dwarfdump', 'llvm-objdump', 'llvm-readelf', 'llvm-readobj'])
+if config.spirv_backend_found:
+    config.available_features.add('spirv-backend')
+    if config.spirv_skip_debug_info_tests:
+        tools.extend(['llc'])
 
+config.substitutions.append(('llvm-spirv', 'amd-llvm-spirv'))
 llvm_config.add_tool_substitutions(tools, tool_dirs)
 
 using_spirv_tools = False

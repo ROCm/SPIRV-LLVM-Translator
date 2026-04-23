@@ -92,26 +92,26 @@
 
 1 FunctionEnd
 
-; RUN: amd-llvm-spirv %s -to-binary -o %t.spv
-; RUN: amd-llvm-spirv -r %t.spv -o %t.bc
+; RUN: llvm-spirv %s -to-binary -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o %t.bc
 ; RUN: llvm-dis < %t.bc | FileCheck %s --check-prefixes=CHECK-COMMON,CHECK-LLVM
-; RUN: amd-llvm-spirv -r %t.spv -o %t.bc --spirv-target-env=SPV-IR
-; RUN: llvm-dis < %t.bc | FileCheck %s --check-prefixes=CHECK-COMMON,CHECK-amd-llvm-spirv
+; RUN: llvm-spirv -r %t.spv -o %t.bc --spirv-target-env=SPV-IR
+; RUN: llvm-dis < %t.bc | FileCheck %s --check-prefixes=CHECK-COMMON,CHECK-LLVM-SPIRV
 
 ; CHECK-LLVM-NOT: target("spirv.")
 
 ; CHECK-COMMON: define spir_func void @foo()
 
-; CHECK-amd-llvm-spirv: target("spirv.AvcMcePayloadINTEL")
-; CHECK-amd-llvm-spirv: target("spirv.AvcImePayloadINTEL")
-; CHECK-amd-llvm-spirv: target("spirv.AvcRefPayloadINTEL")
-; CHECK-amd-llvm-spirv: target("spirv.AvcSicPayloadINTEL")
-; CHECK-amd-llvm-spirv: target("spirv.AvcMceResultINTEL")
-; CHECK-amd-llvm-spirv: target("spirv.AvcImeResultINTEL")
-; CHECK-amd-llvm-spirv: target("spirv.AvcRefResultINTEL")
-; CHECK-amd-llvm-spirv: target("spirv.AvcSicResultINTEL")
-; CHECK-amd-llvm-spirv: target("spirv.AvcImeResultSingleReferenceStreamoutINTEL")
-; CHECK-amd-llvm-spirv: target("spirv.AvcImeResultDualReferenceStreamoutINTEL")
-; CHECK-amd-llvm-spirv: target("spirv.AvcImeSingleReferenceStreaminINTEL")
-; CHECK-amd-llvm-spirv: target("spirv.AvcImeDualReferenceStreaminINTEL")
+; CHECK-LLVM-SPIRV: target("spirv.AvcMcePayloadINTEL")
+; CHECK-LLVM-SPIRV: target("spirv.AvcImePayloadINTEL")
+; CHECK-LLVM-SPIRV: target("spirv.AvcRefPayloadINTEL")
+; CHECK-LLVM-SPIRV: target("spirv.AvcSicPayloadINTEL")
+; CHECK-LLVM-SPIRV: target("spirv.AvcMceResultINTEL")
+; CHECK-LLVM-SPIRV: target("spirv.AvcImeResultINTEL")
+; CHECK-LLVM-SPIRV: target("spirv.AvcRefResultINTEL")
+; CHECK-LLVM-SPIRV: target("spirv.AvcSicResultINTEL")
+; CHECK-LLVM-SPIRV: target("spirv.AvcImeResultSingleReferenceStreamoutINTEL")
+; CHECK-LLVM-SPIRV: target("spirv.AvcImeResultDualReferenceStreamoutINTEL")
+; CHECK-LLVM-SPIRV: target("spirv.AvcImeSingleReferenceStreaminINTEL")
+; CHECK-LLVM-SPIRV: target("spirv.AvcImeDualReferenceStreaminINTEL")
 

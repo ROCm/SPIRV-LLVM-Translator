@@ -63,7 +63,6 @@ class LLVMContext;
 class MDString;
 class IntrinsicInst;
 class LoadInst;
-class BranchInst;
 class BinaryOperator;
 class Value;
 } // namespace llvm
@@ -90,6 +89,11 @@ public:
   std::string transTypeToOCLTypeName(SPIRVType *BT, bool IsSigned = true);
   std::vector<Type *> transTypeVector(const std::vector<SPIRVType *> &,
                                       bool UseTypedPointerTypes = false);
+  // Build a typed LLVM pointer type for a SPIR-V untyped pointer operand by
+  // inferring an element LLVM type from the operand's SPIR-V value or from
+  // translated LLVM value. Returns nullptr if no element type can be found.
+  // This is needed to preserve correct mangling for builtins.
+  Type *getTypedPtrFromUntypedOperand(SPIRVValue *Op, Type *RetTy);
   bool translate();
   bool transAddressingModel();
 
@@ -99,6 +103,8 @@ public:
                                      bool CreatePlaceHolder = true);
   bool transDecoration(SPIRVValue *, Value *);
   bool transAlign(SPIRVValue *, Value *);
+  Instruction *transLLVMFromExtInst(SPIRVExtInst *BC, Type *RetTy,
+                                    std::vector<Type *> ArgTys, BasicBlock *BB);
   Instruction *transOCLBuiltinFromExtInst(SPIRVExtInst *BC, BasicBlock *BB);
   void transAuxDataInst(SPIRVExtInst *BC);
   std::vector<Value *> transValue(const std::vector<SPIRVValue *> &,
@@ -198,6 +204,18 @@ private:
 
   TypeToGEPOrUseMap GEPOrUseMap;
 
+  // This storage contains the mapping from AMDGCN feature predicate associated
+  // specialisation constant id to the actual value of the predicate, computed
+  // based on the offload architecture provided for the current translation.
+  std::unordered_map<SPIRVWord, bool> FeaturePredicateMap;
+  // This storage contains all direct users of any and all feature predicates,
+  // within the function currently being translated; as a precondition it is
+  // empty when function translation starts, is potentially filled during
+  // function translation, and it is cleared as a postcondition to function
+  // translation having completed.
+  std::unordered_map<Function*,
+                     std::vector<Instruction *>> FeaturePredicateUsers;
+
   Type *mapType(SPIRVType *BT, Type *T);
 
   // If a value is mapped twice, the existing mapped value is a placeholder,
@@ -262,6 +280,7 @@ private:
   void transGlobalCtorDtors(SPIRVVariableBase *BV);
   void createCXXStructor(const char *ListName,
                          SmallVectorImpl<Function *> &Funcs);
+  void transAMDGPUAtomicDecorations(SPIRVValue *BV, Value *V);
   void transIntelFPGADecorations(SPIRVValue *BV, Value *V);
   void transMemAliasingINTELDecorations(SPIRVValue *BV, Value *V);
   void transDecorationsToMetadata(SPIRVValue *BV, Value *V);
@@ -269,6 +288,19 @@ private:
   void
   transFunctionPointerCallArgumentAttributes(SPIRVValue *BV, CallInst *CI,
                                              SPIRVTypeFunction *CalledFnTy);
+
+  using FunctionAndTypeIdPair = std::pair<Function *, Type *>;
+  using FunctionToFastMathFlagsMap =
+      DenseMap<FunctionAndTypeIdPair, FastMathFlags>;
+  FunctionToFastMathFlagsMap FuncToFastMathFlags;
+  FastMathFlags translateFastMathFlags(SPIRVWord V) const;
+  void parseFloatControls2ExecutionModeId(SPIRVFunction *BF, Function *F);
+  void applyFPFastMathModeDecorations(const SPIRVValue *BV, Instruction *Inst);
+
+  // AMDGCN specific feature predicate handling.
+  void addFeaturePredicateMap(SPIRVValue *Map);
+  bool expandFeaturePredicate(SPIRVWord SpecId) const;
+  void addFeaturePredicateUser(Instruction *User);
 }; // class SPIRVToLLVM
 
 } // namespace SPIRV

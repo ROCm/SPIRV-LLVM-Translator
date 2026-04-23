@@ -1,6 +1,6 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: amd-llvm-spirv %t.bc -spirv-text -o - | FileCheck %s
-; RUN: amd-llvm-spirv %t.bc -o %t.spv
+; RUN: llvm-spirv %t.bc -spirv-text -o - | FileCheck %s
+; RUN: llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
@@ -482,3 +482,17 @@ entry:
 }
 
 declare {double, double} @llvm.modf.f64(double)
+
+; CHECK: Function
+; CHECK: FunctionParameter {{[0-9]+}} [[x:[0-9]+]]
+; CHECK: FunctionParameter {{[0-9]+}} [[exp:[0-9]+]]
+; CHECK: ExtInst [[var1]] {{[0-9]+}} [[extinst_id]] ldexp [[x]] [[exp]]
+; CHECK: FunctionEnd
+
+define spir_func float @TestLdexp(float %x, i32 %exp) {
+entry:
+  %t = tail call float @llvm.ldexp.f32.i32(float %x, i32 %exp)
+  ret float %t
+}
+
+declare float @llvm.ldexp.f32.i32(float, i32)
