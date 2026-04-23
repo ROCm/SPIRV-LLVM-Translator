@@ -6258,9 +6258,11 @@ SPIRVToLLVM::transLinkageType(const SPIRVValue *V) {
       if (static_cast<const SPIRVVariable *>(V)->getStorageClass() ==
           StorageClassWorkgroup &&
           (!V->getType()->isTypeArray() ||
-           V->getType()->getArrayLength() != UINT32_MAX))
+           (V->getType()->getArrayLength() != UINT32_MAX &&
+            V->getType()->getArrayLength() != UINT64_MAX)))
         return GlobalValue::InternalLinkage;
-      if (static_cast<const SPIRVVariable *>(V)->getInitializer() == 0)
+      if (!static_cast<const SPIRVVariable *>(V)->getInitializer() &&
+          !static_cast<const SPIRVVariable *>(V)->isConstant())
         // Tentative definition
         return GlobalValue::CommonLinkage;
     }
