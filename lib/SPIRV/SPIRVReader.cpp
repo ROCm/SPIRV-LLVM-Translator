@@ -260,6 +260,10 @@ SPIRVErrorLog &SPIRVToLLVM::getErrorLog() { return BM->getErrorLog(); }
 void SPIRVToLLVM::setCallingConv(CallInst *Call) {
   Function *F = Call->getCalledFunction();
   assert(F && "Function pointers are not allowed in SPIRV");
+
+  if (M->getTargetTriple().isAMDGCN() &&
+      F->getCallingConv() == CallingConv::AMDGPU_KERNEL)
+    return Call->setCallingConv(CallingConv::C); // This is a stub call.
   Call->setCallingConv(F->getCallingConv());
 }
 
@@ -2827,10 +2831,31 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
   case OpFunctionCall: {
     SPIRVFunctionCall *BC = static_cast<SPIRVFunctionCall *>(BV);
     std::vector<Value *> Args = transValue(BC->getArgumentValues(), F, BB);
-    auto *Call = CallInst::Create(transFunction(BC->getFunction()), Args,
-                                  BC->getName(), BB);
-    setCallingConv(Call);
+    Function *Callee = transFunction(BC->getFunction());
+    if (M->getTargetTriple().isAMDGCN() && isKernel(BC->getFunction())) {
+      // In HIPSTDPAR mode we sometimes get some host side calls that have not
+      // yet been pruned (this happens later on reverse translated AMDGPU LLVM
+      // IR); whilst these are essentially dead, we should generate valid IR
+      // nonetheless, and this might require inserting an AS cast.
+      // TODO: we should only do this for HIPSTDPAR modules; this is a temporary
+      //       workaround.
+      std::transform(
+        Callee->arg_begin(), Callee->arg_end(), Args.begin(), Args.begin(),
+        [BB](auto &&Formal, auto &&Actual) {
+        if (!Formal.getType()->isPointerTy())
+          return Actual;
+
+        if (Formal.getType()->getPointerAddressSpace() ==
+            Actual->getType()->getPointerAddressSpace())
+          return Actual;
+
+        return cast<Value>(CastInst::CreatePointerBitCastOrAddrSpaceCast(
+            Actual, Formal.getType(), "", BB));
+      });
+    }
+    auto *Call = CallInst::Create(Callee, Args, BC->getName(), BB);
     setAttrByCalledFunc(Call);
+    setCallingConv(Call);
     applyFPFastMathModeDecorations(BV, Call);
     return mapValue(BV, Call);
   }
