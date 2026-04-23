@@ -3825,17 +3825,28 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
   // The name mangling here is broken, as it'd have used the SPIR-V AS Map, so
   // we have to fix it here and call the intrinsic.
   // TODO: maybe handle memcpy_inline and memcpy_atomic.
-  if (M->getTargetTriple().isAMDGCN() &&
-      FuncNameRef.starts_with("spirv.llvm_memcpy_p")) {
-    Type *DstPtrTy = FT->getParamType(0);
-    Type *SrcPtrTy = FT->getParamType(1);
-    Type *SizeTy = FT->getParamType(2);
-    Function *F =
-        Intrinsic::getOrInsertDeclaration(M, Intrinsic::memcpy,
-                                          {DstPtrTy, SrcPtrTy, SizeTy});
-    F = cast<Function>(mapValue(BF, F));
-    mapFunction(BF, F);
-    return F;
+  // TODO: uplift and unify intrinsic handling, we cannot keep going case by
+  //       case.
+  if (M->getTargetTriple().isAMDGCN()) {
+    if (FuncNameRef.starts_with("spirv.llvm_memcpy_p")) {
+      Type *DstPtrTy = FT->getParamType(0);
+      Type *SrcPtrTy = FT->getParamType(1);
+      Type *SizeTy = FT->getParamType(2);
+      Function *F =
+          Intrinsic::getOrInsertDeclaration(M, Intrinsic::memcpy,
+                                            {DstPtrTy, SrcPtrTy, SizeTy});
+      F = cast<Function>(mapValue(BF, F));
+      mapFunction(BF, F);
+      return F;
+    } else if (FuncNameRef.starts_with("spirv.llvm_ptrmask_p")) {
+      Type *PtrTy = FT->getParamType(0);
+      Type *MaskTy = FT->getParamType(1);
+      Function *F = Intrinsic::getOrInsertDeclaration(M, Intrinsic::ptrmask,
+                                                      {PtrTy, MaskTy});
+      F = cast<Function>(mapValue(BF, F));
+      mapFunction(BF, F);
+      return F;
+    }
   }
 
   // Special handling for spirv.llvm_umul_with_overflow_* functions
