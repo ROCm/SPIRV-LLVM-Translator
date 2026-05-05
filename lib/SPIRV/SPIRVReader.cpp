@@ -2853,8 +2853,9 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
           return cast<Value>(CastInst::CreatePointerBitCastOrAddrSpaceCast(
               Actual, Formal.getType(), "", BB));
         });
-      } else if (BC->getFunction()->getName() == "llvm.amdgcn.is.shared" ||
-                 BC->getFunction()->getName() == "llvm.amdgcn.is.private") {
+      } else if (Args.size() == 1 &&
+                 (BC->getFunction()->getName() == "llvm.amdgcn.is.shared" ||
+                  BC->getFunction()->getName() == "llvm.amdgcn.is.private")) {
         if (BC->getArgumentValues().front()->getType()->getPointerStorageClass()
             != StorageClassGeneric) {
           auto *PTy = PointerType::get(
@@ -2866,8 +2867,8 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
       }
     }
     auto *Call = CallInst::Create(Callee, Args, BC->getName(), BB);
-    setAttrByCalledFunc(Call);
     setCallingConv(Call);
+    setAttrByCalledFunc(Call);
     applyFPFastMathModeDecorations(BV, Call);
     return mapValue(BV, Call);
   }
