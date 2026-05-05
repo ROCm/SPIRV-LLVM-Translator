@@ -881,6 +881,16 @@ SPIRVType *LLVMToSPIRVBase::transScavengedType(Value *V) {
             transType(TPT->getElementType()));
         PT.push_back(NewType);
         continue;
+      } else if (M->getTargetTriple().getVendor() == Triple::AMD) {
+        // TODO: this is temporary and rather ugly, we should fix the BIs to
+        //       not take an explicit AS in their signature.
+        if (F->hasName() &&
+            (F->getName() == "llvm.amdgcn.is.shared" ||
+             F->getName() == "llvm.amdgcn.is.private")) {
+          PT.push_back(transType(PointerType::get(F->getContext(),
+                                                  SPIRAS_Generic)));
+          continue;
+        }
       }
       PT.push_back(transType(Ty));
     }
@@ -1363,7 +1373,7 @@ SPIRVValue *LLVMToSPIRVBase::transConstantUse(Constant *C,
   if (Trans->getType() == ExpectedType || Trans->getType()->isTypePipeStorage())
     return Trans;
 
-  assert((C->getType()->isPointerTy() ||
+  assert((C->getType()->isPointerTy() || C->getType()->isArrayTy() ||
           ExpectedType->isTypeUntypedPointerKHR()) &&
          "Only pointer type mismatches should be possible");
   // In the common case of strings ([N x i8] GVs), see if we can emit a GEP
@@ -1424,6 +1434,16 @@ SPIRVValue *LLVMToSPIRVBase::transConstant(Value *V) {
   }
 
   if (auto *ConstFP = dyn_cast<ConstantFP>(V)) {
+    if (V->getType()->isVectorTy()) {
+      SPIRVType *InnerTy = ExpectedType->getScalarType();
+      SPIRVValue *ScalarVal =
+          transConstantUse(ConstantFP::get(V->getType()->getScalarType(),
+                                           ConstFP->getValueAPF()),
+                           InnerTy);
+      unsigned NumElts = cast<FixedVectorType>(V->getType())->getNumElements();
+      std::vector<SPIRVValue *> BV(NumElts, ScalarVal);
+      return BM->addCompositeConstant(ExpectedType, BV);
+    }
     auto *BT = static_cast<SPIRVType *>(ExpectedType);
     return BM->addConstant(
         BT, ConstFP->getValueAPF().bitcastToAPInt().getZExtValue());

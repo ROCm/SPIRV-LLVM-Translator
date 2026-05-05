@@ -2832,26 +2832,38 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     SPIRVFunctionCall *BC = static_cast<SPIRVFunctionCall *>(BV);
     std::vector<Value *> Args = transValue(BC->getArgumentValues(), F, BB);
     Function *Callee = transFunction(BC->getFunction());
-    if (M->getTargetTriple().isAMDGCN() && isKernel(BC->getFunction())) {
-      // In HIPSTDPAR mode we sometimes get some host side calls that have not
-      // yet been pruned (this happens later on reverse translated AMDGPU LLVM
-      // IR); whilst these are essentially dead, we should generate valid IR
-      // nonetheless, and this might require inserting an AS cast.
-      // TODO: we should only do this for HIPSTDPAR modules; this is a temporary
-      //       workaround.
-      std::transform(
-        Callee->arg_begin(), Callee->arg_end(), Args.begin(), Args.begin(),
-        [BB](auto &&Formal, auto &&Actual) {
-        if (!Formal.getType()->isPointerTy())
-          return Actual;
+    if (M->getTargetTriple().isAMDGCN()) {
+      if (isKernel(BC->getFunction())) {
+        // In HIPSTDPAR mode we sometimes get some host side calls that have not
+        // yet been pruned (this happens later on reverse translated AMDGPU LLVM
+        // IR); whilst these are essentially dead, we should generate valid IR
+        // nonetheless, and this might require inserting an AS cast.
+        // TODO: we should only do this for HIPSTDPAR modules; this is a
+        //       temporary workaround.
+        std::transform(
+          Callee->arg_begin(), Callee->arg_end(), Args.begin(), Args.begin(),
+          [BB](auto &&Formal, auto &&Actual) {
+          if (!Formal.getType()->isPointerTy())
+            return Actual;
 
-        if (Formal.getType()->getPointerAddressSpace() ==
-            Actual->getType()->getPointerAddressSpace())
-          return Actual;
+          if (Formal.getType()->getPointerAddressSpace() ==
+              Actual->getType()->getPointerAddressSpace())
+            return Actual;
 
-        return cast<Value>(CastInst::CreatePointerBitCastOrAddrSpaceCast(
-            Actual, Formal.getType(), "", BB));
-      });
+          return cast<Value>(CastInst::CreatePointerBitCastOrAddrSpaceCast(
+              Actual, Formal.getType(), "", BB));
+        });
+      } else if (BC->getFunction()->getName() == "llvm.amdgcn.is.shared" ||
+                 BC->getFunction()->getName() == "llvm.amdgcn.is.private") {
+        if (BC->getArgumentValues().front()->getType()->getPointerStorageClass()
+            != StorageClassGeneric) {
+          auto *PTy = PointerType::get(
+              F->getContext(), mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric));
+          Args[0] =
+              CastInst::CreatePointerBitCastOrAddrSpaceCast(Args[0], PTy, "",
+                                                            BB);
+        }
+      }
     }
     auto *Call = CallInst::Create(Callee, Args, BC->getName(), BB);
     setAttrByCalledFunc(Call);
@@ -3850,17 +3862,28 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
   // The name mangling here is broken, as it'd have used the SPIR-V AS Map, so
   // we have to fix it here and call the intrinsic.
   // TODO: maybe handle memcpy_inline and memcpy_atomic.
-  if (M->getTargetTriple().isAMDGCN() &&
-      FuncNameRef.starts_with("spirv.llvm_memcpy_p")) {
-    Type *DstPtrTy = FT->getParamType(0);
-    Type *SrcPtrTy = FT->getParamType(1);
-    Type *SizeTy = FT->getParamType(2);
-    Function *F =
-        Intrinsic::getOrInsertDeclaration(M, Intrinsic::memcpy,
-                                          {DstPtrTy, SrcPtrTy, SizeTy});
-    F = cast<Function>(mapValue(BF, F));
-    mapFunction(BF, F);
-    return F;
+  // TODO: uplift and unify intrinsic handling, we cannot keep going case by
+  //       case.
+  if (M->getTargetTriple().isAMDGCN()) {
+    if (FuncNameRef.starts_with("spirv.llvm_memcpy_p")) {
+      Type *DstPtrTy = FT->getParamType(0);
+      Type *SrcPtrTy = FT->getParamType(1);
+      Type *SizeTy = FT->getParamType(2);
+      Function *F =
+          Intrinsic::getOrInsertDeclaration(M, Intrinsic::memcpy,
+                                            {DstPtrTy, SrcPtrTy, SizeTy});
+      F = cast<Function>(mapValue(BF, F));
+      mapFunction(BF, F);
+      return F;
+    } else if (FuncNameRef.starts_with("spirv.llvm_ptrmask_p")) {
+      Type *PtrTy = FT->getParamType(0);
+      Type *MaskTy = FT->getParamType(1);
+      Function *F = Intrinsic::getOrInsertDeclaration(M, Intrinsic::ptrmask,
+                                                      {PtrTy, MaskTy});
+      F = cast<Function>(mapValue(BF, F));
+      mapFunction(BF, F);
+      return F;
+    }
   }
 
   // Special handling for spirv.llvm_umul_with_overflow_* functions
@@ -6283,9 +6306,11 @@ SPIRVToLLVM::transLinkageType(const SPIRVValue *V) {
       if (static_cast<const SPIRVVariable *>(V)->getStorageClass() ==
           StorageClassWorkgroup &&
           (!V->getType()->isTypeArray() ||
-           V->getType()->getArrayLength() != UINT32_MAX))
+           (V->getType()->getArrayLength() != UINT32_MAX &&
+            V->getType()->getArrayLength() != UINT64_MAX)))
         return GlobalValue::InternalLinkage;
-      if (static_cast<const SPIRVVariable *>(V)->getInitializer() == 0)
+      if (!static_cast<const SPIRVVariable *>(V)->getInitializer() &&
+          !static_cast<const SPIRVVariable *>(V)->isConstant())
         // Tentative definition
         return GlobalValue::CommonLinkage;
     }
