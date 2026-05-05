@@ -3109,6 +3109,12 @@ public:
       return {CapabilityAtomicFloat32AddEXT};
     if (getType()->isTypeFloat(64))
       return {CapabilityAtomicFloat64AddEXT};
+    // TODO: Temporary workaround to allow both FP16 and BF16 atomics.
+    if (getType()->isTypeVectorFloat() &&
+      (getType()->getVectorComponentType()->isTypeFloat(16) ||
+       getType()->getVectorComponentType()->isTypeFloat(16,
+                                                        FPEncodingBFloat16KHR)))
+      return {CapabilityAtomicFloat16VectorNV};
     llvm_unreachable(
         "AtomicFAddEXT can only be generated for bf16, f16, f32, f64 types");
   }

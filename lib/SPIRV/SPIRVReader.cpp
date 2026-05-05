@@ -2827,6 +2827,17 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
   case OpFunctionCall: {
     SPIRVFunctionCall *BC = static_cast<SPIRVFunctionCall *>(BV);
     std::vector<Value *> Args = transValue(BC->getArgumentValues(), F, BB);
+    if (M->getTargetTriple().isAMDGCN() && Args.size() == 1 &&
+        (BC->getFunction()->getName() == "llvm.amdgcn.is.shared" ||
+         BC->getFunction()->getName() == "llvm.amdgcn.is.private")) {
+      if (BC->getArgumentValues().front()->getType()->getPointerStorageClass()
+          != StorageClassGeneric) {
+        auto *PTy = PointerType::get(
+            F->getContext(), mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric));
+        Args[0] =
+            CastInst::CreatePointerBitCastOrAddrSpaceCast(Args[0], PTy, "", BB);
+      }
+    }
     auto *Call = CallInst::Create(transFunction(BC->getFunction()), Args,
                                   BC->getName(), BB);
     setCallingConv(Call);
@@ -6269,9 +6280,11 @@ SPIRVToLLVM::transLinkageType(const SPIRVValue *V) {
       if (static_cast<const SPIRVVariable *>(V)->getStorageClass() ==
           StorageClassWorkgroup &&
           (!V->getType()->isTypeArray() ||
-           V->getType()->getArrayLength() != UINT32_MAX))
+           (V->getType()->getArrayLength() != UINT32_MAX &&
+            V->getType()->getArrayLength() != UINT64_MAX)))
         return GlobalValue::InternalLinkage;
-      if (static_cast<const SPIRVVariable *>(V)->getInitializer() == 0)
+      if (!static_cast<const SPIRVVariable *>(V)->getInitializer() &&
+          !static_cast<const SPIRVVariable *>(V)->isConstant())
         // Tentative definition
         return GlobalValue::CommonLinkage;
     }
