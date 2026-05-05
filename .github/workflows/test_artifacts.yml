@@ -49,7 +49,7 @@ jobs:
   configure_test_matrix:
     name: "Configure test matrix"
     # if there is a test machine available
-    if: ${{ inputs.test_runs_on != '' }}
+    if: ${{ inputs.test_runs_on != '' && github.repository == 'ROCm/SPIRV-LLVM-Translator' }}
     runs-on: ${{ inputs.test_runs_on }}
     outputs:
       components: ${{ steps.configure.outputs.components }}
