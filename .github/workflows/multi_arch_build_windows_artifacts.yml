@@ -86,13 +86,15 @@ jobs:
           # Fetch the latest commit SHA from the PR branch
           PR_SHA=${{ github.event.pull_request.head.sha }}
           # Update the submodule pointer using cacheinfo
-          git update-index --cacheinfo 160000,$PR_SHA,compiler/amd-llvm
+          git update-index --cacheinfo 160000,$PR_SHA,compiler/spirv-llvm-translator
           git config --global user.email "z1-cciauto@amd.com"
           git config --global user.name "Z1 cciauto"
-          git commit -m "Update submodule reference for compiler/amd-llvm"
+          git commit -m "Update submodule reference for compiler/spirv-llvm-translator"
           # Verify the pointer update
           git submodule status
           git submodule
+          git submodule sync
+          git submodule update --init --recursive --remote --force
 
       - name: Update Submodule Pointer at compiler/amd-llvm for manual debug
         if: ${{ github.event_name != 'pull_request' && github.workflow == 'ROCK CI Windows Debug Support' }}
@@ -107,6 +109,7 @@ jobs:
           # Verify the pointer update
           git submodule status
           git submodule
+          git submodule update --init --recursive --remote --force
 
       - name: "Map Current Directory to a Drive"
         id: subst
@@ -215,7 +218,6 @@ jobs:
         timeout-minutes: 30
         run: |
           cd "${{ steps.subst.outputs.drive }}/"
-          git submodule update --init --recursive --force --remote
           git config fetch.parallel 10
           git config --global core.symlinks true
           git config --global core.longpaths true          
