@@ -94,7 +94,7 @@ jobs:
           git submodule status
           git submodule
           git submodule sync
-          git submodule update --init --recursive --remote --force
+          git submodule update --init --recursive --force
 
       - name: Update Submodule Pointer at compiler/amd-llvm for manual debug
         if: ${{ github.event_name != 'pull_request' && github.workflow == 'ROCK CI Windows Debug Support' }}
@@ -109,7 +109,7 @@ jobs:
           # Verify the pointer update
           git submodule status
           git submodule
-          git submodule update --init --recursive --remote --force
+          git submodule update --init --recursive --force
 
       - name: "Map Current Directory to a Drive"
         id: subst
