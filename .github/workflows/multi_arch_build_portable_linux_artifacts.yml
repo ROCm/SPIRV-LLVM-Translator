@@ -150,9 +150,8 @@ jobs:
         run: ./build_tools/fetch_sources.py --stage ${STAGE_NAME} --jobs 12 --depth 1
 
       - name: TheRock and llvm SHA
-        if: ${{ (github.event_name == 'pull_request' && inputs.stage_name == 'math-libs') || (github.event_name == 'workflow_dispatch' && inputs.test_type != 'full' && inputs.stage_name == 'math-libs') }}
+        if: ${{ (github.event_name == 'pull_request' && inputs.stage_name == 'compiler-runtime') || (github.event_name == 'workflow_dispatch' && inputs.test_type != 'full' && inputs.stage_name == 'compiler-runtime') }}
         run: |
-             git submodule update --init --recursive compiler/amd-llvm
              git config --global --add safe.directory $PWD
              git log --oneline -1
              ls -l compiler/amd-llvm
