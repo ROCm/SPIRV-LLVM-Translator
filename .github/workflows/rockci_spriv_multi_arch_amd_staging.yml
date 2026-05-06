@@ -8,7 +8,7 @@
 # ci_linux.yml. Once validated, ci.yml will be updated to use the multi-arch
 # sub-workflows directly.
 
-name: Multi-Arch CI SPIRV amd-staging
+name: Multi-Arch CI amd-staging
 
 on:
   push:
