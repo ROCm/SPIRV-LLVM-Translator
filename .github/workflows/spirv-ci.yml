@@ -62,10 +62,11 @@ jobs:
             -DLLVM_ENABLE_PROJECTS="clang;lld" \
             -DLLVM_TARGETS_TO_BUILD="AMDGPU;X86;SPIRV" \
             -DLLVM_INCLUDE_TESTS=ON \
+            -DLLVM_INSTALL_GTEST=ON \
             -DLLVM_LIT_ARGS="-sv --no-progress-bar"
 
-      - name: Build LLVM + Clang + LLD + llvm-spirv
-        run: ninja -C build clang lld llvm-spirv
+      - name: Build LLVM + Clang + LLD + amd-llvm-spirv
+        run: ninja -C build clang lld amd-llvm-spirv
 
       # ---- Build device-libs (standalone, against built LLVM) --------------
       - name: Configure device-libs
@@ -94,14 +95,14 @@ jobs:
       # Each suite is its own step so failures are individually identifiable
       # in the PR check rollup. Add new suites as new steps below.
 
-      - name: Test - SPIRV Translator (check-llvm-spirv)
-        run: ninja -C build check-llvm-spirv
+      - name: Test - SPIRV Translator (check-amd-llvm-spirv)
+        run: ninja -C build check-amd-llvm-spirv
 
       - name: Test - LLVM SPIRV backend (check-llvm-codegen-spirv)
         run: ninja -C build check-llvm-codegen-spirv
 
-      - name: Test - Comgr lit (check-comgr)
+      - name: Test - Comgr (check-comgr)
+        # check-comgr depends on test-lit (runs lit suite) and test-unit
+        # (runs gtest binaries via its COMMAND block), then runs ctest for
+        # the legacy C tests. Single target = all three test layers.
         run: ninja -C build-comgr check-comgr
-
-      - name: Test - Comgr GTest (check-comgr-unit)
-        run: ninja -C build-comgr check-comgr-unit
