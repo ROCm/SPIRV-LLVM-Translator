@@ -97,7 +97,6 @@ jobs:
           # Verify the pointer update
           git submodule status
           git submodule
-          git submodule sync
           git submodule update --init --recursive --force
 
       - name: Install python deps

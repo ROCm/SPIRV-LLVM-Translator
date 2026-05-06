@@ -93,7 +93,6 @@ jobs:
           # Verify the pointer update
           git submodule status
           git submodule
-          git submodule sync
           git submodule update --init --recursive --force
 
       - name: Update Submodule Pointer at compiler/amd-llvm for manual debug
@@ -108,7 +107,6 @@ jobs:
           git commit -m "Update submodule reference for compiler/spirv-llvm-translator"
           # Verify the pointer update
           git submodule status
-          git submodule
           git submodule update --init --recursive --force
 
       - name: "Map Current Directory to a Drive"
