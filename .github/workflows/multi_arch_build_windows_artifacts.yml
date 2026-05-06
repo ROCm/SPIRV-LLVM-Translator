@@ -215,6 +215,7 @@ jobs:
         timeout-minutes: 30
         run: |
           cd "${{ steps.subst.outputs.drive }}/"
+          git submodule update --init --recursive --force --remote
           git config fetch.parallel 10
           git config --global core.symlinks true
           git config --global core.longpaths true          
