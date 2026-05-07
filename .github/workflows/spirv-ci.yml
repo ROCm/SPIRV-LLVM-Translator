@@ -122,6 +122,11 @@ jobs:
 
       - name: Show failed Comgr ctest output
         # check-comgr invokes ctest without --output-on-failure, so failures
-        # show "***Failed" with no stderr. Re-run any failed cases verbosely.
+        # show "***Failed" with no stderr. Re-run any failed cases verbosely
+        # and redirect comgr's internal log buffer to stderr so clang errors
+        # from inside amd_comgr_do_action() surface (otherwise comgr just
+        # returns AMD_COMGR_STATUS_ERROR with no detail).
         if: steps.check_comgr.outcome == 'failure'
+        env:
+          AMD_COMGR_REDIRECT_LOGS: stderr
         run: ctest --test-dir build-comgr --output-on-failure --rerun-failed
