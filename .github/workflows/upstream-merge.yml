@@ -104,6 +104,7 @@ jobs:
             --base amd-staging \
             --head ${{ steps.merge.outputs.branch }} \
             --title "${{ steps.merge.outputs.pr_title }}" \
+            --reviewer maarquitos14,MrSidims,AlexVlx,lamb-j,steffenlarsen,mgcarrasco \
             --body "$(cat <<'EOF'
           Automated merge of upstream KhronosGroup/SPIRV-LLVM-Translator main branch.
 
