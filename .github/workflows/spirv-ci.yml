@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write  # for the translator lit-failure summary comment
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.sha }}
@@ -102,12 +103,47 @@ jobs:
       # in the PR check rollup. Add new suites as new steps below.
 
       - name: Test - SPIRV Translator (check-amd-llvm-spirv)
-        # XFAIL on amd-staging tip: 9/1038 tests currently failing
-        # (DebugInfo, SpecConstants, SPV_KHR_abort extension). See PR
-        # description for the list. Drop continue-on-error once they
-        # pass so regressions block merge.
+        # Non-blocking: upstream Khronos breaks ~1 translator lit test per
+        # week (spirv-val drift, LLVM IR changes vs DebugInfo tests, DCE).
+        # Their fixes typically land within a day; our daily upstream-merge
+        # cron pulls them in. Blocking here would gate unrelated PRs during
+        # those windows. The next step posts a sticky PR comment listing
+        # any failing tests so AMD-side regressions stay visible.
+        id: check_spirv_xlator
         continue-on-error: true
-        run: ninja -C build check-amd-llvm-spirv
+        run: |
+          set -o pipefail
+          ninja -C build check-amd-llvm-spirv 2>&1 | tee build/check-amd-llvm-spirv.log
+
+      - name: Post translator lit failure summary to PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- spirv-ci:translator-lit -->';
+            const log = fs.readFileSync('build/check-amd-llvm-spirv.log', 'utf8');
+            const failed = [...log.matchAll(/^FAIL: (LLVM_SPIRV :: \S+)/gm)].map(m => m[1]);
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = failed.length === 0
+              ? `${marker}\n✅ **SPIRV translator lit suite (\`check-amd-llvm-spirv\`)**: all tests passing.`
+              : `${marker}\n⚠️ **SPIRV translator lit suite (\`check-amd-llvm-spirv\`)**: ${failed.length} failing — non-blocking (see [run](${runUrl})).\n\nUpstream Khronos churn breaks these intermittently; check whether the failure is also on \`amd-staging\` tip before assuming this PR caused it.\n\n<details><summary>Failing tests</summary>\n\n\`\`\`\n${failed.join('\n')}\n\`\`\`\n</details>`;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                comment_id: existing.id, body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number, body,
+              });
+            }
 
       - name: Test - LLVM SPIRV backend (check-llvm-codegen-spirv)
         run: ninja -C build check-llvm-codegen-spirv
@@ -117,7 +153,6 @@ jobs:
         # (runs gtest binaries via its COMMAND block), then runs ctest for
         # the legacy C tests. Single target = all three test layers.
         id: check_comgr
-        continue-on-error: true
         run: ninja -C build-comgr check-comgr
 
       - name: Show failed Comgr ctest output
@@ -126,7 +161,7 @@ jobs:
         # and redirect comgr's internal log buffer to stderr so clang errors
         # from inside amd_comgr_do_action() surface (otherwise comgr just
         # returns AMD_COMGR_STATUS_ERROR with no detail).
-        if: steps.check_comgr.outcome == 'failure'
+        if: failure() && steps.check_comgr.conclusion == 'failure'
         env:
           AMD_COMGR_REDIRECT_LOGS: stderr
         run: ctest --test-dir build-comgr --output-on-failure --rerun-failed
