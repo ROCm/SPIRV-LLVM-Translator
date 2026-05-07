@@ -260,6 +260,10 @@ SPIRVErrorLog &SPIRVToLLVM::getErrorLog() { return BM->getErrorLog(); }
 void SPIRVToLLVM::setCallingConv(CallInst *Call) {
   Function *F = Call->getCalledFunction();
   assert(F && "Function pointers are not allowed in SPIRV");
+
+  if (M->getTargetTriple().isAMDGCN() &&
+      F->getCallingConv() == CallingConv::AMDGPU_KERNEL)
+    return Call->setCallingConv(CallingConv::C); // This is a stub call.
   Call->setCallingConv(F->getCallingConv());
 }
 
@@ -2084,6 +2088,21 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
                                transValue(RV->getReturnValue(), F, BB), BB));
   }
 
+  case OpAbortKHR: {
+    // OpAbortKHR is a SPIR-V block terminator. In LLVM IR, model it as a call
+    // to the SPIR-V friendly builtin __spirv_AbortKHR followed by an
+    // 'unreachable' terminator.
+    auto *AbortInst =
+        transSPIRVBuiltinFromInst(static_cast<SPIRVAbortKHR *>(BV), BB);
+    if (auto *Call = dyn_cast<CallInst>(AbortInst)) {
+      Call->setDoesNotReturn();
+      if (auto *Callee = Call->getCalledFunction())
+        Callee->setDoesNotReturn();
+    }
+    new UnreachableInst(*Context, BB);
+    return mapValue(BV, AbortInst);
+  }
+
   case OpLifetimeStart: {
     SPIRVLifetimeStart *LTStart = static_cast<SPIRVLifetimeStart *>(BV);
     IRBuilder<> Builder(BB);
@@ -2827,19 +2846,42 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
   case OpFunctionCall: {
     SPIRVFunctionCall *BC = static_cast<SPIRVFunctionCall *>(BV);
     std::vector<Value *> Args = transValue(BC->getArgumentValues(), F, BB);
-    if (M->getTargetTriple().isAMDGCN() && Args.size() == 1 &&
-        (BC->getFunction()->getName() == "llvm.amdgcn.is.shared" ||
-         BC->getFunction()->getName() == "llvm.amdgcn.is.private")) {
-      if (BC->getArgumentValues().front()->getType()->getPointerStorageClass()
-          != StorageClassGeneric) {
-        auto *PTy = PointerType::get(
-            F->getContext(), mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric));
-        Args[0] =
-            CastInst::CreatePointerBitCastOrAddrSpaceCast(Args[0], PTy, "", BB);
+    Function *Callee = transFunction(BC->getFunction());
+    if (M->getTargetTriple().isAMDGCN()) {
+      if (isKernel(BC->getFunction())) {
+        // In HIPSTDPAR mode we sometimes get some host side calls that have not
+        // yet been pruned (this happens later on reverse translated AMDGPU LLVM
+        // IR); whilst these are essentially dead, we should generate valid IR
+        // nonetheless, and this might require inserting an AS cast.
+        // TODO: we should only do this for HIPSTDPAR modules; this is a
+        //       temporary workaround.
+        std::transform(
+          Callee->arg_begin(), Callee->arg_end(), Args.begin(), Args.begin(),
+          [BB](auto &&Formal, auto &&Actual) {
+          if (!Formal.getType()->isPointerTy())
+            return Actual;
+
+          if (Formal.getType()->getPointerAddressSpace() ==
+              Actual->getType()->getPointerAddressSpace())
+            return Actual;
+
+          return cast<Value>(CastInst::CreatePointerBitCastOrAddrSpaceCast(
+              Actual, Formal.getType(), "", BB));
+        });
+      } else if (Args.size() == 1 &&
+                 (BC->getFunction()->getName() == "llvm.amdgcn.is.shared" ||
+                  BC->getFunction()->getName() == "llvm.amdgcn.is.private")) {
+        if (BC->getArgumentValues().front()->getType()->getPointerStorageClass()
+            != StorageClassGeneric) {
+          auto *PTy = PointerType::get(
+              F->getContext(), mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric));
+          Args[0] =
+              CastInst::CreatePointerBitCastOrAddrSpaceCast(Args[0], PTy, "",
+                                                            BB);
+        }
       }
     }
-    auto *Call = CallInst::Create(transFunction(BC->getFunction()), Args,
-                                  BC->getName(), BB);
+    auto *Call = CallInst::Create(Callee, Args, BC->getName(), BB);
     setCallingConv(Call);
     setAttrByCalledFunc(Call);
     applyFPFastMathModeDecorations(BV, Call);
@@ -3836,17 +3878,28 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
   // The name mangling here is broken, as it'd have used the SPIR-V AS Map, so
   // we have to fix it here and call the intrinsic.
   // TODO: maybe handle memcpy_inline and memcpy_atomic.
-  if (M->getTargetTriple().isAMDGCN() &&
-      FuncNameRef.starts_with("spirv.llvm_memcpy_p")) {
-    Type *DstPtrTy = FT->getParamType(0);
-    Type *SrcPtrTy = FT->getParamType(1);
-    Type *SizeTy = FT->getParamType(2);
-    Function *F =
-        Intrinsic::getOrInsertDeclaration(M, Intrinsic::memcpy,
-                                          {DstPtrTy, SrcPtrTy, SizeTy});
-    F = cast<Function>(mapValue(BF, F));
-    mapFunction(BF, F);
-    return F;
+  // TODO: uplift and unify intrinsic handling, we cannot keep going case by
+  //       case.
+  if (M->getTargetTriple().isAMDGCN()) {
+    if (FuncNameRef.starts_with("spirv.llvm_memcpy_p")) {
+      Type *DstPtrTy = FT->getParamType(0);
+      Type *SrcPtrTy = FT->getParamType(1);
+      Type *SizeTy = FT->getParamType(2);
+      Function *F =
+          Intrinsic::getOrInsertDeclaration(M, Intrinsic::memcpy,
+                                            {DstPtrTy, SrcPtrTy, SizeTy});
+      F = cast<Function>(mapValue(BF, F));
+      mapFunction(BF, F);
+      return F;
+    } else if (FuncNameRef.starts_with("spirv.llvm_ptrmask_p")) {
+      Type *PtrTy = FT->getParamType(0);
+      Type *MaskTy = FT->getParamType(1);
+      Function *F = Intrinsic::getOrInsertDeclaration(M, Intrinsic::ptrmask,
+                                                      {PtrTy, MaskTy});
+      F = cast<Function>(mapValue(BF, F));
+      mapFunction(BF, F);
+      return F;
+    }
   }
 
   // Special handling for spirv.llvm_umul_with_overflow_* functions
@@ -4161,6 +4214,10 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
   } else {
     Call = CallInst::Create(Func, transValue(Ops, BB->getParent(), BB), "", BB);
   }
+  if (getImageOperandsIndex(OC) != ~0U &&
+      static_cast<SPIRVImageInstBase *>(BI)->hasImageOperand(
+          ImageOperandsMask::ImageOperandsNontemporalMask))
+    transNonTemporalMetadata(Call);
   setName(Call, BI);
   setAttrByCalledFunc(Call);
   SPIRVDBG(spvdbgs() << "[transInstToBuiltinCall] " << *BI << " -> ";
@@ -5164,7 +5221,10 @@ SPIRVToLLVM::transOCLImageTypeAccessQualifier(SPIRV::SPIRVTypeImage *ST) {
 bool SPIRVToLLVM::transNonTemporalMetadata(Instruction *I) {
   Constant *One = ConstantInt::get(Type::getInt32Ty(*Context), 1);
   MDNode *Node = MDNode::get(*Context, ConstantAsMetadata::get(One));
-  I->setMetadata(M->getMDKindID("nontemporal"), Node);
+  if (isa<LoadInst>(I) || isa<StoreInst>(I))
+    I->setMetadata(LLVMContext::MD_nontemporal, Node);
+  else
+    I->setMetadata("spirv.nontemporal", Node);
   return true;
 }
 
