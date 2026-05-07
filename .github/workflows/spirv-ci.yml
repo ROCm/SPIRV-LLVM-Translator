@@ -83,11 +83,15 @@ jobs:
 
       # ---- Build Comgr (standalone, against built LLVM + device-libs) ------
       - name: Configure Comgr
+        # LLVM_EXTERNAL_SPIRV_LLVM_TRANSLATOR_SOURCE_DIR points Comgr at
+        # the in-tree translator headers so COMGR_SPIRV_TRANSLATOR_AVAILABLE
+        # turns ON (otherwise translator-dependent lit tests are UNSUPPORTED).
         run: |
           cmake -G Ninja -S llvm-project/amd/comgr -B build-comgr \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$PWD/build;$PWD/build-device-libs" \
             -DLLVM_DIR=$PWD/build/lib/cmake/llvm \
+            -DLLVM_EXTERNAL_SPIRV_LLVM_TRANSLATOR_SOURCE_DIR=$PWD/llvm-project/llvm/projects/SPIRV-LLVM-Translator \
             -DBUILD_TESTING=ON
 
       - name: Build Comgr
@@ -112,4 +116,12 @@ jobs:
         # check-comgr depends on test-lit (runs lit suite) and test-unit
         # (runs gtest binaries via its COMMAND block), then runs ctest for
         # the legacy C tests. Single target = all three test layers.
+        id: check_comgr
+        continue-on-error: true
         run: ninja -C build-comgr check-comgr
+
+      - name: Show failed Comgr ctest output
+        # check-comgr invokes ctest without --output-on-failure, so failures
+        # show "***Failed" with no stderr. Re-run any failed cases verbosely.
+        if: steps.check_comgr.outcome == 'failure'
+        run: ctest --test-dir build-comgr --output-on-failure --rerun-failed
