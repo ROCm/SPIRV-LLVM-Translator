@@ -65,8 +65,10 @@ jobs:
             -DLLVM_INSTALL_GTEST=ON \
             -DLLVM_LIT_ARGS="-sv --no-progress-bar"
 
-      - name: Build LLVM + Clang + LLD + amd-llvm-spirv
-        run: ninja -C build clang lld amd-llvm-spirv
+      - name: Build LLVM + Clang + amd-llvm-spirv + test deps
+        # *-test-depends pull in all tools needed for lit (FileCheck, not,
+        # llc, llvm-*, clang, opt, etc.) and stay current with upstream.
+        run: ninja -C build llvm-test-depends clang-test-depends amd-llvm-spirv
 
       # ---- Build device-libs (standalone, against built LLVM) --------------
       - name: Configure device-libs
