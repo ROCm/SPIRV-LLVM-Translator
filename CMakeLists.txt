@@ -6,7 +6,7 @@ endif(NOT DEFINED BASE_LLVM_VERSION)
 set(LLVM_SPIRV_VERSION ${BASE_LLVM_VERSION}.0)
 
 include(FetchContent)
-include(FindPkgConfig)
+include(FindPkgConfig)))))))))))))
 
 option(LLVM_SPIRV_INCLUDE_TESTS
   "Generate build targets for the llvm-spirv lit tests."
