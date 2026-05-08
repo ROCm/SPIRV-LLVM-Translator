@@ -1263,8 +1263,7 @@ static void applyNoIntegerWrapDecorations(const SPIRVValue *BV,
 
 void SPIRVToLLVM::applyFPFastMathModeDecorations(const SPIRVValue *BV,
                                                  Instruction *Inst) {
-  if (!isa<FPMathOperator>(Inst) &&
-      (!M->getTargetTriple().isAMDGCN() || !isa<CallBase>(Inst)))
+  if (!isa<FPMathOperator>(Inst))
     return;
 
   SPIRVWord V{0};
