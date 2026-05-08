@@ -1,0 +1,167 @@
+# SPIRV-focused CI for the ROCm LLVM compiler stack.
+#
+# Builds LLVM + Clang + LLD with the SPIRV translator in-tree, then builds
+# device-libs and Comgr standalone, and runs SPIRV-relevant lit and gtest
+# suites. Catches breakage in the compiler / SPIRV translator that would
+# fail downstream Comgr testing.
+#
+# This is a prototype living in SPIRV-LLVM-Translator. Plan: once stable,
+# mirror into ROCm/llvm-project amd-staging, then promote to a TheRock
+# stage-based workflow.
+
+name: SPIRV CI - amd-staging
+
+on:
+  pull_request:
+    branches: [amd-staging]
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write  # for the translator lit-failure summary comment
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  build_and_test:
+    name: Build & Test
+    runs-on: azure-linux-scale-rocm
+    timeout-minutes: 120
+    container:
+      image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
+
+    steps:
+      # ---- Checkout ---------------------------------------------------------
+      # llvm-project at amd-staging tip provides the host LLVM/Clang/LLD plus
+      # the amd/ subprojects (device-libs, comgr). The SPIRV translator PR
+      # head is overlaid in-tree under llvm/projects/.
+      - name: Checkout llvm-project (amd-staging)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ROCm/llvm-project
+          ref: amd-staging
+          path: llvm-project
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout SPIRV-LLVM-Translator (PR head)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
+          fetch-depth: 1
+          persist-credentials: false
+
+      # ---- Build LLVM + Clang + LLD + in-tree SPIRV translator --------------
+      - name: Configure LLVM
+        run: |
+          cmake -G Ninja -S llvm-project/llvm -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLVM_ENABLE_ASSERTIONS=ON \
+            -DLLVM_ENABLE_PROJECTS="clang;lld" \
+            -DLLVM_TARGETS_TO_BUILD="AMDGPU;X86;SPIRV" \
+            -DLLVM_INCLUDE_TESTS=ON \
+            -DLLVM_INSTALL_GTEST=ON \
+            -DLLVM_LIT_ARGS="-sv --no-progress-bar"
+
+      - name: Build LLVM + Clang + amd-llvm-spirv + test deps
+        # *-test-depends pull in all tools needed for lit (FileCheck, not,
+        # llc, llvm-*, clang, opt, etc.) and stay current with upstream.
+        run: ninja -C build llvm-test-depends clang-test-depends amd-llvm-spirv
+
+      # ---- Build device-libs (standalone, against built LLVM) --------------
+      - name: Configure device-libs
+        run: |
+          cmake -G Ninja -S llvm-project/amd/device-libs -B build-device-libs \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH=$PWD/build \
+            -DLLVM_DIR=$PWD/build/lib/cmake/llvm
+
+      - name: Build device-libs
+        run: ninja -C build-device-libs
+
+      # ---- Build Comgr (standalone, against built LLVM + device-libs) ------
+      - name: Configure Comgr
+        # LLVM_EXTERNAL_SPIRV_LLVM_TRANSLATOR_SOURCE_DIR points Comgr at
+        # the in-tree translator headers so COMGR_SPIRV_TRANSLATOR_AVAILABLE
+        # turns ON (otherwise translator-dependent lit tests are UNSUPPORTED).
+        run: |
+          cmake -G Ninja -S llvm-project/amd/comgr -B build-comgr \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$PWD/build;$PWD/build-device-libs" \
+            -DLLVM_DIR=$PWD/build/lib/cmake/llvm \
+            -DLLVM_EXTERNAL_SPIRV_LLVM_TRANSLATOR_SOURCE_DIR=$PWD/llvm-project/llvm/projects/SPIRV-LLVM-Translator \
+            -DBUILD_TESTING=ON
+
+      - name: Build Comgr
+        run: ninja -C build-comgr amd_comgr
+
+      # ---- Tests ------------------------------------------------------------
+      # Each suite is its own step so failures are individually identifiable
+      # in the PR check rollup. Add new suites as new steps below.
+
+      - name: Test - SPIRV Translator (check-amd-llvm-spirv)
+        # Non-blocking: upstream Khronos breaks ~1 translator lit test per
+        # week (spirv-val drift, LLVM IR changes vs DebugInfo tests, DCE).
+        # Their fixes typically land within a day; our daily upstream-merge
+        # cron pulls them in. Blocking here would gate unrelated PRs during
+        # those windows. The next step posts a sticky PR comment listing
+        # any failing tests so AMD-side regressions stay visible.
+        id: check_spirv_xlator
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          ninja -C build check-amd-llvm-spirv 2>&1 | tee build/check-amd-llvm-spirv.log
+
+      - name: Post translator lit failure summary to PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- spirv-ci:translator-lit -->';
+            const log = fs.readFileSync('build/check-amd-llvm-spirv.log', 'utf8');
+            const failed = [...log.matchAll(/^FAIL: (LLVM_SPIRV :: \S+)/gm)].map(m => m[1]);
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = failed.length === 0
+              ? `${marker}\n✅ **SPIRV translator lit suite (\`check-amd-llvm-spirv\`)**: all tests passing.`
+              : `${marker}\n⚠️ **SPIRV translator lit suite (\`check-amd-llvm-spirv\`)**: ${failed.length} failing — non-blocking (see [run](${runUrl})).\n\nUpstream Khronos churn breaks these intermittently; check whether the failure is also on \`amd-staging\` tip before assuming this PR caused it.\n\n<details><summary>Failing tests</summary>\n\n\`\`\`\n${failed.join('\n')}\n\`\`\`\n</details>`;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                comment_id: existing.id, body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number, body,
+              });
+            }
+
+      - name: Test - LLVM SPIRV backend (check-llvm-codegen-spirv)
+        run: ninja -C build check-llvm-codegen-spirv
+
+      - name: Test - Comgr (check-comgr)
+        # check-comgr depends on test-lit (runs lit suite) and test-unit
+        # (runs gtest binaries via its COMMAND block), then runs ctest for
+        # the legacy C tests. Single target = all three test layers.
+        id: check_comgr
+        run: ninja -C build-comgr check-comgr
+
+      - name: Show failed Comgr ctest output
+        # check-comgr invokes ctest without --output-on-failure, so failures
+        # show "***Failed" with no stderr. Re-run any failed cases verbosely
+        # and redirect comgr's internal log buffer to stderr so clang errors
+        # from inside amd_comgr_do_action() surface (otherwise comgr just
+        # returns AMD_COMGR_STATUS_ERROR with no detail).
+        if: failure() && steps.check_comgr.conclusion == 'failure'
+        env:
+          AMD_COMGR_REDIRECT_LOGS: stderr
+        run: ctest --test-dir build-comgr --output-on-failure --rerun-failed

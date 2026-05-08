@@ -860,6 +860,50 @@ protected:
 typedef SPIRVInstNoOperand<OpReturn> SPIRVReturn;
 typedef SPIRVInstNoOperand<OpUnreachable> SPIRVUnreachable;
 
+class SPIRVAbortKHR : public SPIRVInstruction {
+public:
+  static const Op OC = OpAbortKHR;
+  static const SPIRVWord FixedWordCount = 3;
+  // Complete constructor.
+  SPIRVAbortKHR(SPIRVValue *TheMessage, SPIRVBasicBlock *TheBB)
+      : SPIRVInstruction(FixedWordCount, OC, TheBB),
+        MessageTypeId(TheMessage->getType()->getId()),
+        MessageId(TheMessage->getId()) {
+    setAttr();
+    validate();
+    assert(TheBB && "Invalid BB");
+  }
+  // Incomplete constructor.
+  SPIRVAbortKHR()
+      : SPIRVInstruction(OC), MessageTypeId(SPIRVID_INVALID),
+        MessageId(SPIRVID_INVALID) {
+    setAttr();
+  }
+
+  SPIRVCapVec getRequiredCapability() const override {
+    return getVec(CapabilityAbortKHR);
+  }
+
+  std::optional<ExtensionID> getRequiredExtension() const override {
+    return ExtensionID::SPV_KHR_abort;
+  }
+
+  std::vector<SPIRVValue *> getOperands() override {
+    return std::vector<SPIRVValue *>(1, getValue(MessageId));
+  }
+
+  _SPIRV_DEF_ENCDEC2(MessageTypeId, MessageId)
+
+protected:
+  void setAttr() {
+    setHasNoId();
+    setHasNoType();
+  }
+  void validate() const override { SPIRVInstruction::validate(); }
+  SPIRVId MessageTypeId;
+  SPIRVId MessageId;
+};
+
 class SPIRVReturnValue : public SPIRVInstruction {
 public:
   static const Op OC = OpReturnValue;
@@ -3179,6 +3223,7 @@ public:
   SPIRVCapVec getRequiredCapability() const override {
     return getVec(CapabilityImageBasic);
   }
+  bool hasImageOperand(ImageOperandsMask Mask) const;
 
 protected:
   void setOpWords(const std::vector<SPIRVWord> &OpsArg) override;
@@ -4646,13 +4691,13 @@ public:
     return ExtensionID::SPV_INTEL_predicated_io;
   }
   SPIRVCapVec getRequiredCapability() const override {
-    return getVec(internal::CapabilityPredicatedIOINTEL);
+    return getVec(CapabilityPredicatedIOINTEL);
   }
 };
 
 #define _SPIRV_OP(x, ...)                                                      \
-  typedef SPIRVInstTemplate<SPIRVPredicatedIOINTELInst,                        \
-                            internal::Op##x##INTEL, __VA_ARGS__>               \
+  typedef SPIRVInstTemplate<SPIRVPredicatedIOINTELInst, Op##x##INTEL,          \
+                            __VA_ARGS__>                                       \
       SPIRV##x##INTEL;
 _SPIRV_OP(PredicatedLoad, true, 6, true)
 _SPIRV_OP(PredicatedStore, false, 4, true)

@@ -2088,6 +2088,21 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
                                transValue(RV->getReturnValue(), F, BB), BB));
   }
 
+  case OpAbortKHR: {
+    // OpAbortKHR is a SPIR-V block terminator. In LLVM IR, model it as a call
+    // to the SPIR-V friendly builtin __spirv_AbortKHR followed by an
+    // 'unreachable' terminator.
+    auto *AbortInst =
+        transSPIRVBuiltinFromInst(static_cast<SPIRVAbortKHR *>(BV), BB);
+    if (auto *Call = dyn_cast<CallInst>(AbortInst)) {
+      Call->setDoesNotReturn();
+      if (auto *Callee = Call->getCalledFunction())
+        Callee->setDoesNotReturn();
+    }
+    new UnreachableInst(*Context, BB);
+    return mapValue(BV, AbortInst);
+  }
+
   case OpLifetimeStart: {
     SPIRVLifetimeStart *LTStart = static_cast<SPIRVLifetimeStart *>(BV);
     IRBuilder<> Builder(BB);
@@ -4199,6 +4214,10 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
   } else {
     Call = CallInst::Create(Func, transValue(Ops, BB->getParent(), BB), "", BB);
   }
+  if (getImageOperandsIndex(OC) != ~0U &&
+      static_cast<SPIRVImageInstBase *>(BI)->hasImageOperand(
+          ImageOperandsMask::ImageOperandsNontemporalMask))
+    transNonTemporalMetadata(Call);
   setName(Call, BI);
   setAttrByCalledFunc(Call);
   SPIRVDBG(spvdbgs() << "[transInstToBuiltinCall] " << *BI << " -> ";
@@ -5202,7 +5221,10 @@ SPIRVToLLVM::transOCLImageTypeAccessQualifier(SPIRV::SPIRVTypeImage *ST) {
 bool SPIRVToLLVM::transNonTemporalMetadata(Instruction *I) {
   Constant *One = ConstantInt::get(Type::getInt32Ty(*Context), 1);
   MDNode *Node = MDNode::get(*Context, ConstantAsMetadata::get(One));
-  I->setMetadata(M->getMDKindID("nontemporal"), Node);
+  if (isa<LoadInst>(I) || isa<StoreInst>(I))
+    I->setMetadata(LLVMContext::MD_nontemporal, Node);
+  else
+    I->setMetadata("spirv.nontemporal", Node);
   return true;
 }
 
