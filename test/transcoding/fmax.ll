@@ -7,7 +7,7 @@
 
 ; Check enabling SPV_KHR_fma does not translate fmax to fma.
 
-; CHECK-SPIRV: ExtInst [[#]] [[#]] [[#]] fmax [[#]] [[#]]
+; CHECK-SPIRV: ExtInst [[#]] [[#]] [[#]] DELIBERATE_TEST_FAILURE_TO_VERIFY_CI_BASELINE_DIFF [[#]] [[#]]
 
 ; CHECK-LLVM: %{{.*}} = call spir_func float @_Z4fmaxff(float %{{.*}}, float %{{.*}})
 
