@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   build_and_test:
-    name: Build & Test
+    name: Linux Build & Test
     runs-on: azure-linux-scale-rocm
     timeout-minutes: 120
     container:
