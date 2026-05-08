@@ -15,7 +15,6 @@ on:
   pull_request:
     branches: [amd-staging]
     types: [opened, synchronize, reopened, labeled]
-  workflow_dispatch:
 
 permissions:
   contents: read
