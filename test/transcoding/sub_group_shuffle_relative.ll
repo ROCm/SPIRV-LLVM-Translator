@@ -1,77 +1,77 @@
 ;; #pragma OPENCL EXTENSION cl_khr_subgroup_shuffle_relative : enable
 ;; #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 ;; #pragma OPENCL EXTENSION cl_khr_fp64 : enable
-;;
+;; 
 ;; kernel void testShuffleRelativeChar(global char* dst)
 ;; {
 ;; 	char v = 0;
 ;;     dst[0] = sub_group_shuffle_up( v, 0 );
 ;;     dst[1] = sub_group_shuffle_down( v, 0 );
 ;; }
-;;
+;; 
 ;; kernel void testShuffleRelativeUChar(global uchar* dst)
 ;; {
 ;; 	uchar v = 0;
 ;;     dst[0] = sub_group_shuffle_up( v, 0 );
 ;;     dst[1] = sub_group_shuffle_down( v, 0 );
 ;; }
-;;
+;; 
 ;; kernel void testShuffleRelativeShort(global short* dst)
 ;; {
 ;; 	short v = 0;
 ;;     dst[0] = sub_group_shuffle_up( v, 0 );
 ;;     dst[1] = sub_group_shuffle_down( v, 0 );
 ;; }
-;;
+;; 
 ;; kernel void testShuffleRelativeUShort(global ushort* dst)
 ;; {
 ;; 	ushort v = 0;
 ;;     dst[0] = sub_group_shuffle_up( v, 0 );
 ;;     dst[1] = sub_group_shuffle_down( v, 0 );
 ;; }
-;;
+;; 
 ;; kernel void testShuffleRelativeInt(global int* dst)
 ;; {
 ;; 	int v = 0;
 ;;     dst[0] = sub_group_shuffle_up( v, 0 );
 ;;     dst[1] = sub_group_shuffle_down( v, 0 );
 ;; }
-;;
+;; 
 ;; kernel void testShuffleRelativeUInt(global uint* dst)
 ;; {
 ;; 	uint v = 0;
 ;;     dst[0] = sub_group_shuffle_up( v, 0 );
 ;;     dst[1] = sub_group_shuffle_down( v, 0 );
 ;; }
-;;
+;; 
 ;; kernel void testShuffleRelativeLong(global long* dst)
 ;; {
 ;; 	long v = 0;
 ;;     dst[0] = sub_group_shuffle_up( v, 0 );
 ;;     dst[1] = sub_group_shuffle_down( v, 0 );
 ;; }
-;;
+;; 
 ;; kernel void testShuffleRelativeULong(global ulong* dst)
 ;; {
 ;; 	ulong v = 0;
 ;;     dst[0] = sub_group_shuffle_up( v, 0 );
 ;;     dst[1] = sub_group_shuffle_down( v, 0 );
 ;; }
-;;
+;; 
 ;; kernel void testShuffleRelativeFloat(global float* dst)
 ;; {
 ;; 	float v = 0;
 ;;     dst[0] = sub_group_shuffle_up( v, 0 );
 ;;     dst[1] = sub_group_shuffle_down( v, 0 );
 ;; }
-;;
+;; 
 ;; kernel void testShuffleRelativeHalf(global half* dst)
 ;; {
 ;; 	half v = 0;
 ;;     dst[0] = sub_group_shuffle_up( v, 0 );
 ;;     dst[1] = sub_group_shuffle_down( v, 0 );
 ;; }
-;;
+;; 
 ;; kernel void testShuffleRelativeDouble(global double* dst)
 ;; {
 ;; 	double v = 0;
@@ -345,8 +345,8 @@ declare dso_local spir_func float @_Z22sub_group_shuffle_downfj(float, i32) loca
 ; CHECK-SPIRV: FunctionEnd
 
 ; CHECK-LLVM-LABEL: @testShuffleRelativeHalf
-; CHECK-LLVM: call spir_func half @_Z20sub_group_shuffle_upDhj(half 0xH0000, i32 0)
-; CHECK-LLVM: call spir_func half @_Z22sub_group_shuffle_downDhj(half 0xH0000, i32 0)
+; CHECK-LLVM: call spir_func half @_Z20sub_group_shuffle_upDhj(half 0.000000e+00, i32 0)
+; CHECK-LLVM: call spir_func half @_Z22sub_group_shuffle_downDhj(half 0.000000e+00, i32 0)
 
 ; Function Attrs: convergent nounwind
 define dso_local spir_kernel void @testShuffleRelativeHalf(ptr addrspace(1) captures(none)) local_unnamed_addr #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !4 !kernel_arg_type !26 !kernel_arg_base_type !26 !kernel_arg_type_qual !6 {

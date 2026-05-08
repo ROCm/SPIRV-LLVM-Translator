@@ -1,7 +1,7 @@
 ;; #pragma OPENCL EXTENSION cl_khr_subgroup_non_uniform_arithmetic : enable
 ;; #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 ;; #pragma OPENCL EXTENSION cl_khr_fp64 : enable
-;;
+;; 
 ;; kernel void testNonUniformArithmeticChar(global char* dst)
 ;; {
 ;;     char v = 0;
@@ -18,7 +18,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;;
+;; 
 ;; kernel void testNonUniformArithmeticUChar(global uchar* dst)
 ;; {
 ;;     uchar v = 0;
@@ -35,7 +35,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;;
+;; 
 ;; kernel void testNonUniformArithmeticShort(global short* dst)
 ;; {
 ;;     short v = 0;
@@ -52,7 +52,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;;
+;; 
 ;; kernel void testNonUniformArithmeticUShort(global ushort* dst)
 ;; {
 ;;     ushort v = 0;
@@ -69,7 +69,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;;
+;; 
 ;; kernel void testNonUniformArithmeticInt(global int* dst)
 ;; {
 ;;     int v = 0;
@@ -86,7 +86,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;;
+;; 
 ;; kernel void testNonUniformArithmeticUInt(global uint* dst)
 ;; {
 ;;     uint v = 0;
@@ -103,7 +103,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;;
+;; 
 ;; kernel void testNonUniformArithmeticLong(global long* dst)
 ;; {
 ;;     long v = 0;
@@ -120,7 +120,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;;
+;; 
 ;; kernel void testNonUniformArithmeticULong(global ulong* dst)
 ;; {
 ;;     ulong v = 0;
@@ -137,7 +137,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;;
+;; 
 ;; kernel void testNonUniformArithmeticFloat(global float* dst)
 ;; {
 ;;     float v = 0;
@@ -154,7 +154,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;;
+;; 
 ;; kernel void testNonUniformArithmeticHalf(global half* dst)
 ;; {
 ;;     half v = 0;
@@ -171,7 +171,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;;
+;; 
 ;; kernel void testNonUniformArithmeticDouble(global double* dst)
 ;; {
 ;;     double v = 0;
@@ -188,7 +188,7 @@
 ;;     dst[10] = sub_group_non_uniform_scan_exclusive_min(v);
 ;;     dst[11] = sub_group_non_uniform_scan_exclusive_max(v);
 ;; }
-;;
+;; 
 ;; kernel void testNonUniformBitwiseChar(global char* dst)
 ;; {
 ;;     char v = 0;
@@ -293,7 +293,7 @@
 ;;     dst[7] = sub_group_non_uniform_scan_exclusive_or(v);
 ;;     dst[8] = sub_group_non_uniform_scan_exclusive_xor(v);
 ;; }
-;;
+;; 
 ;; kernel void testNonUniformLogical(global int* dst)
 ;; {
 ;;     int v = 0;
@@ -1435,31 +1435,31 @@ declare dso_local spir_func float @_Z40sub_group_non_uniform_scan_exclusive_maxf
 
 ; CHECK-COMMON-LABEL: @testNonUniformArithmeticHalf
 
-; CHECK-LLVM: call spir_func half @_Z32sub_group_non_uniform_reduce_addDh(half 0xH0000)
-; CHECK-LLVM: call spir_func half @_Z32sub_group_non_uniform_reduce_mulDh(half 0xH0000)
-; CHECK-LLVM: call spir_func half @_Z32sub_group_non_uniform_reduce_minDh(half 0xH0000)
-; CHECK-LLVM: call spir_func half @_Z32sub_group_non_uniform_reduce_maxDh(half 0xH0000)
-; CHECK-LLVM: call spir_func half @_Z40sub_group_non_uniform_scan_inclusive_addDh(half 0xH0000)
-; CHECK-LLVM: call spir_func half @_Z40sub_group_non_uniform_scan_inclusive_mulDh(half 0xH0000)
-; CHECK-LLVM: call spir_func half @_Z40sub_group_non_uniform_scan_inclusive_minDh(half 0xH0000)
-; CHECK-LLVM: call spir_func half @_Z40sub_group_non_uniform_scan_inclusive_maxDh(half 0xH0000)
-; CHECK-LLVM: call spir_func half @_Z40sub_group_non_uniform_scan_exclusive_addDh(half 0xH0000)
-; CHECK-LLVM: call spir_func half @_Z40sub_group_non_uniform_scan_exclusive_mulDh(half 0xH0000)
-; CHECK-LLVM: call spir_func half @_Z40sub_group_non_uniform_scan_exclusive_minDh(half 0xH0000)
-; CHECK-LLVM: call spir_func half @_Z40sub_group_non_uniform_scan_exclusive_maxDh(half 0xH0000)
+; CHECK-LLVM: call spir_func half @_Z32sub_group_non_uniform_reduce_addDh(half 0.000000e+00)
+; CHECK-LLVM: call spir_func half @_Z32sub_group_non_uniform_reduce_mulDh(half 0.000000e+00)
+; CHECK-LLVM: call spir_func half @_Z32sub_group_non_uniform_reduce_minDh(half 0.000000e+00)
+; CHECK-LLVM: call spir_func half @_Z32sub_group_non_uniform_reduce_maxDh(half 0.000000e+00)
+; CHECK-LLVM: call spir_func half @_Z40sub_group_non_uniform_scan_inclusive_addDh(half 0.000000e+00)
+; CHECK-LLVM: call spir_func half @_Z40sub_group_non_uniform_scan_inclusive_mulDh(half 0.000000e+00)
+; CHECK-LLVM: call spir_func half @_Z40sub_group_non_uniform_scan_inclusive_minDh(half 0.000000e+00)
+; CHECK-LLVM: call spir_func half @_Z40sub_group_non_uniform_scan_inclusive_maxDh(half 0.000000e+00)
+; CHECK-LLVM: call spir_func half @_Z40sub_group_non_uniform_scan_exclusive_addDh(half 0.000000e+00)
+; CHECK-LLVM: call spir_func half @_Z40sub_group_non_uniform_scan_exclusive_mulDh(half 0.000000e+00)
+; CHECK-LLVM: call spir_func half @_Z40sub_group_non_uniform_scan_exclusive_minDh(half 0.000000e+00)
+; CHECK-LLVM: call spir_func half @_Z40sub_group_non_uniform_scan_exclusive_maxDh(half 0.000000e+00)
 
-; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFAddiiDh(i32 3, i32 0, half 0xH0000)
-; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMuliiDh(i32 3, i32 0, half 0xH0000)
-; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMiniiDh(i32 3, i32 0, half 0xH0000)
-; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMaxiiDh(i32 3, i32 0, half 0xH0000)
-; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFAddiiDh(i32 3, i32 1, half 0xH0000)
-; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMuliiDh(i32 3, i32 1, half 0xH0000)
-; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMiniiDh(i32 3, i32 1, half 0xH0000)
-; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMaxiiDh(i32 3, i32 1, half 0xH0000)
-; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFAddiiDh(i32 3, i32 2, half 0xH0000)
-; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMuliiDh(i32 3, i32 2, half 0xH0000)
-; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMiniiDh(i32 3, i32 2, half 0xH0000)
-; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMaxiiDh(i32 3, i32 2, half 0xH0000)
+; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFAddiiDh(i32 3, i32 0, half 0.000000e+00)
+; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMuliiDh(i32 3, i32 0, half 0.000000e+00)
+; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMiniiDh(i32 3, i32 0, half 0.000000e+00)
+; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMaxiiDh(i32 3, i32 0, half 0.000000e+00)
+; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFAddiiDh(i32 3, i32 1, half 0.000000e+00)
+; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMuliiDh(i32 3, i32 1, half 0.000000e+00)
+; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMiniiDh(i32 3, i32 1, half 0.000000e+00)
+; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMaxiiDh(i32 3, i32 1, half 0.000000e+00)
+; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFAddiiDh(i32 3, i32 2, half 0.000000e+00)
+; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMuliiDh(i32 3, i32 2, half 0.000000e+00)
+; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMiniiDh(i32 3, i32 2, half 0.000000e+00)
+; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMaxiiDh(i32 3, i32 2, half 0.000000e+00)
 
 ; Function Attrs: convergent nounwind
 define dso_local spir_kernel void @testNonUniformArithmeticHalf(ptr addrspace(1) captures(none)) local_unnamed_addr #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !4 !kernel_arg_type !26 !kernel_arg_base_type !26 !kernel_arg_type_qual !6 {

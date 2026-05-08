@@ -1,7 +1,7 @@
 ;; #pragma OPENCL EXTENSION cl_khr_subgroup_clustered_reduce : enable
 ;; #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 ;; #pragma OPENCL EXTENSION cl_khr_fp64 : enable
-;;
+;; 
 ;; kernel void testClusteredArithmeticChar(global char* dst)
 ;; {
 ;;     char v = 0;
@@ -10,7 +10,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;;
+;; 
 ;; kernel void testClusteredArithmeticUChar(global uchar* dst)
 ;; {
 ;;     uchar v = 0;
@@ -19,7 +19,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;;
+;; 
 ;; kernel void testClusteredArithmeticShort(global short* dst)
 ;; {
 ;;     short v = 0;
@@ -28,7 +28,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;;
+;; 
 ;; kernel void testClusteredArithmeticUShort(global ushort* dst)
 ;; {
 ;;     ushort v = 0;
@@ -37,7 +37,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;;
+;; 
 ;; kernel void testClusteredArithmeticInt(global int* dst)
 ;; {
 ;;     int v = 0;
@@ -46,7 +46,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;;
+;; 
 ;; kernel void testClusteredArithmeticUInt(global uint* dst)
 ;; {
 ;;     uint v = 0;
@@ -55,7 +55,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;;
+;; 
 ;; kernel void testClusteredArithmeticLong(global long* dst)
 ;; {
 ;;     long v = 0;
@@ -64,7 +64,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;;
+;; 
 ;; kernel void testClusteredArithmeticULong(global ulong* dst)
 ;; {
 ;;     ulong v = 0;
@@ -73,7 +73,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;;
+;; 
 ;; kernel void testClusteredArithmeticFloat(global float* dst)
 ;; {
 ;;     float v = 0;
@@ -82,7 +82,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;;
+;; 
 ;; kernel void testClusteredArithmeticHalf(global half* dst)
 ;; {
 ;;     half v = 0;
@@ -91,7 +91,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;;
+;; 
 ;; kernel void testClusteredArithmeticDouble(global double* dst)
 ;; {
 ;;     double v = 0;
@@ -100,7 +100,7 @@
 ;;     dst[2] = sub_group_clustered_reduce_min(v, 2);
 ;;     dst[3] = sub_group_clustered_reduce_max(v, 2);
 ;; }
-;;
+;; 
 ;; kernel void testClusteredBitwiseChar(global char* dst)
 ;; {
 ;;     char v = 0;
@@ -108,7 +108,7 @@
 ;;     dst[1] = sub_group_clustered_reduce_or(v, 2);
 ;;     dst[2] = sub_group_clustered_reduce_xor(v, 2);
 ;; }
-;;
+;; 
 ;; kernel void testClusteredBitwiseUChar(global uchar* dst)
 ;; {
 ;;     uchar v = 0;
@@ -116,7 +116,7 @@
 ;;     dst[1] = sub_group_clustered_reduce_or(v, 2);
 ;;     dst[2] = sub_group_clustered_reduce_xor(v, 2);
 ;; }
-;;
+;; 
 ;; kernel void testClusteredBitwiseShort(global short* dst)
 ;; {
 ;;     short v = 0;
@@ -124,7 +124,7 @@
 ;;     dst[1] = sub_group_clustered_reduce_or(v, 2);
 ;;     dst[2] = sub_group_clustered_reduce_xor(v, 2);
 ;; }
-;;
+;; 
 ;; kernel void testClusteredBitwiseUShort(global ushort* dst)
 ;; {
 ;;     ushort v = 0;
@@ -132,7 +132,7 @@
 ;;     dst[1] = sub_group_clustered_reduce_or(v, 2);
 ;;     dst[2] = sub_group_clustered_reduce_xor(v, 2);
 ;; }
-;;
+;; 
 ;; kernel void testClusteredBitwiseInt(global int* dst)
 ;; {
 ;;     int v = 0;
@@ -140,7 +140,7 @@
 ;;     dst[1] = sub_group_clustered_reduce_or(v, 2);
 ;;     dst[2] = sub_group_clustered_reduce_xor(v, 2);
 ;; }
-;;
+;; 
 ;; kernel void testClusteredBitwiseUInt(global uint* dst)
 ;; {
 ;;     uint v = 0;
@@ -148,7 +148,7 @@
 ;;     dst[1] = sub_group_clustered_reduce_or(v, 2);
 ;;     dst[2] = sub_group_clustered_reduce_xor(v, 2);
 ;; }
-;;
+;; 
 ;; kernel void testClusteredBitwiseLong(global long* dst)
 ;; {
 ;;     long v = 0;
@@ -156,7 +156,7 @@
 ;;     dst[1] = sub_group_clustered_reduce_or(v, 2);
 ;;     dst[2] = sub_group_clustered_reduce_xor(v, 2);
 ;; }
-;;
+;; 
 ;; kernel void testClusteredBitwiseULong(global ulong* dst)
 ;; {
 ;;     ulong v = 0;
@@ -164,7 +164,7 @@
 ;;     dst[1] = sub_group_clustered_reduce_or(v, 2);
 ;;     dst[2] = sub_group_clustered_reduce_xor(v, 2);
 ;; }
-;;
+;; 
 ;; kernel void testClusteredLogical(global int* dst)
 ;; {
 ;;     int v = 0;
@@ -645,15 +645,15 @@ declare dso_local spir_func float @_Z30sub_group_clustered_reduce_maxfj(float, i
 
 ; CHECK-COMMON-LABEL: @testClusteredArithmeticHalf
 
-; CHECK-LLVM: call spir_func half @_Z30sub_group_clustered_reduce_addDhj(half 0xH0000, i32 2)
-; CHECK-LLVM: call spir_func half @_Z30sub_group_clustered_reduce_mulDhj(half 0xH0000, i32 2)
-; CHECK-LLVM: call spir_func half @_Z30sub_group_clustered_reduce_minDhj(half 0xH0000, i32 2)
-; CHECK-LLVM: call spir_func half @_Z30sub_group_clustered_reduce_maxDhj(half 0xH0000, i32 2)
+; CHECK-LLVM: call spir_func half @_Z30sub_group_clustered_reduce_addDhj(half 0.000000e+00, i32 2)
+; CHECK-LLVM: call spir_func half @_Z30sub_group_clustered_reduce_mulDhj(half 0.000000e+00, i32 2)
+; CHECK-LLVM: call spir_func half @_Z30sub_group_clustered_reduce_minDhj(half 0.000000e+00, i32 2)
+; CHECK-LLVM: call spir_func half @_Z30sub_group_clustered_reduce_maxDhj(half 0.000000e+00, i32 2)
 
-; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFAddiiDhj(i32 3, i32 3, half 0xH0000, i32 2)
-; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMuliiDhj(i32 3, i32 3, half 0xH0000, i32 2)
-; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMiniiDhj(i32 3, i32 3, half 0xH0000, i32 2)
-; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMaxiiDhj(i32 3, i32 3, half 0xH0000, i32 2)
+; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFAddiiDhj(i32 3, i32 3, half 0.000000e+00, i32 2)
+; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMuliiDhj(i32 3, i32 3, half 0.000000e+00, i32 2)
+; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMiniiDhj(i32 3, i32 3, half 0.000000e+00, i32 2)
+; CHECK-SPV-IR: call spir_func half @_Z27__spirv_GroupNonUniformFMaxiiDhj(i32 3, i32 3, half 0.000000e+00, i32 2)
 
 ; Function Attrs: convergent nounwind
 define dso_local spir_kernel void @testClusteredArithmeticHalf(ptr addrspace(1) captures(none)) local_unnamed_addr #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !4 !kernel_arg_type !26 !kernel_arg_base_type !26 !kernel_arg_type_qual !6 {
