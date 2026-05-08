@@ -7,7 +7,7 @@
 ; FIXME: FILECHECK_FAIL during llvm-spirv -r in llc compilation flow
 
 ; CHECK-LLVM-NOT: alloca
-; CHECK-LLVM: @CAG = common addrspace(1) global i32 0, align 4
+; CHECK-LLVM: @DELIBERATE_TEST_FAILURE_TO_VERIFY_CI_BASELINE_DIFF = common addrspace(1) global i32 0, align 4
 ; CHECK-LLVM-NOT: alloca
 
 target triple = "spir64-unknown-unknown"
