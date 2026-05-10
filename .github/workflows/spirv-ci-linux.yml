@@ -95,14 +95,20 @@ jobs:
             -type f \( -executable -o -name '*.so*' -o -name '*.a' \) \
             -exec strip --strip-unneeded {} + 2>/dev/null || true
 
+      # Tar the build trees ourselves before upload. actions/upload-artifact@v4
+      # otherwise (a) strips executable bits — clang/llvm-as etc. come back as
+      # non-executable and tests fail with "Permission denied", and (b) skips
+      # hidden files by default — losing FetchContent's .git dirs (e.g. SPIRV-
+      # Headers under build/_deps/) which causes cmake reconfigure to fail
+      # with "fatal: not a git repository: '.git'" on the test side.
+      - name: Tar build trees
+        run: tar -cf linux-build-tree.tar build build-comgr build-device-libs
+
       - name: Upload build tree artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-build-tree
-          path: |
-            build
-            build-comgr
-            build-device-libs
+          path: linux-build-tree.tar
           retention-days: 1
           compression-level: 6
           if-no-files-found: error
@@ -149,6 +155,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: linux-build-tree
+
+      - name: Untar build trees
+        run: tar -xf linux-build-tree.tar
 
       - name: Test - SPIRV Translator (check-amd-llvm-spirv) [PR head]
         id: check_spirv_xlator
@@ -293,6 +302,9 @@ jobs:
         with:
           name: linux-build-tree
 
+      - name: Untar build trees
+        run: tar -xf linux-build-tree.tar
+
       - name: Test - LLVM SPIRV backend (check-llvm-codegen-spirv)
         run: ninja -C build check-llvm-codegen-spirv
 
@@ -328,6 +340,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: linux-build-tree
+
+      - name: Untar build trees
+        run: tar -xf linux-build-tree.tar
 
       - name: Test - Comgr (check-comgr)
         # check-comgr depends on test-lit (runs lit suite) and test-unit
