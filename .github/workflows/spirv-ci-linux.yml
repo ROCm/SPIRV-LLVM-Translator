@@ -95,12 +95,8 @@ jobs:
             -type f \( -executable -o -name '*.so*' -o -name '*.a' \) \
             -exec strip --strip-unneeded {} + 2>/dev/null || true
 
-      # Tar the build trees ourselves before upload. actions/upload-artifact@v4
-      # otherwise (a) strips executable bits — clang/llvm-as etc. come back as
-      # non-executable and tests fail with "Permission denied", and (b) skips
-      # hidden files by default — losing FetchContent's .git dirs (e.g. SPIRV-
-      # Headers under build/_deps/) which causes cmake reconfigure to fail
-      # with "fatal: not a git repository: '.git'" on the test side.
+      # Tar before upload: actions/upload-artifact@v4 strips +x bits and
+      # excludes hidden files (loses FetchContent .git dirs).
       - name: Tar build trees
         run: tar -cf linux-build-tree.tar build build-comgr build-device-libs
 
@@ -147,8 +143,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
-          # fetch full history so we can checkout amd-staging tip later for the baseline run
-          fetch-depth: 0
+          fetch-depth: 1
           persist-credentials: false
 
       - name: Download build tree artifact
@@ -156,8 +151,10 @@ jobs:
         with:
           name: linux-build-tree
 
+      # -m skips mtime restore so build outputs aren't older than the
+      # freshly-checked-out source — otherwise ninja cascade-rebuilds.
       - name: Untar build trees
-        run: tar -xf linux-build-tree.tar
+        run: tar -xmf linux-build-tree.tar
 
       - name: Test - SPIRV Translator (check-amd-llvm-spirv) [PR head]
         id: check_spirv_xlator
@@ -302,8 +299,10 @@ jobs:
         with:
           name: linux-build-tree
 
+      # -m skips mtime restore so build outputs aren't older than the
+      # freshly-checked-out source — otherwise ninja cascade-rebuilds.
       - name: Untar build trees
-        run: tar -xf linux-build-tree.tar
+        run: tar -xmf linux-build-tree.tar
 
       - name: Test - LLVM SPIRV backend (check-llvm-codegen-spirv)
         run: ninja -C build check-llvm-codegen-spirv
@@ -341,8 +340,10 @@ jobs:
         with:
           name: linux-build-tree
 
+      # -m skips mtime restore so build outputs aren't older than the
+      # freshly-checked-out source — otherwise ninja cascade-rebuilds.
       - name: Untar build trees
-        run: tar -xf linux-build-tree.tar
+        run: tar -xmf linux-build-tree.tar
 
       - name: Test - Comgr (check-comgr)
         # check-comgr depends on test-lit (runs lit suite) and test-unit
