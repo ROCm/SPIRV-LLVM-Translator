@@ -3974,8 +3974,18 @@ CallInst *SPIRVToLLVM::transAsmCallINTEL(SPIRVAsmCallINTEL *BI, Function *F,
   assert(BI);
   auto *IA = cast<InlineAsm>(transValue(BI->getAsm(), F, BB));
   auto Args = transValue(BM->getValues(BI->getArguments()), F, BB);
-  return CallInst::Create(cast<FunctionType>(IA->getFunctionType()), IA, Args,
-                          BI->getName(), BB);
+  // For memory constraints (*m) we have to retrieve the pointee type and encode
+  // it as the elementtype attribute.
+  auto *FTy = cast<FunctionType>(IA->getFunctionType());
+  auto *CI = CallInst::Create(FTy, IA, Args, BI->getName(), BB);
+  for (unsigned I = 0u; I != Args.size(); ++I) {
+    if (!Args[I]->getType()->isPointerTy() || CI->getParamElementType(I))
+      continue;
+    auto *ElTy = transType(
+        BM->getValueType(BI->getArguments()[I])->getPointerElementType());
+    CI->addParamAttr(I, Attribute::get(*Context, Attribute::ElementType, ElTy));
+  }
+  return CI;
 }
 
 /// LLVM convert builtin functions is translated to two instructions:

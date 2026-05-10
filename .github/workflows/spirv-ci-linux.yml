@@ -1,0 +1,382 @@
+# Linux variant of the SPIRV CI: builds LLVM/Clang/translator/Comgr in
+# one job and runs SPIRV-relevant test suites in parallel test jobs that
+# consume a GHA artifact uploaded by the build job.
+
+name: SPIRV Compiler CI - Linux
+
+on:
+  workflow_call:
+
+jobs:
+  # =====================================================================
+  # Build LLVM + Clang + amd-llvm-spirv + device-libs + Comgr.
+  # Strip binaries and upload the build trees as a single artifact for
+  # the test jobs to consume.
+  # =====================================================================
+  build:
+    name: Build
+    runs-on: azure-linux-scale-rocm
+    timeout-minutes: 120
+    container:
+      image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
+
+    steps:
+      # ---- Checkout ---------------------------------------------------------
+      # llvm-project at amd-staging tip provides the host LLVM/Clang/LLD plus
+      # the amd/ subprojects (device-libs, comgr). The SPIRV translator PR
+      # head is overlaid in-tree under llvm/projects/.
+      - name: Checkout llvm-project (amd-staging)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ROCm/llvm-project
+          ref: amd-staging
+          path: llvm-project
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout SPIRV-LLVM-Translator (PR head)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
+          fetch-depth: 1
+          persist-credentials: false
+
+      # ---- Build LLVM + Clang + LLD + in-tree SPIRV translator --------------
+      - name: Configure LLVM
+        run: |
+          cmake -G Ninja -S llvm-project/llvm -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLVM_ENABLE_ASSERTIONS=ON \
+            -DLLVM_ENABLE_PROJECTS="clang;lld" \
+            -DLLVM_TARGETS_TO_BUILD="AMDGPU;X86;SPIRV" \
+            -DLLVM_INCLUDE_TESTS=ON \
+            -DLLVM_INSTALL_GTEST=ON \
+            -DLLVM_LIT_ARGS="-sv --no-progress-bar"
+
+      - name: Build LLVM + Clang + amd-llvm-spirv + test deps
+        # *-test-depends pull in all tools needed for lit (FileCheck, not,
+        # llc, llvm-*, clang, opt, etc.) and stay current with upstream.
+        run: ninja -C build llvm-test-depends clang-test-depends amd-llvm-spirv
+
+      # ---- Build device-libs (standalone, against built LLVM) --------------
+      - name: Configure device-libs
+        run: |
+          cmake -G Ninja -S llvm-project/amd/device-libs -B build-device-libs \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH=$PWD/build \
+            -DLLVM_DIR=$PWD/build/lib/cmake/llvm
+
+      - name: Build device-libs
+        run: ninja -C build-device-libs
+
+      # ---- Build Comgr (standalone, against built LLVM + device-libs) ------
+      - name: Configure Comgr
+        # LLVM_EXTERNAL_SPIRV_LLVM_TRANSLATOR_SOURCE_DIR points Comgr at
+        # the in-tree translator headers so COMGR_SPIRV_TRANSLATOR_AVAILABLE
+        # turns ON (otherwise translator-dependent lit tests are UNSUPPORTED).
+        run: |
+          cmake -G Ninja -S llvm-project/amd/comgr -B build-comgr \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$PWD/build;$PWD/build-device-libs" \
+            -DLLVM_DIR=$PWD/build/lib/cmake/llvm \
+            -DLLVM_EXTERNAL_SPIRV_LLVM_TRANSLATOR_SOURCE_DIR=$PWD/llvm-project/llvm/projects/SPIRV-LLVM-Translator \
+            -DBUILD_TESTING=ON
+
+      - name: Build Comgr
+        run: ninja -C build-comgr amd_comgr
+
+      # ---- Strip + upload artifact -----------------------------------------
+      # Strip binaries to keep the artifact under GHA's 10GB cap and shorten
+      # upload/download time. Tests don't need debug symbols. `--strip-unneeded`
+      # preserves dynamic symbols needed at link/load time.
+      - name: Strip binaries
+        run: |
+          find build build-comgr build-device-libs \
+            -type f \( -executable -o -name '*.so*' -o -name '*.a' \) \
+            -exec strip --strip-unneeded {} + 2>/dev/null || true
+
+      # Tar before upload: actions/upload-artifact@v4 strips +x bits and
+      # excludes hidden files (loses FetchContent .git dirs).
+      - name: Tar build trees
+        run: tar -cf linux-build-tree.tar build build-comgr build-device-libs
+
+      - name: Upload build tree artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build-tree
+          path: linux-build-tree.tar
+          retention-days: 1
+          compression-level: 6
+          if-no-files-found: error
+
+  # =====================================================================
+  # Test - SPIRV translator lit (with PR-head vs amd-staging baseline diff)
+  # =====================================================================
+  # Non-blocking: upstream Khronos breaks ~1 translator lit test per week
+  # (spirv-val drift, LLVM IR changes vs DebugInfo tests, DCE). Their fixes
+  # typically land within a day; our daily upstream-merge cron pulls them
+  # in. Blocking here would gate unrelated PRs during those windows. The
+  # baseline run partitions failures into new / fixed / pre-existing so
+  # AMD-side regressions stay visible.
+  test_translator_lit:
+    name: Test SPIRV translator lit
+    needs: build
+    runs-on: azure-linux-scale-rocm
+    timeout-minutes: 30
+    container:
+      image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
+    permissions:
+      contents: read
+      pull-requests: write   # for the baseline-diff sticky comment
+
+    steps:
+      - name: Checkout llvm-project (amd-staging)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ROCm/llvm-project
+          ref: amd-staging
+          path: llvm-project
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout SPIRV-LLVM-Translator (PR head)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Download build tree artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build-tree
+
+      # -m skips mtime restore so build outputs aren't older than the
+      # freshly-checked-out source — otherwise ninja cascade-rebuilds.
+      - name: Untar build trees
+        run: tar -xmf linux-build-tree.tar
+
+      - name: Test - SPIRV Translator (check-amd-llvm-spirv) [PR head]
+        id: check_spirv_xlator
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          ninja -C build check-amd-llvm-spirv 2>&1 | tee build/check-amd-llvm-spirv.log
+
+      - name: Capture PR head translator failures
+        if: always()
+        run: |
+          grep -oE '^FAIL: LLVM_SPIRV :: \S+' build/check-amd-llvm-spirv.log \
+            | sort -u > build/spirv-fails-pr.txt || true
+          echo "PR head failures:"; cat build/spirv-fails-pr.txt
+
+      - name: Switch translator to amd-staging tip for baseline
+        if: always()
+        run: |
+          cd llvm-project/llvm/projects/SPIRV-LLVM-Translator
+          git fetch --depth=1 origin amd-staging
+          git checkout FETCH_HEAD
+
+      - name: Test - SPIRV Translator [baseline amd-staging]
+        # Re-run the lit suite with the translator at amd-staging tip so the
+        # comment script can compute the per-PR delta (new vs fixed vs
+        # pre-existing). Incremental rebuild — only translator objects change.
+        if: always()
+        id: check_spirv_baseline
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          # Re-configure to pick up any CMakeLists / file-list changes in the swap
+          cmake -G Ninja -S llvm-project/llvm -B build
+          ninja -C build check-amd-llvm-spirv 2>&1 \
+            | tee build/check-amd-llvm-spirv-baseline.log
+
+      - name: Capture baseline translator failures
+        # Split from the lit step so a non-zero ninja exit (lit failures +
+        # set -o pipefail under bash -e) doesn't skip this grep.
+        if: always()
+        run: |
+          grep -oE '^FAIL: LLVM_SPIRV :: \S+' build/check-amd-llvm-spirv-baseline.log \
+            | sort -u > build/spirv-fails-baseline.txt || true
+          echo "Baseline failures:"; cat build/spirv-fails-baseline.txt
+
+      - name: Post translator lit summary to PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- spirv-ci:translator-lit -->';
+            const read = (p) => {
+              try { return fs.readFileSync(p, 'utf8').split('\n').filter(Boolean); }
+              catch { return null; }
+            };
+            const prList = read('build/spirv-fails-pr.txt');
+            const baseList = read('build/spirv-fails-baseline.txt');
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const fmt = (xs) => xs.length ? '```\n' + xs.join('\n') + '\n```' : '_(none)_';
+
+            let body;
+            if (!prList) {
+              body = `${marker}\n⚠️ **SPIRV translator lit suite**: PR run did not produce a result (see [run](${runUrl})).`;
+            } else if (!baseList) {
+              body = prList.length === 0
+                ? `${marker}\n✅ **SPIRV translator lit suite**: all tests passing on PR head. (Baseline comparison unavailable.)`
+                : `${marker}\n⚠️ **SPIRV translator lit suite**: ${prList.length} failing on PR head; baseline comparison unavailable (see [run](${runUrl})).\n\n<details><summary>Failing tests</summary>\n\n${fmt(prList)}\n</details>`;
+            } else {
+              const prSet = new Set(prList);
+              const baseSet = new Set(baseList);
+              const newFails = prList.filter(t => !baseSet.has(t));
+              const fixed = baseList.filter(t => !prSet.has(t));
+              const common = prList.filter(t => baseSet.has(t));
+
+              let headline;
+              if (newFails.length === 0 && fixed.length === 0 && common.length === 0) {
+                headline = `✅ **SPIRV translator lit suite**: clean on both PR head and \`amd-staging\` baseline.`;
+              } else if (newFails.length > 0) {
+                headline = `🔴 **${newFails.length} new translator lit failure${newFails.length === 1 ? '' : 's'}** introduced by this PR (non-blocking; see [run](${runUrl})).`;
+              } else if (fixed.length > 0 && common.length === 0) {
+                headline = `🟢 **SPIRV translator lit suite**: this PR fixes ${fixed.length} test${fixed.length === 1 ? '' : 's'} that fail on \`amd-staging\`. No remaining failures.`;
+              } else if (fixed.length > 0) {
+                headline = `🟢 This PR fixes ${fixed.length} translator lit test${fixed.length === 1 ? '' : 's'} (vs \`amd-staging\` baseline). ${common.length} pre-existing failure${common.length === 1 ? '' : 's'} remain.`;
+              } else {
+                headline = `⚠️ **${common.length} pre-existing translator lit failure${common.length === 1 ? '' : 's'}** on baseline; not caused by this PR (see [run](${runUrl})).`;
+              }
+
+              body = `${marker}\n${headline}\n\n` +
+                `<details${newFails.length > 0 ? ' open' : ''}><summary>🔴 New failures (${newFails.length}) — likely caused by this PR</summary>\n\n${fmt(newFails)}\n</details>\n\n` +
+                `<details><summary>🟢 Fixed by this PR (${fixed.length}) — failing on baseline, passing here</summary>\n\n${fmt(fixed)}\n</details>\n\n` +
+                `<details><summary>⚠️ Pre-existing on \`amd-staging\` (${common.length})</summary>\n\n${fmt(common)}\n</details>`;
+            }
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+            });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                comment_id: existing.id, body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number, body,
+              });
+            }
+
+      # Fail the job on real regressions (PR head FAILs that aren't on
+      # amd-staging baseline). Pre-existing baseline failures don't block.
+      - name: Gate - new translator lit failures
+        if: always()
+        run: |
+          if [ ! -f build/spirv-fails-pr.txt ] || [ ! -f build/spirv-fails-baseline.txt ]; then
+            echo "::warning::Could not compute new-failure delta (missing pr.txt or baseline.txt); not gating."
+            exit 0
+          fi
+          new=$(comm -23 build/spirv-fails-pr.txt build/spirv-fails-baseline.txt)
+          if [ -n "$new" ]; then
+            count=$(printf '%s\n' "$new" | wc -l)
+            echo "::error::$count new translator lit failure(s) introduced by this PR:"
+            printf '%s\n' "$new" | sed 's/^/::error::  /'
+            exit 1
+          fi
+          echo "No new translator lit failures vs amd-staging baseline."
+
+  # =====================================================================
+  # Test - LLVM SPIRV codegen lit suite
+  # =====================================================================
+  test_codegen:
+    name: Test LLVM SPIRV codegen
+    needs: build
+    runs-on: azure-linux-scale-rocm
+    timeout-minutes: 15
+    container:
+      image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
+
+    steps:
+      - name: Checkout llvm-project (amd-staging)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ROCm/llvm-project
+          ref: amd-staging
+          path: llvm-project
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout SPIRV-LLVM-Translator (PR head)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Download build tree artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build-tree
+
+      # -m skips mtime restore so build outputs aren't older than the
+      # freshly-checked-out source — otherwise ninja cascade-rebuilds.
+      - name: Untar build trees
+        run: tar -xmf linux-build-tree.tar
+
+      - name: Test - LLVM SPIRV backend (check-llvm-codegen-spirv)
+        run: ninja -C build check-llvm-codegen-spirv
+
+  # =====================================================================
+  # Test - Comgr (lit + gtest + ctest)
+  # =====================================================================
+  test_comgr:
+    name: Test Comgr
+    needs: build
+    runs-on: azure-linux-scale-rocm
+    timeout-minutes: 30
+    container:
+      image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
+
+    steps:
+      - name: Checkout llvm-project (amd-staging)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ROCm/llvm-project
+          ref: amd-staging
+          path: llvm-project
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout SPIRV-LLVM-Translator (PR head)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Download build tree artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build-tree
+
+      # -m skips mtime restore so build outputs aren't older than the
+      # freshly-checked-out source — otherwise ninja cascade-rebuilds.
+      - name: Untar build trees
+        run: tar -xmf linux-build-tree.tar
+
+      - name: Test - Comgr (check-comgr)
+        # check-comgr depends on test-lit (runs lit suite) and test-unit
+        # (runs gtest binaries via its COMMAND block), then runs ctest for
+        # the legacy C tests. Single target = all three test layers.
+        id: check_comgr
+        run: ninja -C build-comgr check-comgr
+
+      - name: Show failed Comgr ctest output
+        # check-comgr invokes ctest without --output-on-failure, so failures
+        # show "***Failed" with no stderr. Re-run any failed cases verbosely
+        # and redirect comgr's internal log buffer to stderr so clang errors
+        # from inside amd_comgr_do_action() surface (otherwise comgr just
+        # returns AMD_COMGR_STATUS_ERROR with no detail).
+        if: failure() && steps.check_comgr.conclusion == 'failure'
+        env:
+          AMD_COMGR_REDIRECT_LOGS: stderr
+        run: ctest --test-dir build-comgr --output-on-failure --rerun-failed
