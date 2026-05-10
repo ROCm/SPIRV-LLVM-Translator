@@ -266,6 +266,24 @@ jobs:
               });
             }
 
+      # Fail the job on real regressions (PR head FAILs that aren't on
+      # amd-staging baseline). Pre-existing baseline failures don't block.
+      - name: Gate - new translator lit failures
+        if: always()
+        run: |
+          if [ ! -f build/spirv-fails-pr.txt ] || [ ! -f build/spirv-fails-baseline.txt ]; then
+            echo "::warning::Could not compute new-failure delta (missing pr.txt or baseline.txt); not gating."
+            exit 0
+          fi
+          new=$(comm -23 build/spirv-fails-pr.txt build/spirv-fails-baseline.txt)
+          if [ -n "$new" ]; then
+            count=$(printf '%s\n' "$new" | wc -l)
+            echo "::error::$count new translator lit failure(s) introduced by this PR:"
+            printf '%s\n' "$new" | sed 's/^/::error::  /'
+            exit 1
+          fi
+          echo "No new translator lit failures vs amd-staging baseline."
+
   # =====================================================================
   # Test - LLVM SPIRV codegen lit suite
   # =====================================================================
