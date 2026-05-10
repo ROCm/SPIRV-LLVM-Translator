@@ -23,3 +23,8 @@ jobs:
     name: Linux::release
     uses: ./.github/workflows/spirv-ci-linux.yml
     secrets: inherit
+
+  windows_release:
+    name: Windows::release
+    uses: ./.github/workflows/spirv-ci-windows.yml
+    secrets: inherit
