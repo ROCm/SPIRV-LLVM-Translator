@@ -322,6 +322,23 @@ jobs:
       - name: Untar build trees
         run: tar -xmf linux-build-tree.tar
 
+      # DEBUG: diagnose why test-job ninja invocations cascade-rebuild.
+      # Compare mtimes of build.ninja / .ninja_deps / .ninja_log against
+      # source CMakeLists.txt, and ask ninja to explain (-d explain -n)
+      # what it would rebuild and why, without actually building.
+      - name: Debug - inspect build tree state and ninja's reasoning
+        run: |
+          echo "::group::build/ ninja state files"
+          ls -la build/.ninja_deps build/.ninja_log build/build.ninja 2>&1 || true
+          wc -c build/.ninja_deps build/.ninja_log 2>&1 || true
+          echo "::endgroup::"
+          echo "::group::source CMakeLists.txt mtimes (for comparison)"
+          ls -la llvm-project/llvm/CMakeLists.txt llvm-project/llvm/projects/SPIRV-LLVM-Translator/CMakeLists.txt 2>&1 || true
+          echo "::endgroup::"
+          echo "::group::ninja explain (dry run)"
+          ninja -C build -d explain -n check-llvm-codegen-spirv 2>&1 | head -100 || true
+          echo "::endgroup::"
+
       - name: Test - LLVM SPIRV backend (check-llvm-codegen-spirv)
         run: ninja -C build check-llvm-codegen-spirv
 
@@ -362,6 +379,20 @@ jobs:
       # freshly-checked-out source — otherwise ninja cascade-rebuilds.
       - name: Untar build trees
         run: tar -xmf linux-build-tree.tar
+
+      # DEBUG: same diagnostic as the codegen job, but for build-comgr/.
+      - name: Debug - inspect build-comgr tree state and ninja's reasoning
+        run: |
+          echo "::group::build-comgr/ ninja state files"
+          ls -la build-comgr/.ninja_deps build-comgr/.ninja_log build-comgr/build.ninja 2>&1 || true
+          wc -c build-comgr/.ninja_deps build-comgr/.ninja_log 2>&1 || true
+          echo "::endgroup::"
+          echo "::group::source mtimes (for comparison)"
+          ls -la llvm-project/amd/comgr/CMakeLists.txt 2>&1 || true
+          echo "::endgroup::"
+          echo "::group::ninja explain (dry run)"
+          ninja -C build-comgr -d explain -n check-comgr 2>&1 | head -100 || true
+          echo "::endgroup::"
 
       - name: Test - Comgr (check-comgr)
         # check-comgr depends on test-lit (runs lit suite) and test-unit
