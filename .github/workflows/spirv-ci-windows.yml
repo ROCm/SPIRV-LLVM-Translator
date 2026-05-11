@@ -78,8 +78,14 @@ jobs:
         run: ninja -C build-device-libs
 
       - name: Configure Comgr
+        # Skip Comgr's test-unit subdirectory: HotswapMCTests gtest binary
+        # doesn't link on Windows due to MSVC-guarded hotswap apply* path
+        # (ROCm/llvm-project#2479). Removing the subdir drops test-unit as
+        # a dep of check-comgr so the lit + ctest layers still work.
         run: |
           PWD_WIN=$(pwd -W)
+          sed -i '/^[[:space:]]*add_subdirectory(test-unit)[[:space:]]*$/d' \
+            llvm-project/amd/comgr/CMakeLists.txt
           cmake -G Ninja -S llvm-project/amd/comgr -B build-comgr \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$PWD_WIN/build;$PWD_WIN/build-device-libs" \
@@ -382,11 +388,11 @@ jobs:
           tar -xmf windows-build-tree.tar
           touch build/build.ninja build-comgr/build.ninja build-device-libs/build.ninja
 
-      # Lit suite + ctest. Skip the gtest aggregator (test-unit) — its
-      # binaries don't link on Windows (see ROCm/llvm-project#2479).
-      # Linux variant still runs full check-comgr including gtests.
-      - name: Test - Comgr (lit + ctest)
+      # check-comgr runs lit + ctest. test-unit (gtests) was excluded at
+      # configure time via the sed in the Build job's Configure Comgr step
+      # (HotswapMCTests doesn't link on Windows — ROCm/llvm-project#2479).
+      - name: Test - Comgr (check-comgr)
         id: check_comgr
         env:
           AMD_COMGR_REDIRECT_LOGS: stderr
-        run: ninja -C build-comgr test test-lit
+        run: ninja -C build-comgr check-comgr
