@@ -73,6 +73,13 @@ jobs:
       - name: Build device-libs
         run: ninja -C build-device-libs
 
+      # DEBUG: locate AMDDeviceLibsConfig.cmake — Comgr's find_package fails on Windows.
+      - name: Debug - locate AMDDeviceLibsConfig.cmake
+        run: |
+          echo "PWD=$PWD"
+          find build-device-libs -name 'AMDDeviceLibs*.cmake' 2>&1 || true
+          find build-device-libs -type d -name cmake 2>&1 || true
+
       - name: Configure Comgr
         run: |
           cmake -G Ninja -S llvm-project/amd/comgr -B build-comgr \
