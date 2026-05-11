@@ -33,13 +33,14 @@ jobs:
       - name: Configure MSVC
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
 
-      # zstd dev libs for clang-offload-bundler compression support. The
-      # manylinux container has these on Linux; on Windows we install via
-      # vcpkg (already present at $VCPKG_ROOT). LLVM_ENABLE_ZSTD=FORCE_ON
-      # below makes the LLVM cmake fail loudly if zstd isn't found, rather
-      # than silently building without compression.
+      # zstd dev libs for clang-offload-bundler compression support. Two
+      # vcpkg installs exist on this runner: C:\vcpkg (first in PATH) and
+      # the MSVC-bundled one at $VCPKG_ROOT. We must install via the same
+      # vcpkg that the toolchain file (set in Configure LLVM) references,
+      # otherwise find_package can't see the installed package.
       - name: Install zstd via vcpkg
-        run: vcpkg install zstd:x64-windows
+        run: |
+          "$VCPKG_ROOT/vcpkg.exe" install zstd:x64-windows
 
       - name: Checkout llvm-project (amd-staging)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
