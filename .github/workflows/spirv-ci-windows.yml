@@ -81,11 +81,16 @@ jobs:
       # Use $(pwd -W) for cmake -D paths: in MSYS bash $PWD is Unix-style
       # (/c/...) which cmake's find_package can't traverse on Windows.
       # pwd -W returns Windows-style with forward slashes (C:/...).
+      # Pass CMAKE_TOOLCHAIN_FILE here too: LLVM exports LLVMSupport
+      # linking against zstd::libzstd_shared, and consumers like
+      # find_package(LLVM) in device-libs/Comgr need the vcpkg toolchain
+      # loaded so that imported zstd target is defined.
       - name: Configure device-libs
         run: |
           PWD_WIN=$(pwd -W)
           cmake -G Ninja -S llvm-project/amd/device-libs -B build-device-libs \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" \
             -DCMAKE_PREFIX_PATH=$PWD_WIN/build \
             -DLLVM_DIR=$PWD_WIN/build/lib/cmake/llvm
 
@@ -103,6 +108,7 @@ jobs:
             llvm-project/amd/comgr/CMakeLists.txt
           cmake -G Ninja -S llvm-project/amd/comgr -B build-comgr \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" \
             -DCMAKE_PREFIX_PATH="$PWD_WIN/build;$PWD_WIN/build-device-libs" \
             -DLLVM_DIR=$PWD_WIN/build/lib/cmake/llvm \
             -DAMDDeviceLibs_DIR=$PWD_WIN/build-device-libs/lib/cmake/AMDDeviceLibs \
