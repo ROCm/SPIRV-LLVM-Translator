@@ -382,12 +382,11 @@ jobs:
           tar -xmf windows-build-tree.tar
           touch build/build.ninja build-comgr/build.ninja build-device-libs/build.ninja
 
-      - name: Test - Comgr (check-comgr)
+      # Lit suite + ctest. Skip the gtest aggregator (test-unit) — its
+      # binaries don't link on Windows (see ROCm/llvm-project#2479).
+      # Linux variant still runs full check-comgr including gtests.
+      - name: Test - Comgr (lit + ctest)
         id: check_comgr
-        run: ninja -C build-comgr check-comgr
-
-      - name: Show failed Comgr ctest output
-        if: failure() && steps.check_comgr.conclusion == 'failure'
         env:
           AMD_COMGR_REDIRECT_LOGS: stderr
-        run: ctest --test-dir build-comgr --output-on-failure --rerun-failed
+        run: ninja -C build-comgr test test-lit
