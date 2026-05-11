@@ -33,6 +33,14 @@ jobs:
       - name: Configure MSVC
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
 
+      # zstd dev libs for clang-offload-bundler compression support. The
+      # manylinux container has these on Linux; on Windows we install via
+      # vcpkg (already present at $VCPKG_ROOT). LLVM_ENABLE_ZSTD=FORCE_ON
+      # below makes the LLVM cmake fail loudly if zstd isn't found, rather
+      # than silently building without compression.
+      - name: Install zstd via vcpkg
+        run: vcpkg install zstd:x64-windows
+
       - name: Checkout llvm-project (amd-staging)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -49,13 +57,20 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      # CMAKE_TOOLCHAIN_FILE points cmake at vcpkg's find_package shims so
+      # LLVM_ENABLE_ZSTD=FORCE_ON locates the vcpkg-installed zstd. FORCE_ON
+      # makes the configure fail loudly if zstd is missing rather than
+      # silently building clang-offload-bundler without compression.
       - name: Configure LLVM
         run: |
+          VCPKG_TOOLCHAIN=$(cygpath -m "$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake")
           cmake -G Ninja -S llvm-project/llvm -B build \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_TOOLCHAIN" \
             -DLLVM_ENABLE_ASSERTIONS=ON \
             -DLLVM_ENABLE_PROJECTS="clang;lld" \
             -DLLVM_TARGETS_TO_BUILD="AMDGPU;X86;SPIRV" \
+            -DLLVM_ENABLE_ZSTD=FORCE_ON \
             -DLLVM_INCLUDE_TESTS=ON \
             -DLLVM_INSTALL_GTEST=ON \
             -DLLVM_LIT_ARGS="-sv --no-progress-bar"
