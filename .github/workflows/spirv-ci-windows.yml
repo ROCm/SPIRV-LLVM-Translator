@@ -158,6 +158,12 @@ jobs:
       - name: Configure MSVC
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
 
+      # zstd must be present at the same C:\vcpkg path the build job used,
+      # because build.ninja embeds C:/vcpkg/installed/.../zstd.lib as a
+      # build-edge input that ninja validates at planning time.
+      - name: Install zstd via vcpkg
+        run: vcpkg install zstd:x64-windows
+
       - name: Checkout llvm-project (amd-staging)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -328,6 +334,12 @@ jobs:
       - name: Configure MSVC
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
 
+      # zstd must be present at the same C:\vcpkg path the build job used,
+      # because build.ninja embeds C:/vcpkg/installed/.../zstd.lib as a
+      # build-edge input that ninja validates at planning time.
+      - name: Install zstd via vcpkg
+        run: vcpkg install zstd:x64-windows
+
       - name: Checkout llvm-project (amd-staging)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -380,6 +392,12 @@ jobs:
 
       - name: Configure MSVC
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+
+      # zstd must be present at the same C:\vcpkg path the build job used,
+      # because build.ninja embeds C:/vcpkg/installed/.../zstd.lib as a
+      # build-edge input that ninja validates at planning time.
+      - name: Install zstd via vcpkg
+        run: vcpkg install zstd:x64-windows
 
       - name: Checkout llvm-project (amd-staging)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
