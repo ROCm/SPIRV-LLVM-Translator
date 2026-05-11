@@ -34,13 +34,12 @@ jobs:
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
 
       # zstd dev libs for clang-offload-bundler compression support. Two
-      # vcpkg installs exist on this runner: C:\vcpkg (first in PATH) and
-      # the MSVC-bundled one at $VCPKG_ROOT. We must install via the same
-      # vcpkg that the toolchain file (set in Configure LLVM) references,
-      # otherwise find_package can't see the installed package.
+      # vcpkg installs exist on this runner: C:\vcpkg (classic mode, what
+      # `vcpkg` in PATH resolves to) and the MSVC-bundled one at $VCPKG_ROOT
+      # (manifest-mode only — no `vcpkg install <pkg>` support). We use
+      # C:\vcpkg for both install and toolchain lookup so they match.
       - name: Install zstd via vcpkg
-        run: |
-          "$VCPKG_ROOT/vcpkg.exe" install zstd:x64-windows
+        run: vcpkg install zstd:x64-windows
 
       - name: Checkout llvm-project (amd-staging)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -58,16 +57,16 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      # CMAKE_TOOLCHAIN_FILE points cmake at vcpkg's find_package shims so
-      # LLVM_ENABLE_ZSTD=FORCE_ON locates the vcpkg-installed zstd. FORCE_ON
-      # makes the configure fail loudly if zstd is missing rather than
-      # silently building clang-offload-bundler without compression.
+      # CMAKE_TOOLCHAIN_FILE points cmake at the C:\vcpkg find_package
+      # shims so LLVM_ENABLE_ZSTD=FORCE_ON locates the vcpkg-installed
+      # zstd. FORCE_ON makes the configure fail loudly if zstd is missing
+      # rather than silently building clang-offload-bundler without
+      # compression.
       - name: Configure LLVM
         run: |
-          VCPKG_TOOLCHAIN=$(cygpath -m "$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake")
           cmake -G Ninja -S llvm-project/llvm -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_TOOLCHAIN" \
+            -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" \
             -DLLVM_ENABLE_ASSERTIONS=ON \
             -DLLVM_ENABLE_PROJECTS="clang;lld" \
             -DLLVM_TARGETS_TO_BUILD="AMDGPU;X86;SPIRV" \
