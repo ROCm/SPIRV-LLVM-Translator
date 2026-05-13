@@ -19,6 +19,8 @@ jobs:
     defaults:
       run:
         shell: bash
+    outputs:
+      llvm_project_sha: ${{ steps.resolve_llvm_sha.outputs.sha }}
 
     steps:
       # Long path support for the deep llvm-project tree under runner workspace.
@@ -49,6 +51,17 @@ jobs:
           path: llvm-project
           fetch-depth: 1
           persist-credentials: false
+
+      # Capture the resolved amd-staging SHA so test jobs can pin to the
+      # exact commit this build used. Without this, test jobs re-resolve
+      # `amd-staging` and may land on a newer commit if upstream merged
+      # mid-run, triggering a cascade rebuild against an older build.ninja.
+      - name: Resolve llvm-project SHA
+        id: resolve_llvm_sha
+        run: |
+          SHA=$(git -C llvm-project rev-parse HEAD)
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Pinned llvm-project SHA for test jobs: $SHA"
 
       - name: Checkout SPIRV-LLVM-Translator (PR head)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -158,11 +171,11 @@ jobs:
       - name: Install zstd via vcpkg
         run: vcpkg install zstd:x64-windows
 
-      - name: Checkout llvm-project (amd-staging)
+      - name: Checkout llvm-project (pinned to Build job SHA)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ROCm/llvm-project
-          ref: amd-staging
+          ref: ${{ needs.build.outputs.llvm_project_sha }}
           path: llvm-project
           fetch-depth: 1
           persist-credentials: false
@@ -334,11 +347,11 @@ jobs:
       - name: Install zstd via vcpkg
         run: vcpkg install zstd:x64-windows
 
-      - name: Checkout llvm-project (amd-staging)
+      - name: Checkout llvm-project (pinned to Build job SHA)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ROCm/llvm-project
-          ref: amd-staging
+          ref: ${{ needs.build.outputs.llvm_project_sha }}
           path: llvm-project
           fetch-depth: 1
           persist-credentials: false
@@ -393,11 +406,11 @@ jobs:
       - name: Install zstd via vcpkg
         run: vcpkg install zstd:x64-windows
 
-      - name: Checkout llvm-project (amd-staging)
+      - name: Checkout llvm-project (pinned to Build job SHA)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ROCm/llvm-project
-          ref: amd-staging
+          ref: ${{ needs.build.outputs.llvm_project_sha }}
           path: llvm-project
           fetch-depth: 1
           persist-credentials: false

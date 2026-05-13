@@ -19,6 +19,8 @@ jobs:
     timeout-minutes: 120
     container:
       image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
+    outputs:
+      llvm_project_sha: ${{ steps.resolve_llvm_sha.outputs.sha }}
 
     steps:
       # ---- Checkout ---------------------------------------------------------
@@ -33,6 +35,17 @@ jobs:
           path: llvm-project
           fetch-depth: 1
           persist-credentials: false
+
+      # Capture the resolved amd-staging SHA so test jobs can pin to the
+      # exact commit this build used. Without this, test jobs re-resolve
+      # `amd-staging` and may land on a newer commit if upstream merged
+      # mid-run, triggering a cascade rebuild against an older build.ninja.
+      - name: Resolve llvm-project SHA
+        id: resolve_llvm_sha
+        run: |
+          SHA=$(git -C llvm-project rev-parse HEAD)
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Pinned llvm-project SHA for test jobs: $SHA"
 
       - name: Checkout SPIRV-LLVM-Translator (PR head)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -130,11 +143,11 @@ jobs:
       pull-requests: write   # for the baseline-diff sticky comment
 
     steps:
-      - name: Checkout llvm-project (amd-staging)
+      - name: Checkout llvm-project (pinned to Build job SHA)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ROCm/llvm-project
-          ref: amd-staging
+          ref: ${{ needs.build.outputs.llvm_project_sha }}
           path: llvm-project
           fetch-depth: 1
           persist-credentials: false
@@ -298,11 +311,11 @@ jobs:
       image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
 
     steps:
-      - name: Checkout llvm-project (amd-staging)
+      - name: Checkout llvm-project (pinned to Build job SHA)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ROCm/llvm-project
-          ref: amd-staging
+          ref: ${{ needs.build.outputs.llvm_project_sha }}
           path: llvm-project
           fetch-depth: 1
           persist-credentials: false
@@ -341,11 +354,11 @@ jobs:
       image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
 
     steps:
-      - name: Checkout llvm-project (amd-staging)
+      - name: Checkout llvm-project (pinned to Build job SHA)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ROCm/llvm-project
-          ref: amd-staging
+          ref: ${{ needs.build.outputs.llvm_project_sha }}
           path: llvm-project
           fetch-depth: 1
           persist-credentials: false
