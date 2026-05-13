@@ -856,7 +856,10 @@ SPIRVType *LLVMToSPIRVBase::transScavengedType(Value *V) {
                                    SPIRVEC_UnsupportedVarArgFunction);
 
     SPIRVType *RT = transType(FnTy->getReturnType());
-    if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
+    // TODO: Replace this AMD intrinsic-only rewrite to Constant AS with a
+    // generic handling of AS mismatches around `Constant`.
+    if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
+        F->isIntrinsic())
       if (F->getReturnType()->isPtrOrPtrVectorTy())
         RT = transType(F->getReturnType()->getWithNewType(
             PointerType::get(F->getContext(), SPIRAS_Constant)));
@@ -946,10 +949,10 @@ SPIRVFunction *LLVMToSPIRVBase::transFunctionDecl(Function *F) {
       if (!BM->isAllowedToUseExtension(ExtensionID::SPV_EXT_float8) &&
           !BM->isAllowedToUseExtension(ExtensionID::SPV_INTEL_int4) &&
           !BM->isAllowedToUseExtension(ExtensionID::SPV_INTEL_float4)) {
-        std::string ErrorStr =
-            "One of the following extensions: SPV_EXT_float8, SPV_INTEL_float4"
-            "SPV_INTEL_int4 should be enabled to process "
-            "conversion builtins";
+        std::string ErrorStr = "One of the following extensions: "
+                               "SPV_EXT_float8, SPV_INTEL_float4, "
+                               "SPV_INTEL_int4 should be enabled to process "
+                               "conversion builtins";
         getErrorLog().checkError(false, SPIRVEC_RequiresExtension, F, ErrorStr);
       }
       return nullptr;
@@ -1360,6 +1363,15 @@ void LLVMToSPIRVBase::transAuxDataInst(SPIRVValue *BV, Value *V) {
     BM->addAuxData(F ? NonSemanticAuxData::FunctionMetadata
                      : NonSemanticAuxData::GlobalVariableMetadata,
                    transType(Type::getVoidTy(V->getContext())), Ops);
+  }
+
+  if (GO->hasAvailableExternallyLinkage()) {
+    auto *I32Ty = BM->addIntegerType(32);
+    auto *LinkageVal =
+        BM->addConstant(I32Ty, NonSemanticAuxData::AvailableExternally);
+    std::vector<SPIRVWord> LinkageOps = {BV->getId(), LinkageVal->getId()};
+    BM->addAuxData(NonSemanticAuxData::Linkage,
+                   transType(Type::getVoidTy(V->getContext())), LinkageOps);
   }
 }
 

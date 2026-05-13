@@ -151,10 +151,12 @@ jobs:
         with:
           name: linux-build-tree
 
-      # -m skips mtime restore so build outputs aren't older than the
-      # freshly-checked-out source — otherwise ninja cascade-rebuilds.
+      # touch build.ninja so it's newer than CMakeCache.txt — without it
+      # tar -m's per-file mtimes can trigger a cmake regen + cascade rebuild.
       - name: Untar build trees
-        run: tar -xmf linux-build-tree.tar
+        run: |
+          tar -xmf linux-build-tree.tar
+          touch build/build.ninja build-comgr/build.ninja build-device-libs/build.ninja
 
       - name: Test - SPIRV Translator (check-amd-llvm-spirv) [PR head]
         id: check_spirv_xlator
@@ -317,10 +319,12 @@ jobs:
         with:
           name: linux-build-tree
 
-      # -m skips mtime restore so build outputs aren't older than the
-      # freshly-checked-out source — otherwise ninja cascade-rebuilds.
+      # touch build.ninja so it's newer than CMakeCache.txt — without it
+      # tar -m's per-file mtimes can trigger a cmake regen + cascade rebuild.
       - name: Untar build trees
-        run: tar -xmf linux-build-tree.tar
+        run: |
+          tar -xmf linux-build-tree.tar
+          touch build/build.ninja build-comgr/build.ninja build-device-libs/build.ninja
 
       - name: Test - LLVM SPIRV backend (check-llvm-codegen-spirv)
         run: ninja -C build check-llvm-codegen-spirv
@@ -358,10 +362,12 @@ jobs:
         with:
           name: linux-build-tree
 
-      # -m skips mtime restore so build outputs aren't older than the
-      # freshly-checked-out source — otherwise ninja cascade-rebuilds.
+      # touch build.ninja so it's newer than CMakeCache.txt — without it
+      # tar -m's per-file mtimes can trigger a cmake regen + cascade rebuild.
       - name: Untar build trees
-        run: tar -xmf linux-build-tree.tar
+        run: |
+          tar -xmf linux-build-tree.tar
+          touch build/build.ninja build-comgr/build.ninja build-device-libs/build.ninja
 
       - name: Test - Comgr (check-comgr)
         # check-comgr depends on test-lit (runs lit suite) and test-unit
