@@ -46,6 +46,7 @@
 #include "llvm/CodeGen/IntrinsicLowering.h"
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsSPIRV.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
@@ -612,7 +613,7 @@ void prepareCacheControlsTranslation(Metadata *MD, Instruction *Inst) {
   }
 }
 
-bool tryAssignPredicateSpecConstIDs(Module &M, Function *F) {
+bool tryAssignPredicateSpecConstIDs(Function *F) {
   StringMap<unsigned> IDs;
   for (auto &&U : F->users()) {
     auto *CI = dyn_cast<CallInst>(U);
@@ -641,6 +642,7 @@ bool tryAssignPredicateSpecConstIDs(Module &M, Function *F) {
   if (IDs.empty())
     return false;
 
+  Module *M = F->getParent();
   // Store the predicate -> ID mapping as a fixed format string
   // (predicate ID\0...), for later use during SPIR-V consumption.
   std::string Tmp;
@@ -648,9 +650,9 @@ bool tryAssignPredicateSpecConstIDs(Module &M, Function *F) {
     Tmp.append(Predicate).append(" ").append(utostr(SpecID)).push_back('\0');
 
   Constant *PredSpecIDStr =
-      ConstantDataArray::getString(M.getContext(), Tmp, false);
+      ConstantDataArray::getString(M->getContext(), Tmp, false);
 
-  new GlobalVariable(M, PredSpecIDStr->getType(), true,
+  new GlobalVariable(*M, PredSpecIDStr->getType(), true,
                      GlobalVariable::LinkageTypes::ExternalLinkage,
                      PredSpecIDStr, "llvm.amdgcn.feature.predicate.ids");
 
@@ -672,7 +674,7 @@ bool SPIRVRegularizeLLVMBase::regularize() {
     //       intrinsic.
     if (Function *F = Intrinsic::getDeclarationIfExists(
             M, Intrinsic::spv_named_boolean_spec_constant)) {
-      tryAssignPredicateSpecConstIDs(*M, F);
+      tryAssignPredicateSpecConstIDs(F);
       // We re-use existing SpecConstant handling here, it will only make sense
       // to add custom lowering for the intrinsic when / if we start using the
       // name metadata.
