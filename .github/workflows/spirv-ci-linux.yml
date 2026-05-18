@@ -158,6 +158,10 @@ jobs:
             -DClang_DIR=$PWD/build/lib/cmake/clang
 
       - name: Build ROCR-Runtime
+        # ROCM_PATH points clang at our staging tree when ROCR's image lib
+        # compiles OpenCL blit bitcode (no /opt/rocm in the CI container).
+        env:
+          ROCM_PATH: ${{ github.workspace }}/staging
         run: ninja -C build-rocr install
 
       - name: Configure CLR (HIP runtime)
