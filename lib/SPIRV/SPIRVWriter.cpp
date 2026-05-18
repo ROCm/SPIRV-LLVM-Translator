@@ -858,7 +858,10 @@ SPIRVType *LLVMToSPIRVBase::transScavengedType(Value *V) {
                                    SPIRVEC_UnsupportedVarArgFunction);
 
     SPIRVType *RT = transType(FnTy->getReturnType());
-    if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
+    // TODO: Replace this AMD intrinsic-only rewrite to Constant AS with a
+    // generic handling of AS mismatches around `Constant`.
+    if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
+        F->isIntrinsic())
       if (F->getReturnType()->isPtrOrPtrVectorTy())
         RT = transType(F->getReturnType()->getWithNewType(
             PointerType::get(F->getContext(), SPIRAS_Constant)));
@@ -948,10 +951,10 @@ SPIRVFunction *LLVMToSPIRVBase::transFunctionDecl(Function *F) {
       if (!BM->isAllowedToUseExtension(ExtensionID::SPV_EXT_float8) &&
           !BM->isAllowedToUseExtension(ExtensionID::SPV_INTEL_int4) &&
           !BM->isAllowedToUseExtension(ExtensionID::SPV_INTEL_float4)) {
-        std::string ErrorStr =
-            "One of the following extensions: SPV_EXT_float8, SPV_INTEL_float4"
-            "SPV_INTEL_int4 should be enabled to process "
-            "conversion builtins";
+        std::string ErrorStr = "One of the following extensions: "
+                               "SPV_EXT_float8, SPV_INTEL_float4, "
+                               "SPV_INTEL_int4 should be enabled to process "
+                               "conversion builtins";
         getErrorLog().checkError(false, SPIRVEC_RequiresExtension, F, ErrorStr);
       }
       return nullptr;
@@ -1362,6 +1365,15 @@ void LLVMToSPIRVBase::transAuxDataInst(SPIRVValue *BV, Value *V) {
     BM->addAuxData(F ? NonSemanticAuxData::FunctionMetadata
                      : NonSemanticAuxData::GlobalVariableMetadata,
                    transType(Type::getVoidTy(V->getContext())), Ops);
+  }
+
+  if (GO->hasAvailableExternallyLinkage()) {
+    auto *I32Ty = BM->addIntegerType(32);
+    auto *LinkageVal =
+        BM->addConstant(I32Ty, NonSemanticAuxData::AvailableExternally);
+    std::vector<SPIRVWord> LinkageOps = {BV->getId(), LinkageVal->getId()};
+    BM->addAuxData(NonSemanticAuxData::Linkage,
+                   transType(Type::getVoidTy(V->getContext())), LinkageOps);
   }
 }
 
@@ -2115,12 +2127,20 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
 
   if (auto *GV = dyn_cast<GlobalVariable>(V)) {
     llvm::Type *Ty = Scavenger->getScavengedType(GV);
-    // Though variables with common linkage type are initialized by 0,
-    // they can be represented in SPIR-V as uninitialized variables with
-    // 'Export' linkage type, just as tentative definitions look in C
-    llvm::Constant *Init = GV->hasInitializer() && !GV->hasCommonLinkage()
-                               ? GV->getInitializer()
-                               : nullptr;
+    // Check whether the global has an initializer for SPIR-V.
+    // Variables with common linkage are represented as uninitialized with
+    // 'Export' linkage, just as tentative definitions look in C.
+    // Undef/poison initializers are dropped unless the variable is constant
+    // with an aggregate type
+    auto HasInit = [](const GlobalVariable *GV) {
+      if (!GV->hasInitializer() || GV->hasCommonLinkage())
+        return false;
+      if (isa<UndefValue>(GV->getInitializer()))
+        return GV->isConstant() &&
+               GV->getInitializer()->getType()->isAggregateType();
+      return true;
+    };
+    llvm::Constant *Init = HasInit(GV) ? GV->getInitializer() : nullptr;
     SPIRVValue *BVarInit = nullptr;
     StructType *ST = Init ? dyn_cast<StructType>(Init->getType()) : nullptr;
     if (ST && ST->hasName() && isSPIRVConstantName(ST->getName())) {
@@ -7599,7 +7619,7 @@ LLVMToSPIRVBase::transLinkageType(const GlobalValue *GV) {
       return SPIRVLinkageTypeKind::LinkageTypeLinkOnceODR;
   if (GV->hasWeakAnyLinkage())
     if (BM->isAllowedToUseExtension(ExtensionID::SPV_AMD_weak_linkage))
-      return spv::internal::LinkageTypeWeak;
+      return SPIRVLinkageTypeKind::LinkageTypeWeakAMD;
   return SPIRVLinkageTypeKind::LinkageTypeExport;
 }
 

@@ -2975,6 +2975,10 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     case SPIRVEIS_NonSemantic_Shader_DebugInfo_200:
       DbgTran->transDebugIntrinsic(ExtInst, BB);
       return mapValue(BV, nullptr);
+    case SPIRVEIS_NonSemantic_Unknown:
+      // Non-semantic instruction sets unknown to the translator are
+      // silently skipped.
+      return mapValue(BV, nullptr);
     default:
       llvm_unreachable("Unknown extended instruction set!");
     }
@@ -6177,18 +6181,28 @@ void SPIRVToLLVM::transAuxDataInst(SPIRVExtInst *BC) {
   assert(BC->getExtSetKind() == SPIRV::SPIRVEIS_NonSemantic_AuxData);
   if (!BC->getModule()->preserveAuxData())
     return;
+  switch (BC->getExtOp()) {
+  case NonSemanticAuxData::FunctionAttribute:
+  case NonSemanticAuxData::GlobalVariableAttribute:
+  case NonSemanticAuxData::FunctionMetadata:
+  case NonSemanticAuxData::GlobalVariableMetadata:
+  case NonSemanticAuxData::Linkage:
+    break;
+  default:
+    return;
+  }
   auto Args = BC->getArguments();
-  // Args 0 and 1 are common between attributes and metadata.
-  // 0 is the global object, 1 is the name of the attribute/metadata as a string
+  // Arg 0 is common to all instructions in this set: it identifies the
+  // global object the auxiliary data is attached to.
   auto *Arg0 = BC->getModule()->getValue(Args[0]);
   auto *GO = cast<GlobalObject>(getTranslatedValue(Arg0));
   auto *F = dyn_cast<Function>(GO);
   auto *GV = dyn_cast<GlobalVariable>(GO);
   assert((F || GV) && "Value should already have been translated!");
-  auto AttrOrMDName = BC->getModule()->get<SPIRVString>(Args[1])->getStr();
   switch (BC->getExtOp()) {
   case NonSemanticAuxData::FunctionAttribute:
   case NonSemanticAuxData::GlobalVariableAttribute: {
+    auto AttrOrMDName = BC->getModule()->get<SPIRVString>(Args[1])->getStr();
     assert(Args.size() < 4 && "Unexpected FunctionAttribute Args");
     // Skip target-specific attributes so they won't conflict with attributes
     // that can be set later during compilation.
@@ -6228,6 +6242,7 @@ void SPIRVToLLVM::transAuxDataInst(SPIRVExtInst *BC) {
   }
   case NonSemanticAuxData::FunctionMetadata:
   case NonSemanticAuxData::GlobalVariableMetadata: {
+    auto AttrOrMDName = BC->getModule()->get<SPIRVString>(Args[1])->getStr();
     // If this metadata was specially handled and added elsewhere, skip it.
     if (GO->hasMetadata(AttrOrMDName))
       return;
@@ -6249,8 +6264,23 @@ void SPIRVToLLVM::transAuxDataInst(SPIRVExtInst *BC) {
     GO->setMetadata(AttrOrMDName, MDNode::get(*Context, MetadataArgs));
     break;
   }
+  case NonSemanticAuxData::Linkage: {
+    auto *LinkageConst =
+        static_cast<SPIRVConstant *>(BC->getModule()->get<SPIRVValue>(Args[1]));
+    switch (LinkageConst->getZExtIntValue()) {
+    case NonSemanticAuxData::AvailableExternally:
+      GO->setLinkage(GlobalValue::AvailableExternallyLinkage);
+      break;
+    default:
+      LLVM_DEBUG(dbgs() << "Unknown NonSemanticAuxDataLinkage value '"
+                        << LinkageConst->getZExtIntValue() << "' on '"
+                        << GO->getName() << "'; ignoring instruction.\n");
+      break;
+    }
+    break;
+  }
   default:
-    llvm_unreachable("Invalid op");
+    break;
   }
 }
 
@@ -6349,7 +6379,7 @@ SPIRVToLLVM::transLinkageType(const SPIRVValue *V) {
     return GlobalValue::ExternalLinkage;
   case LinkageTypeLinkOnceODR:
     return GlobalValue::LinkOnceODRLinkage;
-  case internal::LinkageTypeWeak:
+  case LinkageTypeWeakAMD:
     return GlobalValue::WeakAnyLinkage;
   default:
     llvm_unreachable("Invalid linkage type");

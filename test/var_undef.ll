@@ -7,14 +7,14 @@
 ; RUN: llvm-spirv -r %t.spv -o %t.rev.bc
 ; RUN: llvm-dis %t.rev.bc -o %t.rev.ll
 ; RUN: FileCheck < %t.rev.ll %s --check-prefix CHECK-LLVM
-; FIXME: FILECHECK_FAIL during llvm-spirv -r in llc compilation flow
+; RUN: %if spirv-backend %{ llc -O0 -mtriple=spirv64-unknown-unknown -filetype=obj %s -o %t.llc.spv %}
+; RUN: %if spirv-backend %{ llvm-spirv -r %t.llc.spv -o %t.llc.rev.bc %}
+; RUN: %if spirv-backend %{ llvm-dis %t.llc.rev.bc -o %t.llc.rev.ll %}
+; RUN: %if spirv-backend %{ FileCheck %s --input-file %t.llc.rev.ll --check-prefix CHECK-LLVM %}
 
 ; CHECK-SPIRV: Name [[FOO_VAR:[0-9]+]] "foo"
 ; CHECK-SPIRV: Name [[BAR_VAR:[0-9]+]] "bar"
-;; foo variable has optional initializer (OpUndef)
-; CHECK-SPIRV: 5 Variable [[#]] [[FOO_VAR]]
-;; bar variable does not have optional initializer
-;; word count must be 4
+; CHECK-SPIRV: 4 Variable [[#]] [[FOO_VAR]]
 ; CHECK-SPIRV: 4 Variable [[#]] [[BAR_VAR]]
 
 ; CHECK-LLVM: @foo = internal addrspace(3) global %anon poison, align 8

@@ -1,0 +1,95 @@
+# Runs after "SPIRV Compiler CI" completes successfully on a PR, then enables
+# auto-merge with a merge commit. Avoids racing pull_request automerge before
+# required checks have queued, and bypasses the
+# block-merge-commit-on-amd-*-branches ruleset (which forbids merge-commit
+# auto-merge for non-bypass actors) by enabling auto-merge as the
+# bypass-eligible GitHub App.
+#
+# Trigger workflow name must match exactly (see `name:` in spirv-ci.yml):
+#   .github/workflows/spirv-ci.yml -> "SPIRV Compiler CI"
+#
+# Title pattern matches what upstream-merge.yml produces:
+#   "Upstream merge YYYY-MM-DD HH:MM TZ"
+#
+# Requires:
+#   - Secret MERGE_APP_ID (existing, used by upstream-merge.yml)
+#   - Secret MERGE_APP_PRIVATE_KEY (existing, used by upstream-merge.yml)
+#   - The MERGE_APP App must be a bypass actor on the
+#     block-merge-commit-on-amd-*-branches ruleset, otherwise auto-merge
+#     will sit indefinitely as it does today.
+#   - Repository setting "Allow auto-merge" enabled.
+
+name: Auto-merge upstream-merge PRs after SPIRV Compiler CI
+
+on:
+  workflow_run:
+    workflows: ["SPIRV Compiler CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+
+concurrency:
+  group: automerge-after-spirv-ci-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+
+jobs:
+  enable-automerge:
+    name: Enable auto-merge after successful SPIRV Compiler CI
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      startsWith(github.event.workflow_run.display_title, 'Upstream merge ')
+    steps:
+      - name: Generate App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.MERGE_APP_ID }}
+          private-key: ${{ secrets.MERGE_APP_PRIVATE_KEY }}
+
+      - name: Resolve PR and enable auto-merge (merge commit)
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          REPO: ${{ github.repository }}
+          PULL_REQUESTS_JSON: ${{ toJSON(github.event.workflow_run.pull_requests) }}
+        run: |
+          set -euo pipefail
+
+          # Prefer workflow_run.pull_requests when GitHub attaches it
+          # (same-repo PRs). Fall back to a head-branch lookup.
+          PR=""
+          if command -v jq >/dev/null 2>&1; then
+            PR=$(echo "${PULL_REQUESTS_JSON}" | jq -r '
+              if . == null or . == [] then empty
+              elif type == "array" then .[0].number | tostring
+              else empty end' 2>/dev/null || true)
+          fi
+          if [ -z "${PR}" ] || [ "${PR}" = "null" ]; then
+            PR="$(gh pr list --repo "${REPO}" --head "${HEAD_BRANCH}" --base amd-staging --state open \
+              --json number -q '.[0].number // empty' 2>/dev/null || true)"
+          fi
+          if [ -z "${PR}" ] || [ "${PR}" = "null" ]; then
+            echo "No open PR found for head branch ${HEAD_BRANCH} -> amd-staging; skipping."
+            exit 0
+          fi
+
+          BASE="$(gh pr view "${PR}" --repo "${REPO}" --json baseRefName -q .baseRefName)"
+          if [ "${BASE}" != "amd-staging" ]; then
+            echo "PR #${PR} base is ${BASE}, not amd-staging; skipping."
+            exit 0
+          fi
+
+          DRAFT="$(gh pr view "${PR}" --repo "${REPO}" --json isDraft -q .isDraft)"
+          if [ "${DRAFT}" = "true" ]; then
+            echo "PR #${PR} is draft; skipping."
+            exit 0
+          fi
+
+          echo "Enabling auto-merge (merge commit) for PR #${PR} (${REPO}) after successful SPIRV Compiler CI."
+          gh pr merge "${PR}" --repo "${REPO}" --merge --auto

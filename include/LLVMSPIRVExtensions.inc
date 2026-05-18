@@ -94,5 +94,7 @@ EXT(SPV_INTEL_sigmoid)
 EXT(SPV_INTEL_float4)
 EXT(SPV_INTEL_fp_conversions)
 EXT(SPV_KHR_float_controls2)
-EXT(SPV_NV_shader_atomic_fp16_vector)
 EXT(SPV_AMD_weak_linkage)
+// AMD: Add awareness of `SPV_NV_shader_atomic_fp16_vector` as the BE can emit
+// this (no generation / Writer support yet).
+EXT(SPV_NV_shader_atomic_fp16_vector)
