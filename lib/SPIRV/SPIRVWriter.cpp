@@ -79,8 +79,6 @@
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/IntrinsicsSPIRV.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/TypedPointerType.h"
@@ -4210,7 +4208,6 @@ bool LLVMToSPIRVBase::isKnownIntrinsic(Intrinsic::ID Id) {
   case Intrinsic::fake_use:
   case Intrinsic::stacksave:
   case Intrinsic::stackrestore:
-  case Intrinsic::spv_named_boolean_spec_constant:
     return true;
   default:
     // Unknown intrinsics' declarations should always be translated
@@ -6442,83 +6439,11 @@ bool isEmptyLLVMModule(Module *M) {
          M->global_empty(); // No global variables
 }
 
-static bool tryAssignPredicateSpecConstIDs(Module &M, Function *F) {
-  StringMap<unsigned> IDs;
-  for (auto &&U : F->users()) {
-    auto *CI = dyn_cast<CallInst>(U);
-    if (!CI)
-      continue;
-
-    auto *SpecID = dyn_cast<ConstantInt>(CI->getArgOperand(0));
-    if (!SpecID)
-      continue;
-
-    unsigned ID = SpecID->getZExtValue();
-    if (ID != UINT32_MAX)
-      continue;
-
-    // Replace placeholder Specialisation Constant IDs with unique IDs
-    // associated with the predicate being evaluated, which is encoded via
-    // spv_assign_name.
-    auto *MD =
-        cast<MDNode>(cast<MetadataAsValue>(CI->getOperand(2))->getMetadata());
-    auto *P = cast<MDString>(MD->getOperand(0));
-
-    ID = IDs.try_emplace(P->getString(), IDs.size()).first->second;
-    CI->setArgOperand(0, ConstantInt::get(CI->getArgOperand(0)->getType(), ID));
-  }
-
-  if (IDs.empty())
-    return false;
-
-  // Store the predicate -> ID mapping as a fixed format string
-  // (predicate ID\0...), for later use during SPIR-V consumption.
-  std::string Tmp;
-  for (auto &&[Predicate, SpecID] : IDs)
-    Tmp.append(Predicate).append(" ").append(utostr(SpecID)).push_back('\0');
-
-  Constant *PredSpecIDStr =
-      ConstantDataArray::getString(M.getContext(), Tmp, false);
-
-  new GlobalVariable(M, PredSpecIDStr->getType(), true,
-                     GlobalVariable::LinkageTypes::ExternalLinkage,
-                     PredSpecIDStr, "llvm.amdgcn.feature.predicate.ids");
-
-  return true;
-}
-
 bool LLVMToSPIRVBase::translate() {
-  if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD) {
+  if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
     BM->setGeneratorVer(UINT16_MAX);
-    // TODO: Currently, for AMDGCN flavoured SPIR-V, the symbol can only be
-    //       inserted via feature predicate use, but in the future this will
-    //       need to be revisited if we start making more liberal use of the
-    //       intrinsic.
-    if (Function *F = Intrinsic::getDeclarationIfExists(
-            M, Intrinsic::spv_named_boolean_spec_constant)) {
-      tryAssignPredicateSpecConstIDs(*M, F);
-      // We re-use existing SpecConstant handling here, it will only make sense
-      // to add custom lowering for the intrinsic when / if we start using the
-      // name metadata.
-      FunctionCallee SCF = M->getOrInsertFunction(
-          "_Z20__spirv_SpecConstant",
-          FunctionType::get(
-              F->getReturnType(),
-              {F->getArg(0)->getType(), F->getArg(1)->getType()}, false));
-      for (auto &&U : make_early_inc_range(F->users())) {
-        if (auto *CI = dyn_cast<CallInst>(U)) {
-          auto *NCI = CallInst::Create(
-              SCF, {CI->getArgOperand(0), CI->getArgOperand(1)}, "",
-              CI->getIterator());
-          CI->replaceAllUsesWith(NCI);
-          CI->dropAllReferences();
-          CI->eraseFromParent();
-        }
-      }
-    }
-  } else {
+  else
     BM->setGeneratorVer(KTranslatorVer);
-  }
 
   if (isEmptyLLVMModule(M))
     BM->addCapability(CapabilityLinkage);
