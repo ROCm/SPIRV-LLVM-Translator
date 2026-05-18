@@ -856,7 +856,10 @@ SPIRVType *LLVMToSPIRVBase::transScavengedType(Value *V) {
                                    SPIRVEC_UnsupportedVarArgFunction);
 
     SPIRVType *RT = transType(FnTy->getReturnType());
-    if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
+    // TODO: Replace this AMD intrinsic-only rewrite to Constant AS with a
+    // generic handling of AS mismatches around `Constant`.
+    if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
+        F->isIntrinsic())
       if (F->getReturnType()->isPtrOrPtrVectorTy())
         RT = transType(F->getReturnType()->getWithNewType(
             PointerType::get(F->getContext(), SPIRAS_Constant)));
@@ -946,10 +949,10 @@ SPIRVFunction *LLVMToSPIRVBase::transFunctionDecl(Function *F) {
       if (!BM->isAllowedToUseExtension(ExtensionID::SPV_EXT_float8) &&
           !BM->isAllowedToUseExtension(ExtensionID::SPV_INTEL_int4) &&
           !BM->isAllowedToUseExtension(ExtensionID::SPV_INTEL_float4)) {
-        std::string ErrorStr =
-            "One of the following extensions: SPV_EXT_float8, SPV_INTEL_float4"
-            "SPV_INTEL_int4 should be enabled to process "
-            "conversion builtins";
+        std::string ErrorStr = "One of the following extensions: "
+                               "SPV_EXT_float8, SPV_INTEL_float4, "
+                               "SPV_INTEL_int4 should be enabled to process "
+                               "conversion builtins";
         getErrorLog().checkError(false, SPIRVEC_RequiresExtension, F, ErrorStr);
       }
       return nullptr;
@@ -1361,6 +1364,15 @@ void LLVMToSPIRVBase::transAuxDataInst(SPIRVValue *BV, Value *V) {
                      : NonSemanticAuxData::GlobalVariableMetadata,
                    transType(Type::getVoidTy(V->getContext())), Ops);
   }
+
+  if (GO->hasAvailableExternallyLinkage()) {
+    auto *I32Ty = BM->addIntegerType(32);
+    auto *LinkageVal =
+        BM->addConstant(I32Ty, NonSemanticAuxData::AvailableExternally);
+    std::vector<SPIRVWord> LinkageOps = {BV->getId(), LinkageVal->getId()};
+    BM->addAuxData(NonSemanticAuxData::Linkage,
+                   transType(Type::getVoidTy(V->getContext())), LinkageOps);
+  }
 }
 
 SPIRVValue *LLVMToSPIRVBase::transConstantUse(Constant *C,
@@ -1434,6 +1446,16 @@ SPIRVValue *LLVMToSPIRVBase::transConstant(Value *V) {
   }
 
   if (auto *ConstFP = dyn_cast<ConstantFP>(V)) {
+    if (V->getType()->isVectorTy()) {
+      SPIRVType *InnerTy = ExpectedType->getScalarType();
+      SPIRVValue *ScalarVal =
+          transConstantUse(ConstantFP::get(V->getType()->getScalarType(),
+                                           ConstFP->getValueAPF()),
+                           InnerTy);
+      unsigned NumElts = cast<FixedVectorType>(V->getType())->getNumElements();
+      std::vector<SPIRVValue *> BV(NumElts, ScalarVal);
+      return BM->addCompositeConstant(ExpectedType, BV);
+    }
     auto *BT = static_cast<SPIRVType *>(ExpectedType);
     return BM->addConstant(
         BT, ConstFP->getValueAPF().bitcastToAPInt().getZExtValue());
@@ -2103,12 +2125,20 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
 
   if (auto *GV = dyn_cast<GlobalVariable>(V)) {
     llvm::Type *Ty = Scavenger->getScavengedType(GV);
-    // Though variables with common linkage type are initialized by 0,
-    // they can be represented in SPIR-V as uninitialized variables with
-    // 'Export' linkage type, just as tentative definitions look in C
-    llvm::Constant *Init = GV->hasInitializer() && !GV->hasCommonLinkage()
-                               ? GV->getInitializer()
-                               : nullptr;
+    // Check whether the global has an initializer for SPIR-V.
+    // Variables with common linkage are represented as uninitialized with
+    // 'Export' linkage, just as tentative definitions look in C.
+    // Undef/poison initializers are dropped unless the variable is constant
+    // with an aggregate type
+    auto HasInit = [](const GlobalVariable *GV) {
+      if (!GV->hasInitializer() || GV->hasCommonLinkage())
+        return false;
+      if (isa<UndefValue>(GV->getInitializer()))
+        return GV->isConstant() &&
+               GV->getInitializer()->getType()->isAggregateType();
+      return true;
+    };
+    llvm::Constant *Init = HasInit(GV) ? GV->getInitializer() : nullptr;
     SPIRVValue *BVarInit = nullptr;
     StructType *ST = Init ? dyn_cast<StructType>(Init->getType()) : nullptr;
     if (ST && ST->hasName() && isSPIRVConstantName(ST->getName())) {
@@ -2367,7 +2397,7 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
     return mapValue(V, BI);
   }
 
-  if (dyn_cast<UnreachableInst>(V))
+  if (isa<UnreachableInst>(V))
     return mapValue(V, BM->addUnreachableInst(BB));
 
   if (auto *RI = dyn_cast<ReturnInst>(V)) {
@@ -5184,9 +5214,10 @@ SPIRVValue *LLVMToSPIRVBase::transIntrinsicInst(IntrinsicInst *II,
   case Intrinsic::invariant_start:
   case Intrinsic::invariant_end:
   case Intrinsic::dbg_label:
-  // llvm.trap and llvm.debugtrap intrinsics are not implemented. But for now
-  // don't crash. This change is pending the trap/abort intrinsic
-  // implementation.
+  // TODO: lower llvm.trap / llvm.ubsantrap / llvm.debugtrap to OpAbortKHR
+  // (with a null/undefined Message) when the SPV_KHR_abort extension is
+  // enabled. For now we silently drop these intrinsics so that the translator
+  // doesn't crash on input that contains them.
   case Intrinsic::trap:
   case Intrinsic::ubsantrap:
   case Intrinsic::debugtrap:
@@ -6380,6 +6411,15 @@ void LLVMToSPIRVBase::transFunction(Function *I) {
     SPIRVBasicBlock *BB =
         static_cast<SPIRVBasicBlock *>(transValue(&FI, nullptr));
     for (auto &BI : FI) {
+      // SPV_KHR_abort: OpAbortKHR is itself a SPIR-V block terminator. Once a
+      // basic block has been terminated by OpAbortKHR, any subsequent LLVM IR
+      // instructions in the same block (typically lifetime intrinsics, a
+      // trailing `unreachable`, or a `ret`) must not be emitted, otherwise
+      // the resulting SPIR-V would have instructions after a block terminator
+      // and fail validation.
+      if (auto *Last = BB->getTerminateInstr();
+          Last && Last->getOpCode() == OpAbortKHR)
+        break;
       transValue(&BI, BB, false);
     }
   }
@@ -6956,6 +6996,16 @@ LLVMToSPIRVBase::transBuiltinToInstWithoutDecoration(Op OC, CallInst *CI,
     auto BArgs = transValue(getArguments(CI), BB);
     return BM->addControlBarrierInst(BArgs[0], BArgs[1], BArgs[2], BB);
   } break;
+  case OpAbortKHR: {
+    if (!BM->checkExtension(ExtensionID::SPV_KHR_abort,
+                            SPIRVEC_RequiresExtension, "SPV_KHR_abort\n"))
+      return nullptr;
+    BM->getErrorLog().checkError(
+        CI->arg_size() == 1, SPIRVEC_InvalidInstruction,
+        "__spirv_AbortKHR must be called with exactly one Message argument\n");
+    auto *Msg = transValue(CI->getArgOperand(0), BB);
+    return BM->addAbortKHRInst(Msg, BB);
+  } break;
   case OpGroupAsyncCopy: {
     auto BArgs = transValue(getArguments(CI), BB);
     return BM->addAsyncGroupCopy(BArgs[0], BArgs[1], BArgs[2], BArgs[3],
@@ -7494,7 +7544,7 @@ LLVMToSPIRVBase::transLinkageType(const GlobalValue *GV) {
       return SPIRVLinkageTypeKind::LinkageTypeLinkOnceODR;
   if (GV->hasWeakAnyLinkage())
     if (BM->isAllowedToUseExtension(ExtensionID::SPV_AMD_weak_linkage))
-      return spv::internal::LinkageTypeWeak;
+      return SPIRVLinkageTypeKind::LinkageTypeWeakAMD;
   return SPIRVLinkageTypeKind::LinkageTypeExport;
 }
 
@@ -7650,7 +7700,8 @@ bool runSpirvBackend(Module *M, std::string &Result, std::string &ErrMsg,
       SPIRV::ExtensionID::SPV_INTEL_function_pointers,
       SPIRV::ExtensionID::SPV_KHR_shader_clock,
       SPIRV::ExtensionID::SPV_KHR_cooperative_matrix,
-      SPIRV::ExtensionID::SPV_KHR_non_semantic_info};
+      SPIRV::ExtensionID::SPV_KHR_non_semantic_info,
+      SPIRV::ExtensionID::SPV_KHR_abort};
   // The fallback for the Triple value.
   static const std::string DefaultTriple = "spirv64-unknown-unknown";
 

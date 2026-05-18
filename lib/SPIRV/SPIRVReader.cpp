@@ -260,6 +260,10 @@ SPIRVErrorLog &SPIRVToLLVM::getErrorLog() { return BM->getErrorLog(); }
 void SPIRVToLLVM::setCallingConv(CallInst *Call) {
   Function *F = Call->getCalledFunction();
   assert(F && "Function pointers are not allowed in SPIRV");
+
+  if (M->getTargetTriple().isAMDGCN() &&
+      F->getCallingConv() == CallingConv::AMDGPU_KERNEL)
+    return Call->setCallingConv(CallingConv::C); // This is a stub call.
   Call->setCallingConv(F->getCallingConv());
 }
 
@@ -1259,8 +1263,7 @@ static void applyNoIntegerWrapDecorations(const SPIRVValue *BV,
 
 void SPIRVToLLVM::applyFPFastMathModeDecorations(const SPIRVValue *BV,
                                                  Instruction *Inst) {
-  if (!isa<FPMathOperator>(Inst) &&
-      (!M->getTargetTriple().isAMDGCN() || !isa<CallBase>(Inst)))
+  if (!isa<FPMathOperator>(Inst))
     return;
 
   SPIRVWord V{0};
@@ -2084,6 +2087,21 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
                                transValue(RV->getReturnValue(), F, BB), BB));
   }
 
+  case OpAbortKHR: {
+    // OpAbortKHR is a SPIR-V block terminator. In LLVM IR, model it as a call
+    // to the SPIR-V friendly builtin __spirv_AbortKHR followed by an
+    // 'unreachable' terminator.
+    auto *AbortInst =
+        transSPIRVBuiltinFromInst(static_cast<SPIRVAbortKHR *>(BV), BB);
+    if (auto *Call = dyn_cast<CallInst>(AbortInst)) {
+      Call->setDoesNotReturn();
+      if (auto *Callee = Call->getCalledFunction())
+        Callee->setDoesNotReturn();
+    }
+    new UnreachableInst(*Context, BB);
+    return mapValue(BV, AbortInst);
+  }
+
   case OpLifetimeStart: {
     SPIRVLifetimeStart *LTStart = static_cast<SPIRVLifetimeStart *>(BV);
     IRBuilder<> Builder(BB);
@@ -2827,19 +2845,42 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
   case OpFunctionCall: {
     SPIRVFunctionCall *BC = static_cast<SPIRVFunctionCall *>(BV);
     std::vector<Value *> Args = transValue(BC->getArgumentValues(), F, BB);
-    if (M->getTargetTriple().isAMDGCN() && Args.size() == 1 &&
-        (BC->getFunction()->getName() == "llvm.amdgcn.is.shared" ||
-         BC->getFunction()->getName() == "llvm.amdgcn.is.private")) {
-      if (BC->getArgumentValues().front()->getType()->getPointerStorageClass()
-          != StorageClassGeneric) {
-        auto *PTy = PointerType::get(
-            F->getContext(), mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric));
-        Args[0] =
-            CastInst::CreatePointerBitCastOrAddrSpaceCast(Args[0], PTy, "", BB);
+    Function *Callee = transFunction(BC->getFunction());
+    if (M->getTargetTriple().isAMDGCN()) {
+      if (isKernel(BC->getFunction())) {
+        // In HIPSTDPAR mode we sometimes get some host side calls that have not
+        // yet been pruned (this happens later on reverse translated AMDGPU LLVM
+        // IR); whilst these are essentially dead, we should generate valid IR
+        // nonetheless, and this might require inserting an AS cast.
+        // TODO: we should only do this for HIPSTDPAR modules; this is a
+        //       temporary workaround.
+        std::transform(
+          Callee->arg_begin(), Callee->arg_end(), Args.begin(), Args.begin(),
+          [BB](auto &&Formal, auto &&Actual) {
+          if (!Formal.getType()->isPointerTy())
+            return Actual;
+
+          if (Formal.getType()->getPointerAddressSpace() ==
+              Actual->getType()->getPointerAddressSpace())
+            return Actual;
+
+          return cast<Value>(CastInst::CreatePointerBitCastOrAddrSpaceCast(
+              Actual, Formal.getType(), "", BB));
+        });
+      } else if (Args.size() == 1 &&
+                 (BC->getFunction()->getName() == "llvm.amdgcn.is.shared" ||
+                  BC->getFunction()->getName() == "llvm.amdgcn.is.private")) {
+        if (BC->getArgumentValues().front()->getType()->getPointerStorageClass()
+            != StorageClassGeneric) {
+          auto *PTy = PointerType::get(
+              F->getContext(), mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric));
+          Args[0] =
+              CastInst::CreatePointerBitCastOrAddrSpaceCast(Args[0], PTy, "",
+                                                            BB);
+        }
       }
     }
-    auto *Call = CallInst::Create(transFunction(BC->getFunction()), Args,
-                                  BC->getName(), BB);
+    auto *Call = CallInst::Create(Callee, Args, BC->getName(), BB);
     setCallingConv(Call);
     setAttrByCalledFunc(Call);
     applyFPFastMathModeDecorations(BV, Call);
@@ -2933,6 +2974,10 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     case SPIRVEIS_NonSemantic_Shader_DebugInfo_100:
     case SPIRVEIS_NonSemantic_Shader_DebugInfo_200:
       DbgTran->transDebugIntrinsic(ExtInst, BB);
+      return mapValue(BV, nullptr);
+    case SPIRVEIS_NonSemantic_Unknown:
+      // Non-semantic instruction sets unknown to the translator are
+      // silently skipped.
       return mapValue(BV, nullptr);
     default:
       llvm_unreachable("Unknown extended instruction set!");
@@ -3836,17 +3881,28 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
   // The name mangling here is broken, as it'd have used the SPIR-V AS Map, so
   // we have to fix it here and call the intrinsic.
   // TODO: maybe handle memcpy_inline and memcpy_atomic.
-  if (M->getTargetTriple().isAMDGCN() &&
-      FuncNameRef.starts_with("spirv.llvm_memcpy_p")) {
-    Type *DstPtrTy = FT->getParamType(0);
-    Type *SrcPtrTy = FT->getParamType(1);
-    Type *SizeTy = FT->getParamType(2);
-    Function *F =
-        Intrinsic::getOrInsertDeclaration(M, Intrinsic::memcpy,
-                                          {DstPtrTy, SrcPtrTy, SizeTy});
-    F = cast<Function>(mapValue(BF, F));
-    mapFunction(BF, F);
-    return F;
+  // TODO: uplift and unify intrinsic handling, we cannot keep going case by
+  //       case.
+  if (M->getTargetTriple().isAMDGCN()) {
+    if (FuncNameRef.starts_with("spirv.llvm_memcpy_p")) {
+      Type *DstPtrTy = FT->getParamType(0);
+      Type *SrcPtrTy = FT->getParamType(1);
+      Type *SizeTy = FT->getParamType(2);
+      Function *F =
+          Intrinsic::getOrInsertDeclaration(M, Intrinsic::memcpy,
+                                            {DstPtrTy, SrcPtrTy, SizeTy});
+      F = cast<Function>(mapValue(BF, F));
+      mapFunction(BF, F);
+      return F;
+    } else if (FuncNameRef.starts_with("spirv.llvm_ptrmask_p")) {
+      Type *PtrTy = FT->getParamType(0);
+      Type *MaskTy = FT->getParamType(1);
+      Function *F = Intrinsic::getOrInsertDeclaration(M, Intrinsic::ptrmask,
+                                                      {PtrTy, MaskTy});
+      F = cast<Function>(mapValue(BF, F));
+      mapFunction(BF, F);
+      return F;
+    }
   }
 
   // Special handling for spirv.llvm_umul_with_overflow_* functions
@@ -3922,8 +3978,18 @@ CallInst *SPIRVToLLVM::transAsmCallINTEL(SPIRVAsmCallINTEL *BI, Function *F,
   assert(BI);
   auto *IA = cast<InlineAsm>(transValue(BI->getAsm(), F, BB));
   auto Args = transValue(BM->getValues(BI->getArguments()), F, BB);
-  return CallInst::Create(cast<FunctionType>(IA->getFunctionType()), IA, Args,
-                          BI->getName(), BB);
+  // For memory constraints (*m) we have to retrieve the pointee type and encode
+  // it as the elementtype attribute.
+  auto *FTy = cast<FunctionType>(IA->getFunctionType());
+  auto *CI = CallInst::Create(FTy, IA, Args, BI->getName(), BB);
+  for (unsigned I = 0u; I != Args.size(); ++I) {
+    if (!Args[I]->getType()->isPointerTy() || CI->getParamElementType(I))
+      continue;
+    auto *ElTy = transType(
+        BM->getValueType(BI->getArguments()[I])->getPointerElementType());
+    CI->addParamAttr(I, Attribute::get(*Context, Attribute::ElementType, ElTy));
+  }
+  return CI;
 }
 
 /// LLVM convert builtin functions is translated to two instructions:
@@ -4161,6 +4227,10 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
   } else {
     Call = CallInst::Create(Func, transValue(Ops, BB->getParent(), BB), "", BB);
   }
+  if (getImageOperandsIndex(OC) != ~0U &&
+      static_cast<SPIRVImageInstBase *>(BI)->hasImageOperand(
+          ImageOperandsMask::ImageOperandsNontemporalMask))
+    transNonTemporalMetadata(Call);
   setName(Call, BI);
   setAttrByCalledFunc(Call);
   SPIRVDBG(spvdbgs() << "[transInstToBuiltinCall] " << *BI << " -> ";
@@ -5164,7 +5234,10 @@ SPIRVToLLVM::transOCLImageTypeAccessQualifier(SPIRV::SPIRVTypeImage *ST) {
 bool SPIRVToLLVM::transNonTemporalMetadata(Instruction *I) {
   Constant *One = ConstantInt::get(Type::getInt32Ty(*Context), 1);
   MDNode *Node = MDNode::get(*Context, ConstantAsMetadata::get(One));
-  I->setMetadata(M->getMDKindID("nontemporal"), Node);
+  if (isa<LoadInst>(I) || isa<StoreInst>(I))
+    I->setMetadata(LLVMContext::MD_nontemporal, Node);
+  else
+    I->setMetadata("spirv.nontemporal", Node);
   return true;
 }
 
@@ -6108,18 +6181,28 @@ void SPIRVToLLVM::transAuxDataInst(SPIRVExtInst *BC) {
   assert(BC->getExtSetKind() == SPIRV::SPIRVEIS_NonSemantic_AuxData);
   if (!BC->getModule()->preserveAuxData())
     return;
+  switch (BC->getExtOp()) {
+  case NonSemanticAuxData::FunctionAttribute:
+  case NonSemanticAuxData::GlobalVariableAttribute:
+  case NonSemanticAuxData::FunctionMetadata:
+  case NonSemanticAuxData::GlobalVariableMetadata:
+  case NonSemanticAuxData::Linkage:
+    break;
+  default:
+    return;
+  }
   auto Args = BC->getArguments();
-  // Args 0 and 1 are common between attributes and metadata.
-  // 0 is the global object, 1 is the name of the attribute/metadata as a string
+  // Arg 0 is common to all instructions in this set: it identifies the
+  // global object the auxiliary data is attached to.
   auto *Arg0 = BC->getModule()->getValue(Args[0]);
   auto *GO = cast<GlobalObject>(getTranslatedValue(Arg0));
   auto *F = dyn_cast<Function>(GO);
   auto *GV = dyn_cast<GlobalVariable>(GO);
   assert((F || GV) && "Value should already have been translated!");
-  auto AttrOrMDName = BC->getModule()->get<SPIRVString>(Args[1])->getStr();
   switch (BC->getExtOp()) {
   case NonSemanticAuxData::FunctionAttribute:
   case NonSemanticAuxData::GlobalVariableAttribute: {
+    auto AttrOrMDName = BC->getModule()->get<SPIRVString>(Args[1])->getStr();
     assert(Args.size() < 4 && "Unexpected FunctionAttribute Args");
     // Skip target-specific attributes so they won't conflict with attributes
     // that can be set later during compilation.
@@ -6159,6 +6242,7 @@ void SPIRVToLLVM::transAuxDataInst(SPIRVExtInst *BC) {
   }
   case NonSemanticAuxData::FunctionMetadata:
   case NonSemanticAuxData::GlobalVariableMetadata: {
+    auto AttrOrMDName = BC->getModule()->get<SPIRVString>(Args[1])->getStr();
     // If this metadata was specially handled and added elsewhere, skip it.
     if (GO->hasMetadata(AttrOrMDName))
       return;
@@ -6180,8 +6264,23 @@ void SPIRVToLLVM::transAuxDataInst(SPIRVExtInst *BC) {
     GO->setMetadata(AttrOrMDName, MDNode::get(*Context, MetadataArgs));
     break;
   }
+  case NonSemanticAuxData::Linkage: {
+    auto *LinkageConst =
+        static_cast<SPIRVConstant *>(BC->getModule()->get<SPIRVValue>(Args[1]));
+    switch (LinkageConst->getZExtIntValue()) {
+    case NonSemanticAuxData::AvailableExternally:
+      GO->setLinkage(GlobalValue::AvailableExternallyLinkage);
+      break;
+    default:
+      LLVM_DEBUG(dbgs() << "Unknown NonSemanticAuxDataLinkage value '"
+                        << LinkageConst->getZExtIntValue() << "' on '"
+                        << GO->getName() << "'; ignoring instruction.\n");
+      break;
+    }
+    break;
+  }
   default:
-    llvm_unreachable("Invalid op");
+    break;
   }
 }
 
@@ -6269,16 +6368,18 @@ SPIRVToLLVM::transLinkageType(const SPIRVValue *V) {
       if (static_cast<const SPIRVVariable *>(V)->getStorageClass() ==
           StorageClassWorkgroup &&
           (!V->getType()->isTypeArray() ||
-           V->getType()->getArrayLength() != UINT32_MAX))
+           (V->getType()->getArrayLength() != UINT32_MAX &&
+            V->getType()->getArrayLength() != UINT64_MAX)))
         return GlobalValue::InternalLinkage;
-      if (static_cast<const SPIRVVariable *>(V)->getInitializer() == 0)
+      if (!static_cast<const SPIRVVariable *>(V)->getInitializer() &&
+          !static_cast<const SPIRVVariable *>(V)->isConstant())
         // Tentative definition
         return GlobalValue::CommonLinkage;
     }
     return GlobalValue::ExternalLinkage;
   case LinkageTypeLinkOnceODR:
     return GlobalValue::LinkOnceODRLinkage;
-  case internal::LinkageTypeWeak:
+  case LinkageTypeWeakAMD:
     return GlobalValue::WeakAnyLinkage;
   default:
     llvm_unreachable("Invalid linkage type");

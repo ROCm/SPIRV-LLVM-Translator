@@ -58,7 +58,7 @@ template <> inline void SPIRVMap<LinkageType, std::string>::init() {
   add(LinkageTypeExport, "Export");
   add(LinkageTypeImport, "Import");
   add(LinkageTypeLinkOnceODR, "LinkOnceODR");
-  add(internal::LinkageTypeWeak, "Weak");
+  add(LinkageTypeWeakAMD, "WeakAMD");
   add(internal::LinkageTypeInternal, "Internal");
   add(LinkageTypeMax, "Max");
 }
@@ -475,6 +475,7 @@ template <> inline void SPIRVMap<Capability, std::string>::init() {
   add(CapabilityFragmentMaskAMD, "FragmentMaskAMD");
   add(CapabilityStencilExportEXT, "StencilExportEXT");
   add(CapabilityImageReadWriteLodAMD, "ImageReadWriteLodAMD");
+  add(CapabilityWeakLinkageAMD, "WeakLinkageAMD");
   add(CapabilityInt64ImageEXT, "Int64ImageEXT");
   add(CapabilityShaderClockKHR, "ShaderClockKHR");
   add(CapabilitySampleMaskOverrideCoverageNV, "SampleMaskOverrideCoverageNV");
@@ -660,6 +661,8 @@ template <> inline void SPIRVMap<Capability, std::string>::init() {
       "SubgroupMatrixMultiplyAccumulateINTEL");
   add(CapabilityTernaryBitwiseFunctionINTEL, "TernaryBitwiseFunctionINTEL");
   add(CapabilityFMAKHR, "FMAKHR");
+  add(CapabilityPredicatedIOINTEL, "PredicatedIOINTEL");
+  add(CapabilityAbortKHR, "AbortKHR");
   // From spirv_internal.hpp
   add(internal::CapabilityTokenTypeINTEL, "TokenTypeINTEL");
   add(internal::CapabilityHWThreadQueryINTEL, "HWThreadQueryINTEL");
@@ -693,7 +696,6 @@ template <> inline void SPIRVMap<Capability, std::string>::init() {
   add(internal::CapabilityBFloat16ArithmeticINTEL, "BFloat16ArithmeticINTEL");
   add(CapabilityFloat8EXT, "Float8EXT");
   add(CapabilityFloat8CooperativeMatrixEXT, "Float8CooperativeMatrixEXT");
-  add(internal::CapabilityPredicatedIOINTEL, "PredicatedIOINTEL");
   add(internal::CapabilitySigmoidINTEL, "SigmoidINTEL");
   add(internal::CapabilityDeviceBarrierINTEL, "DeviceBarrierINTEL");
   add(internal::CapabilityFloat4E2M1INTEL, "Float4E2M1INTEL");

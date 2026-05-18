@@ -2,8 +2,10 @@ name: Merge Upstream
 
 on:
   schedule:
-    # 7am, 3pm, 11pm EST (12:00, 20:00, 04:00 UTC)
-    - cron: '0 4,12,20 * * *'
+    # Weekdays at 08:07 UTC — ~9am CET / 10am CEST, start-of-day for
+    # Central Europe reviewers. Overnight in the US so PRs are ready to
+    # land first thing. Off-the-hour to avoid cron-fleet pile-ups.
+    - cron: '7 8 * * 1-5'
   workflow_dispatch: # Allow manual triggering
 
 concurrency:
@@ -18,12 +20,19 @@ jobs:
   merge-upstream:
     runs-on: ubuntu-latest
     steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.MERGE_APP_ID }}
+          private-key: ${{ secrets.MERGE_APP_PRIVATE_KEY }}
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: amd-staging
           fetch-depth: 0
-          token: ${{ secrets.PAT_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Configure git
         run: |
@@ -88,13 +97,14 @@ jobs:
         id: create-pr
         if: steps.merge.outputs.conflict == 'false'
         env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           PR_URL=$(gh pr create \
             --repo ${{ github.repository }} \
             --base amd-staging \
             --head ${{ steps.merge.outputs.branch }} \
             --title "${{ steps.merge.outputs.pr_title }}" \
+            --reviewer maarquitos14,MrSidims,AlexVlx,lamb-j,steffenlarsen,mgcarrasco \
             --body "$(cat <<'EOF'
           Automated merge of upstream KhronosGroup/SPIRV-LLVM-Translator main branch.
 

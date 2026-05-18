@@ -66,6 +66,7 @@ concurrency:
 
 jobs:
   setup:
+    if: ${{ github.repository == 'ROCm/SPIRV-LLVM-Translator' }}
     uses: ./.github/workflows/setup.yml
     with:
       build_variant: "release"
