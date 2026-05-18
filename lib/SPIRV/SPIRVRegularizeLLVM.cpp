@@ -51,6 +51,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Transforms/Utils/LowerMemIntrinsics.h" // expandMemSetAsLoop()
 
 #include <set>
@@ -617,16 +618,25 @@ bool tryAssignPredicateSpecConstIDs(Function *F) {
   StringMap<unsigned> IDs;
   for (auto &&U : F->users()) {
     auto *CI = dyn_cast<CallInst>(U);
-    if (!CI)
-      continue;
+    if (!CI) {
+      llvm::reportFatalUsageError("spv_named_boolean_spec_constant should be "
+                                  "called!");
+      return false;
+    }
 
     auto *SpecID = dyn_cast<ConstantInt>(CI->getArgOperand(0));
-    if (!SpecID)
-      continue;
+    if (!SpecID) {
+      llvm::reportFatalUsageError("The Specialisation Constant ID should be a "
+                                  "constant integer!");
+      return false;
+    }
 
     unsigned ID = SpecID->getZExtValue();
-    if (ID != UINT32_MAX)
-      continue;
+    if (ID != UINT32_MAX) {
+      llvm::reportFatalUsageError("The only valid Specialisation Constant ID is"
+                                  " UINT32_MAX!");
+      return false;
+    }
 
     // Replace placeholder Specialisation Constant IDs with unique IDs
     // associated with the predicate being evaluated, which is encoded via
