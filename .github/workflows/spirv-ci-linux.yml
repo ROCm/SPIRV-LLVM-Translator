@@ -98,20 +98,106 @@ jobs:
       - name: Build Comgr
         run: ninja -C build-comgr amd_comgr
 
+      # ---- In-pipeline HIP runtime build ----------------------------------
+      # Builds ROCR-Runtime (libhsa-runtime64.so) and CLR (libamdhip64.so)
+      # against the just-built clang, plus installs comgr + device-libs into
+      # the same staging tree. Result: a self-contained ROCm install layout
+      # under `staging/` that PR clang can target via `--rocm-path` to
+      # compile and run HIP for `--offload-arch=amdgcnspirv`.
+      #
+      # Why in-pipeline (vs pulling a prebuilt nightly tarball): TheRock's
+      # public `therock-nightly-tarball` bucket only publishes consumer
+      # (dgpu) families on a daily cadence; gfx94X / gfx950 (dcgpu) tarballs
+      # stopped Oct 2025, and TheRock's own multi-arch CI for those families
+      # builds the runtime in-pipeline for the same reason.
+      - name: Install build deps for runtime build
+        run: |
+          dnf install -y --setopt=install_weak_deps=False \
+            numactl-devel elfutils-libelf-devel libdrm-devel || true
+
+      - name: Install comgr + device-libs into staging
+        # CMake `--install` lays them out under <prefix>/include/amd_comgr,
+        # <prefix>/lib/cmake/amd_comgr, <prefix>/amdgcn/bitcode/ — the
+        # installed-tree layout that clang's `--rocm-path` and CLR's
+        # find_package(amd_comgr) both expect. Build-dir layouts won't do.
+        run: |
+          cmake --install build-comgr --prefix $PWD/staging
+          cmake --install build-device-libs --prefix $PWD/staging
+
+      - name: Checkout rocm-systems (pinned)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ROCm/rocm-systems
+          ref: 8bb3b73c117e5630106540447268ccad771906a4 # develop, 2026-05-15
+          path: rocm-systems
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout rocm-cmake (pinned)
+        # Provides ROCM cmake modules (ROCMConfig) that CLR's build needs.
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ROCm/rocm-cmake
+          ref: 4d391d7bda62a0f476dbadb383e99f4508c7415d # develop, 2026-05-12
+          path: rocm-cmake
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Configure ROCR-Runtime
+        # LLVM_DIR/Clang_DIR are explicit because rocr-runtime's
+        # trap_handler/CMakeLists.txt does find_package(Clang) and will
+        # otherwise grab a stale system-installed clang config.
+        run: |
+          cmake -G Ninja -S rocm-systems/projects/rocr-runtime -B build-rocr \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=$PWD/build/bin/clang \
+            -DCMAKE_CXX_COMPILER=$PWD/build/bin/clang++ \
+            -DBUILD_SHARED_LIBS=ON \
+            -DCMAKE_INSTALL_PREFIX=$PWD/staging \
+            -DLLVM_DIR=$PWD/build/lib/cmake/llvm \
+            -DClang_DIR=$PWD/build/lib/cmake/clang
+
+      - name: Build ROCR-Runtime
+        run: ninja -C build-rocr install
+
+      - name: Configure CLR (HIP runtime)
+        # ROCM_KPACK_ENABLED, HIP_ENABLE_ROCPROFILER_REGISTER, HIPCC_BIN_DIR=
+        # are explicit-disable knobs for optional deps we don't need; without
+        # them the configure errors out with REQUIRED-not-found.
+        run: |
+          cmake -G Ninja -S rocm-systems/projects/clr -B build-clr \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=$PWD/build/bin/clang \
+            -DCMAKE_CXX_COMPILER=$PWD/build/bin/clang++ \
+            -DBUILD_SHARED_LIBS=ON \
+            -DCMAKE_INSTALL_PREFIX=$PWD/staging \
+            -DCMAKE_PREFIX_PATH="$PWD/staging;$PWD/build;$PWD/rocm-cmake/share/rocm" \
+            -DHIP_PLATFORM=amd \
+            -DHIP_COMMON_DIR=$PWD/rocm-systems/projects/hip \
+            -DCLR_BUILD_HIP=ON \
+            -DROCM_KPACK_ENABLED=OFF \
+            -DHIP_ENABLE_ROCPROFILER_REGISTER=OFF \
+            -DHIPCC_BIN_DIR=
+
+      - name: Build CLR
+        run: ninja -C build-clr install
+
       # ---- Strip + upload artifact -----------------------------------------
       # Strip binaries to keep the artifact under GHA's 10GB cap and shorten
       # upload/download time. Tests don't need debug symbols. `--strip-unneeded`
       # preserves dynamic symbols needed at link/load time.
       - name: Strip binaries
         run: |
-          find build build-comgr build-device-libs \
+          find build build-comgr build-device-libs build-rocr build-clr staging \
             -type f \( -executable -o -name '*.so*' -o -name '*.a' \) \
             -exec strip --strip-unneeded {} + 2>/dev/null || true
 
       # Tar before upload: actions/upload-artifact@v4 strips +x bits and
       # excludes hidden files (loses FetchContent .git dirs).
       - name: Tar build trees
-        run: tar -cf linux-build-tree.tar build build-comgr build-device-libs
+        run: |
+          tar -cf linux-build-tree.tar \
+            build build-comgr build-device-libs build-rocr build-clr staging
 
       - name: Upload build tree artifact
         uses: actions/upload-artifact@v4
@@ -399,3 +485,62 @@ jobs:
         env:
           AMD_COMGR_REDIRECT_LOGS: stderr
         run: ctest --test-dir build-comgr --output-on-failure --rerun-failed
+
+  # =====================================================================
+  # Test - rocm-examples (compile + run hello-world via amdgcnspirv)
+  # =====================================================================
+  # Drives PR clang through the SPIRV translator on a real HIP example
+  # and JIT-runs the SPIR-V on a gfx942 GPU. Catches translator/codegen
+  # bugs that pass lit but fail at runtime kernel-load. Informational
+  # initially; promote to required once stable.
+  test_rocm_examples:
+    name: Test rocm-examples
+    needs: build
+    runs-on: linux-gfx942-1gpu-ossci-rocm
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout rocm-examples (pinned)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ROCm/rocm-examples
+          ref: b4ee9992e851a078c99d93de59d6142a51f5e3a1 # develop, 2025-02-21
+          path: rocm-examples
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Download build tree artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build-tree
+
+      - name: Untar build trees
+        run: tar -xmf linux-build-tree.tar
+
+      - name: Compile hello-world via amdgcnspirv
+        # `--rocm-path=$STAGING` lets PR clang find headers + device-libs
+        # + runtime libs from the in-pipeline-built ROCm tree. `-lhsa-runtime64`
+        # is needed explicitly: the executable link doesn't pull it in
+        # transitively from libamdhip64.so.
+        run: |
+          STAGING=$PWD/staging
+          $PWD/build/bin/clang++ -std=c++17 \
+            -x hip --offload-arch=amdgcnspirv \
+            --rocm-path=$STAGING \
+            -I rocm-examples/Common \
+            -L $STAGING/lib -lamdhip64 -lhsa-runtime64 \
+            -o hello_world \
+            rocm-examples/HIP-Basic/hello_world/main.hip
+
+      - name: Run hello-world
+        run: |
+          STAGING=$PWD/staging
+          LD_LIBRARY_PATH=$STAGING/lib ./hello_world | tee run.log
+
+      - name: Check expected output
+        # hello-world prints fixed host + device greetings. Exact line
+        # ordering between blocks is non-deterministic but the set is fixed.
+        run: |
+          grep -q "^Hello world from host!" run.log
+          grep -q "^Hello world from device kernel block 0 thread 0!" run.log
+          grep -q "^Hello world from device kernel block 1 thread 1!" run.log
