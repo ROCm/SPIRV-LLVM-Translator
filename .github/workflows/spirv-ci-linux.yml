@@ -454,17 +454,17 @@ jobs:
         run: tar -xmf linux-build-tree.tar
 
       - name: Compile hello-world via amdgcnspirv
-        # `--rocm-path=$STAGING` lets PR clang find headers + device-libs
-        # + runtime libs from the in-pipeline-built ROCm tree. `-lhsa-runtime64`
-        # is needed explicitly: the executable link doesn't pull it in
-        # transitively from libamdhip64.so.
+        # LIBRARY_PATH covers clang-linker-wrapper's own lib search (it doesn't
+        # inherit -L from the driver). -L covers the host linker.
+        # -Wl,-rpath bakes the runtime path into the binary.
         run: |
           STAGING=$PWD/staging
-          $PWD/build/bin/clang++ -std=c++17 \
+          LIBRARY_PATH=$STAGING/lib $PWD/build/bin/clang++ -std=c++17 \
             -x hip --offload-arch=amdgcnspirv \
             --rocm-path=$STAGING \
             -I rocm-examples/Common \
-            -L $STAGING/lib -lamdhip64 -lhsa-runtime64 \
+            -L $STAGING/lib -Wl,-rpath,$STAGING/lib \
+            -lamdhip64 -lhsa-runtime64 \
             -o hello_world \
             rocm-examples/HIP-Basic/hello_world/main.hip
 
