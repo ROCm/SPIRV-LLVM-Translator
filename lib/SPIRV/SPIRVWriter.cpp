@@ -839,6 +839,16 @@ SPIRVType *LLVMToSPIRVBase::transSPIRVOpaqueType(StringRef STName,
         BM->addOpaqueGenericType(SPIRVOpaqueTypeOpCodeMap::map(TN)));
 }
 
+static inline Type *getPointeeTypeByAttr(Argument &Arg) {
+  if (Arg.hasByValAttr())
+    return Arg.getParamByValType();
+  if (Arg.hasStructRetAttr())
+    return Arg.getParamStructRetType();
+  if (Arg.hasByRefAttr())
+    return Arg.getParamByRefType();
+  return nullptr;
+}
+
 SPIRVType *LLVMToSPIRVBase::transScavengedType(Value *V) {
   if (auto *F = dyn_cast<Function>(V)) {
     FunctionType *FnTy = Scavenger->getFunctionType(F);
@@ -871,17 +881,22 @@ SPIRVType *LLVMToSPIRVBase::transScavengedType(Value *V) {
       if (!Ty) {
         Ty = FnTy->getParamType(Arg.getArgNo());
       }
-      // Preserve element type for byval/sret arguments even when
-      // SPV_KHR_untyped_pointers is enabled. Losing pointee type would make it
-      // impossible to reconstruct the original parameter and will lead to
-      // OpenCL runtime failure due to mismatched memory object semantics.
+      // Preserve element type for byval/byref(for AMDGPU)/sret arguments even
+      // when SPV_KHR_untyped_pointers is enabled. Losing pointee type would
+      // make it impossible to reconstruct the original parameter and will lead
+      // to OpenCL runtime failure due to mismatched memory object semantics.
       if (BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_untyped_pointers) &&
-          (Arg.hasByValAttr() || Arg.hasStructRetAttr())) {
-        TypedPointerType *TPT = cast<TypedPointerType>(Ty);
-        auto *NewType = BM->addPointerType(
-            SPIRSPIRVAddrSpaceMap::map(
-                static_cast<SPIRAddressSpace>(TPT->getAddressSpace())),
-            transType(TPT->getElementType()));
+          (Arg.hasByValAttr() || Arg.hasStructRetAttr() ||
+           (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
+            Arg.hasByRefAttr()))) {
+        Type *ElTy = getPointeeTypeByAttr(Arg);
+
+        assert(ElTy && "Invalid Argument!");
+
+        auto AS = static_cast<SPIRAddressSpace>(
+            Arg.getType()->getPointerAddressSpace());
+        auto *NewType = BM->addPointerType(SPIRSPIRVAddrSpaceMap::map(AS),
+                                           transType(ElTy));
         PT.push_back(NewType);
         continue;
       } else if (M->getTargetTriple().getVendor() == Triple::AMD) {
@@ -995,7 +1010,9 @@ SPIRVFunction *LLVMToSPIRVBase::transFunctionDecl(Function *F) {
     SPIRVFunctionParameter *BA = BF->getArgument(ArgNo);
     if (I->hasName())
       BM->setName(BA, I->getName().str());
-    if (I->hasByValAttr())
+    if (I->hasByValAttr() ||
+        (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
+         I->hasByRefAttr()))
       BA->addAttr(FunctionParameterAttributeByVal);
     if (I->hasNoAliasAttr())
       BA->addAttr(FunctionParameterAttributeNoAlias);
@@ -2288,7 +2305,9 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
     auto *SPVArg = BF->getArgument(ArgNo);
 
     if (BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_untyped_pointers) &&
-        (Arg->hasByValAttr() || Arg->hasStructRetAttr()) &&
+        (Arg->hasByValAttr() || Arg->hasStructRetAttr() ||
+         (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
+          Arg->hasByRefAttr())) &&
         SPVArg->getType()->isTypePointer() &&
         !SPVArg->getType()->isTypeUntypedPointerKHR()) {
       // When SPV_KHR_untyped_pointers extension is enabled, bitcast typed
