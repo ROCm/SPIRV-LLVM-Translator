@@ -521,13 +521,22 @@ jobs:
       - name: Untar build trees
         run: tar -xmf linux-build-tree.tar
 
-      - name: Compile hello-world via amdgcnspirv
-        # LIBRARY_PATH covers clang-linker-wrapper's own lib search (it doesn't
-        # inherit -L from the driver). -L covers the host linker.
-        # -Wl,-rpath bakes the runtime path into the binary.
+      - name: Debug - inspect staging tree
         run: |
           STAGING=$PWD/staging
-          LIBRARY_PATH=$STAGING/lib $PWD/build/bin/clang++ -std=c++17 \
+          echo "=== staging/lib (amdhip64 + hsa-runtime) ==="
+          ls -la $STAGING/lib/ | grep -E "amdhip64|hsa-runtime|amd_comgr" || true
+          echo "=== staging/ top-level ==="
+          ls $STAGING/
+          echo "=== are there any other libdirs (lib64, etc)? ==="
+          find $STAGING -maxdepth 2 -name "lib*" -type d 2>/dev/null
+
+      - name: Compile hello-world via amdgcnspirv
+        # -v surfaces what clang-linker-wrapper is invoked with so we can see
+        # whether -L gets forwarded. LIBRARY_PATH covers its own lib search.
+        run: |
+          STAGING=$PWD/staging
+          LIBRARY_PATH=$STAGING/lib $PWD/build/bin/clang++ -v -std=c++17 \
             -x hip --offload-arch=amdgcnspirv \
             --rocm-path=$STAGING \
             -I rocm-examples/Common \
