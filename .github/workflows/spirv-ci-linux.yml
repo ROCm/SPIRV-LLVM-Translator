@@ -190,6 +190,15 @@ jobs:
       - name: Build CLR
         run: ninja -C build-clr install
 
+      - name: Stage translator binary for runtime SPIRV JIT
+        # HIP runtime calls Comgr at kernel-launch to translate the embedded
+        # SPIR-V to AMDGPU code. Comgr looks for the translator at
+        # <libamd_comgr.so dir>/../bin/amd-llvm-spirv. Copy it (and the
+        # llvm-spirv symlink) from the LLVM build dir into staging/bin/.
+        run: |
+          mkdir -p staging/bin
+          cp -a build/bin/amd-llvm-spirv build/bin/llvm-spirv staging/bin/
+
       # ---- Strip + upload artifact -----------------------------------------
       # Strip binaries to keep the artifact under GHA's 10GB cap and shorten
       # upload/download time. Tests don't need debug symbols. `--strip-unneeded`
