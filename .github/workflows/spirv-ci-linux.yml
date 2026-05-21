@@ -472,9 +472,13 @@ jobs:
             rocm-examples/HIP-Basic/hello_world/main.hip
 
       - name: Run hello-world
+        # AMD_LOG_LEVEL=3 + HIP_LAUNCH_BLOCKING=1: diagnostic. Surfaces whether
+        # the kernel actually launches and whether hipDeviceSynchronize returns
+        # cleanly. Remove once the rocm-examples flow is stable.
         run: |
           STAGING=$PWD/staging
-          LD_LIBRARY_PATH=$STAGING/lib ./hello_world | tee run.log
+          AMD_LOG_LEVEL=3 HIP_LAUNCH_BLOCKING=1 \
+            LD_LIBRARY_PATH=$STAGING/lib ./hello_world 2>&1 | tee run.log
 
       - name: Check expected output
         # hello-world prints fixed host + device greetings. Exact line
