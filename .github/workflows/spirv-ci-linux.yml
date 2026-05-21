@@ -480,12 +480,15 @@ jobs:
             rocm-examples/HIP-Basic/hello_world/main.hip
 
       - name: Run hello-world
-        # AMD_LOG_LEVEL=3 + HIP_LAUNCH_BLOCKING=1: diagnostic. Surfaces whether
-        # the kernel actually launches and whether hipDeviceSynchronize returns
-        # cleanly. Remove once the rocm-examples flow is stable.
+        # Diagnostic mode while we stabilize the SPIR-V JIT path:
+        # AMD_LOG_LEVEL=3 + HIP_LAUNCH_BLOCKING=1: HIP runtime trace
+        # AMD_COMGR_REDIRECT_LOGS=stderr: surface comgr's "spirv to reloc"
+        #   error detail when JIT fails.
         run: |
           STAGING=$PWD/staging
-          AMD_LOG_LEVEL=3 HIP_LAUNCH_BLOCKING=1 \
+          echo "=== staging/bin (translator) ==="
+          ls -la $STAGING/bin/ || true
+          AMD_LOG_LEVEL=3 HIP_LAUNCH_BLOCKING=1 AMD_COMGR_REDIRECT_LOGS=stderr \
             LD_LIBRARY_PATH=$STAGING/lib ./hello_world 2>&1 | tee run.log
 
       - name: Check expected output
