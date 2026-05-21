@@ -839,6 +839,16 @@ SPIRVType *LLVMToSPIRVBase::transSPIRVOpaqueType(StringRef STName,
         BM->addOpaqueGenericType(SPIRVOpaqueTypeOpCodeMap::map(TN)));
 }
 
+static inline Type *getPointeeTypeByAttr(Argument &Arg) {
+  if (Arg.hasByValAttr())
+    return Arg.getParamByValType();
+  if (Arg.hasStructRetAttr())
+    return Arg.getParamStructRetType();
+  if (Arg.hasByRefAttr())
+    return Arg.getParamByRefType();
+  return nullptr;
+}
+
 SPIRVType *LLVMToSPIRVBase::transScavengedType(Value *V) {
   if (auto *F = dyn_cast<Function>(V)) {
     FunctionType *FnTy = Scavenger->getFunctionType(F);
@@ -871,17 +881,22 @@ SPIRVType *LLVMToSPIRVBase::transScavengedType(Value *V) {
       if (!Ty) {
         Ty = FnTy->getParamType(Arg.getArgNo());
       }
-      // Preserve element type for byval/sret arguments even when
-      // SPV_KHR_untyped_pointers is enabled. Losing pointee type would make it
-      // impossible to reconstruct the original parameter and will lead to
-      // OpenCL runtime failure due to mismatched memory object semantics.
+      // Preserve element type for byval/byref(for AMDGPU)/sret arguments even
+      // when SPV_KHR_untyped_pointers is enabled. Losing pointee type would
+      // make it impossible to reconstruct the original parameter and will lead
+      // to OpenCL runtime failure due to mismatched memory object semantics.
       if (BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_untyped_pointers) &&
-          (Arg.hasByValAttr() || Arg.hasStructRetAttr())) {
-        TypedPointerType *TPT = cast<TypedPointerType>(Ty);
-        auto *NewType = BM->addPointerType(
-            SPIRSPIRVAddrSpaceMap::map(
-                static_cast<SPIRAddressSpace>(TPT->getAddressSpace())),
-            transType(TPT->getElementType()));
+          (Arg.hasByValAttr() || Arg.hasStructRetAttr() ||
+           (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
+            Arg.hasByRefAttr()))) {
+        Type *ElTy = getPointeeTypeByAttr(Arg);
+
+        assert(ElTy && "Invalid Argument!");
+
+        auto AS = static_cast<SPIRAddressSpace>(
+            Arg.getType()->getPointerAddressSpace());
+        auto *NewType = BM->addPointerType(SPIRSPIRVAddrSpaceMap::map(AS),
+                                           transType(ElTy));
         PT.push_back(NewType);
         continue;
       } else if (M->getTargetTriple().getVendor() == Triple::AMD) {
@@ -995,7 +1010,9 @@ SPIRVFunction *LLVMToSPIRVBase::transFunctionDecl(Function *F) {
     SPIRVFunctionParameter *BA = BF->getArgument(ArgNo);
     if (I->hasName())
       BM->setName(BA, I->getName().str());
-    if (I->hasByValAttr())
+    if (I->hasByValAttr() ||
+        (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
+         I->hasByRefAttr()))
       BA->addAttr(FunctionParameterAttributeByVal);
     if (I->hasNoAliasAttr())
       BA->addAttr(FunctionParameterAttributeNoAlias);
@@ -1581,6 +1598,9 @@ SPIRVValue *LLVMToSPIRVBase::transConstant(Value *V) {
   }
 
   if (isa<UndefValue>(V)) {
+    if (isa<PoisonValue>(V) &&
+        BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_poison_freeze))
+      return BM->addPoisonKHR(ExpectedType);
     return BM->addUndef(ExpectedType);
   }
 
@@ -1678,6 +1698,19 @@ SPIRVValue *LLVMToSPIRVBase::transUnaryInst(UnaryInstruction *U,
       M->getTargetTriple().getVendor() == Triple::VendorType::AMD) {
     SPIRVType *ExpectedTy = transScavengedType(U);
     return BM->addUndef(ExpectedTy);
+  }
+
+  if (isa<FreezeInst>(U)) {
+    if (BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_poison_freeze)) {
+      auto *Op = transValue(U->getOperand(0), BB);
+      SPIRVType *TransTy = transScavengedType(U);
+      return BM->addFreezeKHRInst(TransTy, Op, BB);
+    }
+    // Without the extension, move the freeze away.
+    Value *Operand = U->getOperand(0);
+    if (isa<UndefValue>(Operand))
+      return BM->addNullConstant(transScavengedType(U));
+    return transValue(Operand, BB);
   }
 
   Op BOC = OpNop;
@@ -2288,7 +2321,9 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
     auto *SPVArg = BF->getArgument(ArgNo);
 
     if (BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_untyped_pointers) &&
-        (Arg->hasByValAttr() || Arg->hasStructRetAttr()) &&
+        (Arg->hasByValAttr() || Arg->hasStructRetAttr() ||
+         (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
+          Arg->hasByRefAttr())) &&
         SPVArg->getType()->isTypePointer() &&
         !SPVArg->getType()->isTypeUntypedPointerKHR()) {
       // When SPV_KHR_untyped_pointers extension is enabled, bitcast typed
@@ -6785,6 +6820,12 @@ bool LLVMToSPIRVBase::transExecutionMode() {
           break;
         AddSingleArgExecutionMode(static_cast<ExecutionMode>(EMode));
       } break;
+      case spv::ExecutionModeArithmeticPoisonKHR: {
+        if (!BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_poison_freeze))
+          break;
+        BF->addExecutionMode(BM->add(new SPIRVExecutionMode(
+            OpExecutionMode, BF, static_cast<ExecutionMode>(EMode))));
+      } break;
       case spv::ExecutionModeFPFastMathDefault: {
         if (!BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_float_controls2))
           break;
@@ -6803,6 +6844,20 @@ bool LLVMToSPIRVBase::transExecutionMode() {
       default:
         llvm_unreachable("invalid execution mode");
       }
+    }
+  }
+
+  // Per SPV_KHR_poison_freeze: "If PoisonFreezeKHR capability is declared, all
+  // entry points must use the ArithmeticPoisonKHR execution mode".
+  if (BM->hasCapability(CapabilityPoisonFreezeKHR)) {
+    for (unsigned I = 0, E = BM->getNumFunctions(); I != E; ++I) {
+      SPIRVFunction *EntryBF = BM->getFunction(I);
+      if (!BM->isEntryPoint(ExecutionModelKernel, EntryBF->getId()))
+        continue;
+      if (EntryBF->getExecutionMode(ExecutionModeArithmeticPoisonKHR))
+        continue;
+      EntryBF->addExecutionMode(BM->add(new SPIRVExecutionMode(
+          OpExecutionMode, EntryBF, ExecutionModeArithmeticPoisonKHR)));
     }
   }
 

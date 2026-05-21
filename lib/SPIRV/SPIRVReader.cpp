@@ -83,7 +83,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/SaveAndRestore.h"
-#include "llvm/TargetParser/TargetParser.h"
+#include "llvm/TargetParser/AMDGPUTargetParser.h"
 #include "llvm/Transforms/Utils/Local.h"
 
 #include <algorithm>
@@ -1234,8 +1234,13 @@ Value *SPIRVToLLVM::transConvertInst(SPIRVValue *BV, Function *F,
   // extension for image-handle-to-index conversion, or redesigning ESIMD
   // accessor storage.
   case OpConvertPtrToU: {
-    if (Src->getType()->isTargetExtTy())
-      return transSPIRVBuiltinFromInst(BC, BB);
+    if (Src->getType()->isTargetExtTy()) {
+      if (BM->getExtension().count("SPV_INTEL_vector_compute"))
+        return transSPIRVBuiltinFromInst(BC, BB);
+      BM->getErrorLog().checkError(false, SPIRVEC_InvalidInstruction,
+                                   "OpConvertPtrToU on a target extension type "
+                                   "requires SPV_INTEL_vector_compute");
+    }
     [[fallthrough]];
   }
   default:
@@ -1827,6 +1832,16 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
 
   case OpUndef:
     return mapValue(BV, UndefValue::get(transType(BV->getType())));
+
+  case OpPoisonKHR:
+    return mapValue(BV, PoisonValue::get(transType(BV->getType())));
+
+  case OpFreezeKHR: {
+    auto *BI = static_cast<SPIRVInstTemplateBase *>(BV);
+    Value *Operand = transValue(BI->getOperand(0), F, BB);
+    IRBuilder<> Builder(BB);
+    return mapValue(BV, Builder.CreateFreeze(Operand, BV->getName()));
+  }
 
   case OpSizeOf: {
     Type *ResTy = transType(BV->getType());
@@ -5522,6 +5537,16 @@ bool SPIRVToLLVM::transMetadata() {
       assert(EM->getLiterals()[0] == 0 &&
              "Invalid named maximum number of registers");
       ValueVec.push_back(MDString::get(*Context, "AutoINTEL"));
+      ExecModeMD->addOperand(MDNode::get(*Context, ValueVec));
+    }
+    if (auto *EM = BF->getExecutionMode(ExecutionModeArithmeticPoisonKHR)) {
+      NamedMDNode *ExecModeMD =
+          M->getOrInsertNamedMetadata(kSPIRVMD::ExecutionMode);
+
+      SmallVector<Metadata *, 2> ValueVec;
+      ValueVec.push_back(ConstantAsMetadata::get(F));
+      ValueVec.push_back(
+          ConstantAsMetadata::get(getUInt32(M, EM->getExecutionMode())));
       ExecModeMD->addOperand(MDNode::get(*Context, ValueVec));
     }
   }
