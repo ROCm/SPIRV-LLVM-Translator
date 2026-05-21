@@ -148,9 +148,6 @@ jobs:
     needs: build
     runs-on: azure-windows-scale-rocm
     timeout-minutes: 30
-    permissions:
-      contents: read
-      pull-requests: write   # for the baseline-diff sticky comment
     defaults:
       run:
         shell: bash
@@ -236,72 +233,6 @@ jobs:
           grep -oE '^FAIL: LLVM_SPIRV :: \S+' build/check-amd-llvm-spirv-baseline.log \
             | sort -u > build/spirv-fails-baseline.txt || true
           echo "Baseline failures:"; cat build/spirv-fails-baseline.txt
-
-      - name: Post translator lit summary to PR
-        if: always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const marker = '<!-- spirv-ci:translator-lit-windows -->';
-            const read = (p) => {
-              try { return fs.readFileSync(p, 'utf8').split('\n').filter(Boolean); }
-              catch { return null; }
-            };
-            const prList = read('build/spirv-fails-pr.txt');
-            const baseList = read('build/spirv-fails-baseline.txt');
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const fmt = (xs) => xs.length ? '```\n' + xs.join('\n') + '\n```' : '_(none)_';
-
-            let body;
-            if (!prList) {
-              body = `${marker}\n⚠️ **SPIRV translator lit suite (Windows)**: PR run did not produce a result (see [run](${runUrl})).`;
-            } else if (!baseList) {
-              body = prList.length === 0
-                ? `${marker}\n✅ **SPIRV translator lit suite (Windows)**: all tests passing on PR head. (Baseline comparison unavailable.)`
-                : `${marker}\n⚠️ **SPIRV translator lit suite (Windows)**: ${prList.length} failing on PR head; baseline comparison unavailable (see [run](${runUrl})).\n\n<details><summary>Failing tests</summary>\n\n${fmt(prList)}\n</details>`;
-            } else {
-              const prSet = new Set(prList);
-              const baseSet = new Set(baseList);
-              const newFails = prList.filter(t => !baseSet.has(t));
-              const fixed = baseList.filter(t => !prSet.has(t));
-              const common = prList.filter(t => baseSet.has(t));
-
-              let headline;
-              if (newFails.length === 0 && fixed.length === 0 && common.length === 0) {
-                headline = `✅ **SPIRV translator lit suite (Windows)**: clean on both PR head and \`amd-staging\` baseline.`;
-              } else if (newFails.length > 0) {
-                headline = `🔴 **${newFails.length} new translator lit failure${newFails.length === 1 ? '' : 's'} (Windows)** introduced by this PR (non-blocking; see [run](${runUrl})).`;
-              } else if (fixed.length > 0 && common.length === 0) {
-                headline = `🟢 **SPIRV translator lit suite (Windows)**: this PR fixes ${fixed.length} test${fixed.length === 1 ? '' : 's'} that fail on \`amd-staging\`. No remaining failures.`;
-              } else if (fixed.length > 0) {
-                headline = `🟢 This PR fixes ${fixed.length} translator lit test${fixed.length === 1 ? '' : 's'} on Windows (vs \`amd-staging\` baseline). ${common.length} pre-existing failure${common.length === 1 ? '' : 's'} remain.`;
-              } else {
-                headline = `⚠️ **${common.length} pre-existing translator lit failure${common.length === 1 ? '' : 's'} (Windows)** on baseline; not caused by this PR (see [run](${runUrl})).`;
-              }
-
-              body = `${marker}\n${headline}\n\n` +
-                `<details${newFails.length > 0 ? ' open' : ''}><summary>🔴 New failures (${newFails.length}) — likely caused by this PR</summary>\n\n${fmt(newFails)}\n</details>\n\n` +
-                `<details><summary>🟢 Fixed by this PR (${fixed.length}) — failing on baseline, passing here</summary>\n\n${fmt(fixed)}\n</details>\n\n` +
-                `<details><summary>⚠️ Pre-existing on \`amd-staging\` (${common.length})</summary>\n\n${fmt(common)}\n</details>`;
-            }
-
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner, repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
-            });
-            const existing = comments.find(c => c.body && c.body.includes(marker));
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner, repo: context.repo.repo,
-                comment_id: existing.id, body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner, repo: context.repo.repo,
-                issue_number: context.payload.pull_request.number, body,
-              });
-            }
 
       - name: Gate - new translator lit failures
         if: always()
