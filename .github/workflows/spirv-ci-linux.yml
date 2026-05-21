@@ -481,15 +481,21 @@ jobs:
 
       - name: Run hello-world
         # Diagnostic mode while we stabilize the SPIR-V JIT path:
-        # AMD_LOG_LEVEL=3 + HIP_LAUNCH_BLOCKING=1: HIP runtime trace
-        # AMD_COMGR_REDIRECT_LOGS=stderr: surface comgr's "spirv to reloc"
-        #   error detail when JIT fails.
+        # - AMD_LOG_LEVEL=3, HIP_LAUNCH_BLOCKING=1: HIP runtime trace.
+        # - AMD_COMGR_REDIRECT_LOGS=stderr + AMD_COMGR_SAVE_TEMPS=/tmp/comgr:
+        #   surface Comgr error detail + dump intermediate files.
+        # - ROCM_PATH=$STAGING: hint Comgr to find device-libs in staging
+        #   instead of falling back to /opt/rocm.
         run: |
           STAGING=$PWD/staging
-          echo "=== staging/bin (translator) ==="
-          ls -la $STAGING/bin/ || true
-          AMD_LOG_LEVEL=3 HIP_LAUNCH_BLOCKING=1 AMD_COMGR_REDIRECT_LOGS=stderr \
+          mkdir -p /tmp/comgr
+          ROCM_PATH=$STAGING \
+            AMD_LOG_LEVEL=3 HIP_LAUNCH_BLOCKING=1 \
+            AMD_COMGR_REDIRECT_LOGS=stderr \
+            AMD_COMGR_SAVE_TEMPS=/tmp/comgr \
             LD_LIBRARY_PATH=$STAGING/lib ./hello_world 2>&1 | tee run.log
+          echo "=== /tmp/comgr (intermediate files) ==="
+          ls -la /tmp/comgr/ 2>&1 || true
 
       - name: Check expected output
         # hello-world prints fixed host + device greetings. Exact line
