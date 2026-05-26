@@ -534,15 +534,25 @@ jobs:
         run: tar -xmf linux-build-tree.tar
 
       - name: Compile hello-world via amdgcnspirv
-        # -Wl,-rpath bakes the runtime path so the binary finds the libs
-        # without LD_LIBRARY_PATH at exec.
+        # Flags chosen to match ROCm/RocmCIForSPIRV spirv_external_llvm.sh:
+        # --offload-new-driver routes through the HIP offload codepath that
+        # produces a fatbin HIP runtime can JIT for amdgcnspirv. Without it,
+        # the runtime fails with "Failed to compile spirv to reloc" because
+        # the bundle isn't in the format it expects.
+        # --rocm-device-lib-path explicit because --rocm-path's auto-detect
+        # doesn't always pick up the staged amdgcn/bitcode/ dir.
+        # --unresolved-symbols=ignore-in-shared-libs because libamd_comgr.so
+        # embeds its own LLVM symbols.
         run: |
           STAGING=$PWD/staging
           $PWD/build/bin/clang++ -std=c++17 \
-            -x hip --offload-arch=amdgcnspirv \
+            -x hip --offload-arch=amdgcnspirv --offload-new-driver \
+            -D__HIP_PLATFORM_AMD__ \
             --rocm-path=$STAGING \
+            --rocm-device-lib-path=$STAGING/amdgcn/bitcode \
             -I rocm-examples/Common \
             -L $STAGING/lib -Wl,-rpath,$STAGING/lib \
+            -Wl,--unresolved-symbols=ignore-in-shared-libs \
             -lamdhip64 -lhsa-runtime64 \
             -o hello_world \
             rocm-examples/HIP-Basic/hello_world/main.hip
