@@ -557,6 +557,19 @@ jobs:
             -o hello_world \
             rocm-examples/HIP-Basic/hello_world/main.hip
 
+      - name: Dump fatbin contents
+        # Diagnostic: list what targets are bundled in the binary's .hip_fatbin
+        # section. Helps verify SPIR-V actually got embedded with the right
+        # target string vs LLVM IR or some other format.
+        run: |
+          echo "=== .hip_fatbin section ==="
+          $PWD/build/bin/llvm-objdump -h hello_world | grep -E "fatbin|hip_" || true
+          echo "=== Extract and list bundle ==="
+          $PWD/build/bin/llvm-objcopy --dump-section=.hip_fatbin=hello_world.fatbin hello_world || true
+          $PWD/build/bin/clang-offload-bundler --type=o --input=hello_world.fatbin --list 2>&1 | head -20 || true
+          echo "=== strings(hello_world) | grep amdgcn ==="
+          strings hello_world | grep -iE "amdgcn|spirv" | head -10 || true
+
       - name: Run hello-world
         # Diagnostic mode while we stabilize the SPIR-V JIT path:
         # - AMD_LOG_LEVEL=3, HIP_LAUNCH_BLOCKING=1: HIP runtime trace.
