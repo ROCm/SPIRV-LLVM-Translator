@@ -527,7 +527,7 @@ jobs:
   # initially; promote to required once stable.
   test_rocm_examples:
     name: Test rocm-examples
-    # needs: build
+    needs: build
     runs-on: linux-gfx942-1gpu-ossci-rocm
     timeout-minutes: 20
     container:
