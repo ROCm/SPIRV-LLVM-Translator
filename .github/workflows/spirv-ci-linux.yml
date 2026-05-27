@@ -503,19 +503,22 @@ jobs:
           strings hello_world | grep -iE "amdgcn|spirv" | head -10 || true
 
       - name: Probe runner state + clean caches
-        # The gfx942 ossci-rocm runner is persistent (no container), so state
-        # carries across runs. Wipe Comgr's JIT cache (cached failures would
-        # otherwise stick around) and report what else is on the box that
-        # could interfere with our staged ROCm tree.
+        # Confirm what HIP/Comgr libs are actually getting loaded — there's
+        # a /opt/rocm-6.4.1 on the runner that could be overriding our
+        # staged tree via libamdhip64's rpath/runpath.
         run: |
+          STAGING=$PWD/staging
           echo "=== /opt/rocm ==="
-          ls -la /opt/rocm/ 2>&1 | head -5 || echo "no /opt/rocm"
-          echo "=== rocm-* in /opt ==="
           ls -d /opt/rocm* 2>&1 || true
+          echo "=== ldd ./hello_world (with our LD_LIBRARY_PATH) ==="
+          LD_LIBRARY_PATH=$STAGING/lib ldd ./hello_world 2>&1 | grep -iE "amdhip|amd_comgr|hsa-runtime|hsakmt" || true
+          echo "=== rpath/runpath of staged libamdhip64.so ==="
+          readelf -d $STAGING/lib/libamdhip64.so | grep -iE "runpath|rpath|needed" | head -10 || true
+          echo "=== rpath/runpath of staged libamd_comgr.so ==="
+          readelf -d $STAGING/lib/libamd_comgr.so | grep -iE "runpath|rpath" | head -5 || true
           echo "=== Comgr cache ==="
-          ls -la ~/.cache/comgr 2>&1 | head -10 || echo "no ~/.cache/comgr"
-          ls -la ~/.amd/comgr 2>&1 | head -10 || echo "no ~/.amd/comgr"
-          echo "=== wiping caches ==="
+          ls -la ~/.cache/comgr 2>&1 | head -3 || echo "no ~/.cache/comgr"
+          ls -la ~/.amd/comgr 2>&1 | head -3 || echo "no ~/.amd/comgr"
           rm -rf ~/.cache/comgr ~/.amd/comgr || true
 
       - name: Run hello-world
