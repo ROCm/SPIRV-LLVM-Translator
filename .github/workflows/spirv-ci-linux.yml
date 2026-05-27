@@ -570,6 +570,22 @@ jobs:
           echo "=== strings(hello_world) | grep amdgcn ==="
           strings hello_world | grep -iE "amdgcn|spirv" | head -10 || true
 
+      - name: Probe runner state + clean caches
+        # The gfx942 ossci-rocm runner is persistent (no container), so state
+        # carries across runs. Wipe Comgr's JIT cache (cached failures would
+        # otherwise stick around) and report what else is on the box that
+        # could interfere with our staged ROCm tree.
+        run: |
+          echo "=== /opt/rocm ==="
+          ls -la /opt/rocm/ 2>&1 | head -5 || echo "no /opt/rocm"
+          echo "=== rocm-* in /opt ==="
+          ls -d /opt/rocm* 2>&1 || true
+          echo "=== Comgr cache ==="
+          ls -la ~/.cache/comgr 2>&1 | head -10 || echo "no ~/.cache/comgr"
+          ls -la ~/.amd/comgr 2>&1 | head -10 || echo "no ~/.amd/comgr"
+          echo "=== wiping caches ==="
+          rm -rf ~/.cache/comgr ~/.amd/comgr || true
+
       - name: Run hello-world
         # Diagnostic mode while we stabilize the SPIR-V JIT path:
         # AMD_COMGR_EMIT_VERBOSE_LOGS=1 forces Comgr to log internals
