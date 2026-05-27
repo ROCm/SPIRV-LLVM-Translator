@@ -36,208 +36,208 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-  #     # Capture the resolved amd-staging SHA so test jobs can pin to the
-  #     # exact commit this build used. Without this, test jobs re-resolve
-  #     # `amd-staging` and may land on a newer commit if upstream merged
-  #     # mid-run, triggering a cascade rebuild against an older build.ninja.
-  #     - name: Resolve llvm-project SHA
-  #       id: resolve_llvm_sha
-  #       run: |
-  #         SHA=$(git -C llvm-project rev-parse HEAD)
-  #         echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-  #         echo "Pinned llvm-project SHA for test jobs: $SHA"
+      # Capture the resolved amd-staging SHA so test jobs can pin to the
+      # exact commit this build used. Without this, test jobs re-resolve
+      # `amd-staging` and may land on a newer commit if upstream merged
+      # mid-run, triggering a cascade rebuild against an older build.ninja.
+      - name: Resolve llvm-project SHA
+        id: resolve_llvm_sha
+        run: |
+          SHA=$(git -C llvm-project rev-parse HEAD)
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Pinned llvm-project SHA for test jobs: $SHA"
 
-  #     - name: Checkout SPIRV-LLVM-Translator (PR head)
-  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-  #       with:
-  #         repository: ROCm/SPIRV-LLVM-Translator
-  #         path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
-  #         ref: amd-staging
-  #         fetch-depth: 1
-  #         persist-credentials: false
+      - name: Checkout SPIRV-LLVM-Translator (PR head)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ROCm/SPIRV-LLVM-Translator
+          path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
+          ref: amd-staging
+          fetch-depth: 1
+          persist-credentials: false
 
-  #     # ---- Build LLVM + Clang + LLD + in-tree SPIRV translator --------------
-  #     - name: Configure LLVM
-  #       run: |
-  #         cmake -G Ninja -S llvm-project/llvm -B build \
-  #           -DCMAKE_BUILD_TYPE=Release \
-  #           -DLLVM_ENABLE_ASSERTIONS=ON \
-  #           -DLLVM_ENABLE_PROJECTS="clang;lld" \
-  #           -DLLVM_TARGETS_TO_BUILD="AMDGPU;X86;SPIRV" \
-  #           -DLLVM_INCLUDE_TESTS=ON \
-  #           -DLLVM_INSTALL_GTEST=ON \
-  #           -DLLVM_LIT_ARGS="-sv --no-progress-bar" \
-  #           -DLLVM_ENABLE_RUNTIMES="compiler-rt" \
-  #           -DCOMPILER_RT_BUILD_BUILTINS=ON \
-  #           -DCOMPILER_RT_BUILD_LIBFUZZER=OFF \
-  #           -DCOMPILER_RT_BUILD_MEMPROF=OFF \
-  #           -DCOMPILER_RT_BUILD_PROFILE=OFF \
-  #           -DCOMPILER_RT_BUILD_SANITIZERS=OFF \
-  #           -DCOMPILER_RT_BUILD_XRAY=OFF \
-  #           -DCOMPILER_RT_BUILD_CTX_PROFILE=OFF \
-  #           -DCOMPILER_RT_BUILD_ORC=OFF \
-  #           -DCOMPILER_RT_BUILD_GWP_ASAN=OFF
+      # ---- Build LLVM + Clang + LLD + in-tree SPIRV translator --------------
+      - name: Configure LLVM
+        run: |
+          cmake -G Ninja -S llvm-project/llvm -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLVM_ENABLE_ASSERTIONS=ON \
+            -DLLVM_ENABLE_PROJECTS="clang;lld" \
+            -DLLVM_TARGETS_TO_BUILD="AMDGPU;X86;SPIRV" \
+            -DLLVM_INCLUDE_TESTS=ON \
+            -DLLVM_INSTALL_GTEST=ON \
+            -DLLVM_LIT_ARGS="-sv --no-progress-bar" \
+            -DLLVM_ENABLE_RUNTIMES="compiler-rt" \
+            -DCOMPILER_RT_BUILD_BUILTINS=ON \
+            -DCOMPILER_RT_BUILD_LIBFUZZER=OFF \
+            -DCOMPILER_RT_BUILD_MEMPROF=OFF \
+            -DCOMPILER_RT_BUILD_PROFILE=OFF \
+            -DCOMPILER_RT_BUILD_SANITIZERS=OFF \
+            -DCOMPILER_RT_BUILD_XRAY=OFF \
+            -DCOMPILER_RT_BUILD_CTX_PROFILE=OFF \
+            -DCOMPILER_RT_BUILD_ORC=OFF \
+            -DCOMPILER_RT_BUILD_GWP_ASAN=OFF
 
-  #     - name: Build LLVM + Clang + amd-llvm-spirv + test deps
-  #       # *-test-depends pull in all tools needed for lit (FileCheck, not,
-  #       # llc, llvm-*, clang, opt, etc.) and stay current with upstream.
-  #       # `builtins` builds compiler-rt's libclang_rt.builtins.a, which
-  #       # hip-lang-config.cmake hard-requires when downstream projects
-  #       # `enable_language(HIP)` (linked into hip-lang::device).
-  #       run: ninja -C build llvm-test-depends clang-test-depends amd-llvm-spirv builtins
+      - name: Build LLVM + Clang + amd-llvm-spirv + test deps
+        # *-test-depends pull in all tools needed for lit (FileCheck, not,
+        # llc, llvm-*, clang, opt, etc.) and stay current with upstream.
+        # `builtins` builds compiler-rt's libclang_rt.builtins.a, which
+        # hip-lang-config.cmake hard-requires when downstream projects
+        # `enable_language(HIP)` (linked into hip-lang::device).
+        run: ninja -C build llvm-test-depends clang-test-depends amd-llvm-spirv builtins
 
-  #     # ---- Build device-libs (standalone, against built LLVM) --------------
-  #     - name: Configure device-libs
-  #       run: |
-  #         cmake -G Ninja -S llvm-project/amd/device-libs -B build-device-libs \
-  #           -DCMAKE_BUILD_TYPE=Release \
-  #           -DCMAKE_PREFIX_PATH=$PWD/build \
-  #           -DLLVM_DIR=$PWD/build/lib/cmake/llvm
+      # ---- Build device-libs (standalone, against built LLVM) --------------
+      - name: Configure device-libs
+        run: |
+          cmake -G Ninja -S llvm-project/amd/device-libs -B build-device-libs \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH=$PWD/build \
+            -DLLVM_DIR=$PWD/build/lib/cmake/llvm
 
-  #     - name: Build device-libs
-  #       run: ninja -C build-device-libs
+      - name: Build device-libs
+        run: ninja -C build-device-libs
 
-  #     # ---- Build Comgr (standalone, against built LLVM + device-libs) ------
-  #     - name: Configure Comgr
-  #       # LLVM_EXTERNAL_SPIRV_LLVM_TRANSLATOR_SOURCE_DIR points Comgr at
-  #       # the in-tree translator headers so COMGR_SPIRV_TRANSLATOR_AVAILABLE
-  #       # turns ON (otherwise translator-dependent lit tests are UNSUPPORTED).
-  #       run: |
-  #         cmake -G Ninja -S llvm-project/amd/comgr -B build-comgr \
-  #           -DCMAKE_BUILD_TYPE=Release \
-  #           -DCMAKE_PREFIX_PATH="$PWD/build;$PWD/build-device-libs" \
-  #           -DLLVM_DIR=$PWD/build/lib/cmake/llvm \
-  #           -DLLVM_EXTERNAL_SPIRV_LLVM_TRANSLATOR_SOURCE_DIR=$PWD/llvm-project/llvm/projects/SPIRV-LLVM-Translator \
-  #           -DBUILD_TESTING=ON
+      # ---- Build Comgr (standalone, against built LLVM + device-libs) ------
+      - name: Configure Comgr
+        # LLVM_EXTERNAL_SPIRV_LLVM_TRANSLATOR_SOURCE_DIR points Comgr at
+        # the in-tree translator headers so COMGR_SPIRV_TRANSLATOR_AVAILABLE
+        # turns ON (otherwise translator-dependent lit tests are UNSUPPORTED).
+        run: |
+          cmake -G Ninja -S llvm-project/amd/comgr -B build-comgr \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$PWD/build;$PWD/build-device-libs" \
+            -DLLVM_DIR=$PWD/build/lib/cmake/llvm \
+            -DLLVM_EXTERNAL_SPIRV_LLVM_TRANSLATOR_SOURCE_DIR=$PWD/llvm-project/llvm/projects/SPIRV-LLVM-Translator \
+            -DBUILD_TESTING=ON
 
-  #     - name: Build Comgr
-  #       run: ninja -C build-comgr amd_comgr
+      - name: Build Comgr
+        run: ninja -C build-comgr amd_comgr
 
-  #     # ---- In-pipeline HIP runtime build ----------------------------------
-  #     # Builds ROCR-Runtime (libhsa-runtime64.so) and CLR (libamdhip64.so)
-  #     # against the just-built clang, plus installs comgr + device-libs into
-  #     # the same staging tree. Result: a self-contained ROCm install layout
-  #     # under `staging/` that PR clang can target via `--rocm-path` to
-  #     # compile and run HIP for `--offload-arch=amdgcnspirv`.
-  #     #
-  #     # Why in-pipeline (vs pulling a prebuilt nightly tarball): TheRock's
-  #     # public `therock-nightly-tarball` bucket only publishes consumer
-  #     # (dgpu) families on a daily cadence; gfx94X / gfx950 (dcgpu) tarballs
-  #     # stopped Oct 2025, and TheRock's own multi-arch CI for those families
-  #     # builds the runtime in-pipeline for the same reason.
-  #     - name: Install build deps for runtime build
-  #       run: |
-  #         dnf install -y --setopt=install_weak_deps=False \
-  #           numactl-devel elfutils-libelf-devel libdrm-devel || true
+      # ---- In-pipeline HIP runtime build ----------------------------------
+      # Builds ROCR-Runtime (libhsa-runtime64.so) and CLR (libamdhip64.so)
+      # against the just-built clang, plus installs comgr + device-libs into
+      # the same staging tree. Result: a self-contained ROCm install layout
+      # under `staging/` that PR clang can target via `--rocm-path` to
+      # compile and run HIP for `--offload-arch=amdgcnspirv`.
+      #
+      # Why in-pipeline (vs pulling a prebuilt nightly tarball): TheRock's
+      # public `therock-nightly-tarball` bucket only publishes consumer
+      # (dgpu) families on a daily cadence; gfx94X / gfx950 (dcgpu) tarballs
+      # stopped Oct 2025, and TheRock's own multi-arch CI for those families
+      # builds the runtime in-pipeline for the same reason.
+      - name: Install build deps for runtime build
+        run: |
+          dnf install -y --setopt=install_weak_deps=False \
+            numactl-devel elfutils-libelf-devel libdrm-devel || true
 
-  #     - name: Install comgr + device-libs into staging
-  #       # CMake `--install` lays them out under <prefix>/include/amd_comgr,
-  #       # <prefix>/lib/cmake/amd_comgr, <prefix>/amdgcn/bitcode/ — the
-  #       # installed-tree layout that clang's `--rocm-path` and CLR's
-  #       # find_package(amd_comgr) both expect. Build-dir layouts won't do.
-  #       run: |
-  #         cmake --install build-comgr --prefix $PWD/staging
-  #         cmake --install build-device-libs --prefix $PWD/staging
+      - name: Install comgr + device-libs into staging
+        # CMake `--install` lays them out under <prefix>/include/amd_comgr,
+        # <prefix>/lib/cmake/amd_comgr, <prefix>/amdgcn/bitcode/ — the
+        # installed-tree layout that clang's `--rocm-path` and CLR's
+        # find_package(amd_comgr) both expect. Build-dir layouts won't do.
+        run: |
+          cmake --install build-comgr --prefix $PWD/staging
+          cmake --install build-device-libs --prefix $PWD/staging
 
-  #     - name: Checkout rocm-systems (pinned)
-  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-  #       with:
-  #         repository: ROCm/rocm-systems
-  #         # ref: 8bb3b73c117e5630106540447268ccad771906a4 # develop, 2026-05-15
-  #         path: rocm-systems
-  #         fetch-depth: 1
-  #         persist-credentials: false
+      - name: Checkout rocm-systems (pinned)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ROCm/rocm-systems
+          # ref: 8bb3b73c117e5630106540447268ccad771906a4 # develop, 2026-05-15
+          path: rocm-systems
+          fetch-depth: 1
+          persist-credentials: false
 
-  #     - name: Checkout rocm-cmake (pinned)
-  #       # Provides ROCM cmake modules (ROCMConfig) that CLR's build needs.
-  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-  #       with:
-  #         repository: ROCm/rocm-cmake
-  #         # ref: 4d391d7bda62a0f476dbadb383e99f4508c7415d # develop, 2026-05-12
-  #         path: rocm-cmake
-  #         fetch-depth: 1
-  #         persist-credentials: false
+      - name: Checkout rocm-cmake (pinned)
+        # Provides ROCM cmake modules (ROCMConfig) that CLR's build needs.
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ROCm/rocm-cmake
+          # ref: 4d391d7bda62a0f476dbadb383e99f4508c7415d # develop, 2026-05-12
+          path: rocm-cmake
+          fetch-depth: 1
+          persist-credentials: false
 
-  #     - name: Configure ROCR-Runtime
-  #       # LLVM_DIR/Clang_DIR are explicit because rocr-runtime's
-  #       # trap_handler/CMakeLists.txt does find_package(Clang) and will
-  #       # otherwise grab a stale system-installed clang config.
-  #       # CMAKE_INSTALL_LIBDIR=lib because the manylinux container defaults
-  #       # to lib64 and clang's --rocm-path looks at <prefix>/lib.
-  #       run: |
-  #         cmake -G Ninja -S rocm-systems/projects/rocr-runtime -B build-rocr \
-  #           -DCMAKE_BUILD_TYPE=Release \
-  #           -DCMAKE_C_COMPILER=$PWD/build/bin/clang \
-  #           -DCMAKE_CXX_COMPILER=$PWD/build/bin/clang++ \
-  #           -DBUILD_SHARED_LIBS=ON \
-  #           -DCMAKE_INSTALL_PREFIX=$PWD/staging \
-  #           -DCMAKE_INSTALL_LIBDIR=lib \
-  #           -DLLVM_DIR=$PWD/build/lib/cmake/llvm \
-  #           -DClang_DIR=$PWD/build/lib/cmake/clang
+      - name: Configure ROCR-Runtime
+        # LLVM_DIR/Clang_DIR are explicit because rocr-runtime's
+        # trap_handler/CMakeLists.txt does find_package(Clang) and will
+        # otherwise grab a stale system-installed clang config.
+        # CMAKE_INSTALL_LIBDIR=lib because the manylinux container defaults
+        # to lib64 and clang's --rocm-path looks at <prefix>/lib.
+        run: |
+          cmake -G Ninja -S rocm-systems/projects/rocr-runtime -B build-rocr \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=$PWD/build/bin/clang \
+            -DCMAKE_CXX_COMPILER=$PWD/build/bin/clang++ \
+            -DBUILD_SHARED_LIBS=ON \
+            -DCMAKE_INSTALL_PREFIX=$PWD/staging \
+            -DCMAKE_INSTALL_LIBDIR=lib \
+            -DLLVM_DIR=$PWD/build/lib/cmake/llvm \
+            -DClang_DIR=$PWD/build/lib/cmake/clang
 
-  #     - name: Build ROCR-Runtime
-  #       # ROCM_PATH points clang at our staging tree when ROCR's image lib
-  #       # compiles OpenCL blit bitcode (no /opt/rocm in the CI container).
-  #       env:
-  #         ROCM_PATH: ${{ github.workspace }}/staging
-  #       run: ninja -C build-rocr install
+      - name: Build ROCR-Runtime
+        # ROCM_PATH points clang at our staging tree when ROCR's image lib
+        # compiles OpenCL blit bitcode (no /opt/rocm in the CI container).
+        env:
+          ROCM_PATH: ${{ github.workspace }}/staging
+        run: ninja -C build-rocr install
 
-  #     - name: Configure CLR (HIP runtime)
-  #       # ROCM_KPACK_ENABLED, HIP_ENABLE_ROCPROFILER_REGISTER, HIPCC_BIN_DIR=
-  #       # are explicit-disable knobs for optional deps we don't need; without
-  #       # them the configure errors out with REQUIRED-not-found.
-  #       run: |
-  #         cmake -G Ninja -S rocm-systems/projects/clr -B build-clr \
-  #           -DCMAKE_BUILD_TYPE=Release \
-  #           -DCMAKE_C_COMPILER=$PWD/build/bin/clang \
-  #           -DCMAKE_CXX_COMPILER=$PWD/build/bin/clang++ \
-  #           -DBUILD_SHARED_LIBS=ON \
-  #           -DCMAKE_INSTALL_PREFIX=$PWD/staging \
-  #           -DCMAKE_INSTALL_LIBDIR=lib \
-  #           -DCMAKE_PREFIX_PATH="$PWD/staging;$PWD/build;$PWD/rocm-cmake/share/rocm" \
-  #           -DHIP_PLATFORM=amd \
-  #           -DHIP_COMMON_DIR=$PWD/rocm-systems/projects/hip \
-  #           -DCLR_BUILD_HIP=ON \
-  #           -DROCM_KPACK_ENABLED=OFF \
-  #           -DHIP_ENABLE_ROCPROFILER_REGISTER=OFF \
-  #           -DHIPCC_BIN_DIR=
+      - name: Configure CLR (HIP runtime)
+        # ROCM_KPACK_ENABLED, HIP_ENABLE_ROCPROFILER_REGISTER, HIPCC_BIN_DIR=
+        # are explicit-disable knobs for optional deps we don't need; without
+        # them the configure errors out with REQUIRED-not-found.
+        run: |
+          cmake -G Ninja -S rocm-systems/projects/clr -B build-clr \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=$PWD/build/bin/clang \
+            -DCMAKE_CXX_COMPILER=$PWD/build/bin/clang++ \
+            -DBUILD_SHARED_LIBS=ON \
+            -DCMAKE_INSTALL_PREFIX=$PWD/staging \
+            -DCMAKE_INSTALL_LIBDIR=lib \
+            -DCMAKE_PREFIX_PATH="$PWD/staging;$PWD/build;$PWD/rocm-cmake/share/rocm" \
+            -DHIP_PLATFORM=amd \
+            -DHIP_COMMON_DIR=$PWD/rocm-systems/projects/hip \
+            -DCLR_BUILD_HIP=ON \
+            -DROCM_KPACK_ENABLED=OFF \
+            -DHIP_ENABLE_ROCPROFILER_REGISTER=OFF \
+            -DHIPCC_BIN_DIR=
 
-  #     - name: Build CLR
-  #       run: ninja -C build-clr install
+      - name: Build CLR
+        run: ninja -C build-clr install
 
-  #     - name: Stage translator binary for runtime SPIRV JIT
-  #       # HIP runtime calls Comgr at kernel-launch to translate the embedded
-  #       # SPIR-V to AMDGPU code. Comgr looks for the translator at
-  #       # <libamd_comgr.so dir>/../bin/amd-llvm-spirv.
-  #       run: |
-  #         mkdir -p staging/bin
-  #         cp -a build/bin/amd-llvm-spirv staging/bin/
+      - name: Stage translator binary for runtime SPIRV JIT
+        # HIP runtime calls Comgr at kernel-launch to translate the embedded
+        # SPIR-V to AMDGPU code. Comgr looks for the translator at
+        # <libamd_comgr.so dir>/../bin/amd-llvm-spirv.
+        run: |
+          mkdir -p staging/bin
+          cp -a build/bin/amd-llvm-spirv staging/bin/
 
-  #     # ---- Strip + upload artifact -----------------------------------------
-  #     # Strip binaries to keep the artifact under GHA's 10GB cap and shorten
-  #     # upload/download time. Tests don't need debug symbols. `--strip-unneeded`
-  #     # preserves dynamic symbols needed at link/load time.
-  #     - name: Strip binaries
-  #       run: |
-  #         find build build-comgr build-device-libs build-rocr build-clr staging \
-  #           -type f \( -executable -o -name '*.so*' -o -name '*.a' \) \
-  #           -exec strip --strip-unneeded {} + 2>/dev/null || true
+      # ---- Strip + upload artifact -----------------------------------------
+      # Strip binaries to keep the artifact under GHA's 10GB cap and shorten
+      # upload/download time. Tests don't need debug symbols. `--strip-unneeded`
+      # preserves dynamic symbols needed at link/load time.
+      - name: Strip binaries
+        run: |
+          find build build-comgr build-device-libs build-rocr build-clr staging \
+            -type f \( -executable -o -name '*.so*' -o -name '*.a' \) \
+            -exec strip --strip-unneeded {} + 2>/dev/null || true
 
-  #     # Tar before upload: actions/upload-artifact@v4 strips +x bits and
-  #     # excludes hidden files (loses FetchContent .git dirs).
-  #     - name: Tar build trees
-  #       run: |
-  #         tar -cf linux-build-tree.tar \
-  #           build build-comgr build-device-libs build-rocr build-clr staging
+      # Tar before upload: actions/upload-artifact@v4 strips +x bits and
+      # excludes hidden files (loses FetchContent .git dirs).
+      - name: Tar build trees
+        run: |
+          tar -cf linux-build-tree.tar \
+            build build-comgr build-device-libs build-rocr build-clr staging
 
-  #     - name: Upload build tree artifact
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: linux-build-tree
-  #         path: linux-build-tree.tar
-  #         retention-days: 1
-  #         compression-level: 6
-  #         if-no-files-found: error
+      - name: Upload build tree artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build-tree
+          path: linux-build-tree.tar
+          retention-days: 1
+          compression-level: 6
+          if-no-files-found: error
 
   # # =====================================================================
   # # Test - SPIRV translator lit (with PR-head vs amd-staging baseline diff)
@@ -541,16 +541,10 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      # - name: Download build tree artifact
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: linux-build-tree
-          
       - name: Download build tree artifact
         uses: actions/download-artifact@v4
         with:
           name: linux-build-tree
-          run-id: 26519830801     # find via gh run list / URL
 
       - name: Untar build trees
         run: tar -xmf linux-build-tree.tar
