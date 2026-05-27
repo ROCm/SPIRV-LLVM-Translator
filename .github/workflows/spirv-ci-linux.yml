@@ -504,17 +504,16 @@ jobs:
 
       - name: Run hello-world
         # Diagnostic mode while we stabilize the SPIR-V JIT path:
-        # - AMD_LOG_LEVEL=3, HIP_LAUNCH_BLOCKING=1: HIP runtime trace.
-        # - AMD_COMGR_REDIRECT_LOGS=stderr + AMD_COMGR_SAVE_TEMPS=/tmp/comgr:
-        #   surface Comgr error detail + dump intermediate files.
-        # - ROCM_PATH=$STAGING: hint Comgr to find device-libs in staging
-        #   instead of falling back to /opt/rocm.
+        # AMD_COMGR_EMIT_VERBOSE_LOGS=1 forces Comgr to log internals
+        # without HIP having to enable per-action logging — needed to see
+        # what AMD_COMGR_ACTION_COMPILE_SPIRV_TO_RELOCATABLE is failing on.
         run: |
           STAGING=$PWD/staging
           mkdir -p /tmp/comgr
           ROCM_PATH=$STAGING \
             AMD_LOG_LEVEL=3 HIP_LAUNCH_BLOCKING=1 \
             AMD_COMGR_REDIRECT_LOGS=stderr \
+            AMD_COMGR_EMIT_VERBOSE_LOGS=1 \
             AMD_COMGR_SAVE_TEMPS=/tmp/comgr \
             LD_LIBRARY_PATH=$STAGING/lib ./hello_world 2>&1 | tee run.log
           echo "=== /tmp/comgr (intermediate files) ==="
