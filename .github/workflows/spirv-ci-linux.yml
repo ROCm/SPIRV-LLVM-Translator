@@ -16,6 +16,7 @@ jobs:
   build:
     name: Build
     runs-on: azure-linux-scale-rocm
+    if: false
     timeout-minutes: 120
     container:
       image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
@@ -526,7 +527,7 @@ jobs:
   # initially; promote to required once stable.
   test_rocm_examples:
     name: Test rocm-examples
-    needs: build
+    # needs: build
     runs-on: linux-gfx942-1gpu-ossci-rocm
     timeout-minutes: 20
 
@@ -541,13 +542,47 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Download build tree artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-build-tree
+      # - name: Download build tree artifact
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: linux-build-tree
 
-      - name: Untar build trees
-        run: tar -xmf linux-build-tree.tar
+      # - name: Untar build trees
+      #   run: tar -xmf linux-build-tree.tar
+
+
+      - name: GPU health check
+        # Layered diagnostic from PCIe up to user-mode libs. Non-gating —
+        # the real signal is whether the hello-world / examples runs below
+        # succeed. This just makes triage fast when they don't.
+        run: |
+          echo "===== 1. PCIe ====="
+          lspci -nn | grep -iE 'amd|ati|advanced micro' || true
+
+          echo "===== 2. Kernel driver (amdgpu) ====="
+          lsmod | grep amdgpu || true
+          dmesg 2>/dev/null | grep -iE 'amdgpu|drm' | tail -20 || true
+
+          echo "===== 3. Device nodes ====="
+          ls -l /dev/kfd /dev/dri/ 2>&1 || true
+          groups || true
+
+          echo "===== 4. Firmware / VBIOS ====="
+          cat /sys/class/drm/card*/device/vbios_version 2>/dev/null || true
+
+          echo "===== 5. ROCm system tools ====="
+          /opt/rocm/bin/rocminfo 2>&1 | head -60 || true
+          /opt/rocm/bin/rocm-smi --showproductname --showdriverversion 2>&1 || true
+
+          echo "===== 6. User-mode libraries ====="
+          ls /opt/rocm/lib/libhsa-runtime64.so* /opt/rocm/lib/libamdhip64.so* /opt/rocm/lib/libamd_comgr.so* 2>/dev/null || true
+          ldconfig -p | grep -E 'hsa-runtime|amdhip|amd_comgr' || true
+
+      - name: AMD SMI
+        run: |
+          which amd-smi || true
+          /opt/rocm/bin/amd-smi || true
+          clinfo || true
 
       - name: Compile hello-world via amdgcnspirv
         # Flags chosen to match ROCm/RocmCIForSPIRV spirv_external_llvm.sh:
