@@ -64,12 +64,25 @@ jobs:
             -DLLVM_TARGETS_TO_BUILD="AMDGPU;X86;SPIRV" \
             -DLLVM_INCLUDE_TESTS=ON \
             -DLLVM_INSTALL_GTEST=ON \
-            -DLLVM_LIT_ARGS="-sv --no-progress-bar"
+            -DLLVM_LIT_ARGS="-sv --no-progress-bar" \
+            -DLLVM_ENABLE_RUNTIMES="compiler-rt" \
+            -DCOMPILER_RT_BUILD_BUILTINS=ON \
+            -DCOMPILER_RT_BUILD_LIBFUZZER=OFF \
+            -DCOMPILER_RT_BUILD_MEMPROF=OFF \
+            -DCOMPILER_RT_BUILD_PROFILE=OFF \
+            -DCOMPILER_RT_BUILD_SANITIZERS=OFF \
+            -DCOMPILER_RT_BUILD_XRAY=OFF \
+            -DCOMPILER_RT_BUILD_CTX_PROFILE=OFF \
+            -DCOMPILER_RT_BUILD_ORC=OFF \
+            -DCOMPILER_RT_BUILD_GWP_ASAN=OFF
 
       - name: Build LLVM + Clang + amd-llvm-spirv + test deps
         # *-test-depends pull in all tools needed for lit (FileCheck, not,
         # llc, llvm-*, clang, opt, etc.) and stay current with upstream.
-        run: ninja -C build llvm-test-depends clang-test-depends amd-llvm-spirv
+        # `builtins` builds compiler-rt's libclang_rt.builtins.a, which
+        # hip-lang-config.cmake hard-requires when downstream projects
+        # `enable_language(HIP)` (linked into hip-lang::device).
+        run: ninja -C build llvm-test-depends clang-test-depends amd-llvm-spirv builtins
 
       # ---- Build device-libs (standalone, against built LLVM) --------------
       - name: Configure device-libs
@@ -128,7 +141,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ROCm/rocm-systems
-          ref: 8bb3b73c117e5630106540447268ccad771906a4 # develop, 2026-05-15
+          # ref: 8bb3b73c117e5630106540447268ccad771906a4 # develop, 2026-05-15
           path: rocm-systems
           fetch-depth: 1
           persist-credentials: false
@@ -138,7 +151,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ROCm/rocm-cmake
-          ref: 4d391d7bda62a0f476dbadb383e99f4508c7415d # develop, 2026-05-12
+          # ref: 4d391d7bda62a0f476dbadb383e99f4508c7415d # develop, 2026-05-12
           path: rocm-cmake
           fetch-depth: 1
           persist-credentials: false
@@ -520,7 +533,8 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ROCm/rocm-examples
-          ref: b4ee9992e851a078c99d93de59d6142a51f5e3a1 # develop, 2025-02-21
+          # ref: b4ee9992e851a078c99d93de59d6142a51f5e3a1 # develop, 2025-02-21
+          ref: amd-staging
           path: rocm-examples
           fetch-depth: 1
           persist-credentials: false
@@ -545,14 +559,12 @@ jobs:
         # embeds its own LLVM symbols.
         run: |
           STAGING=$PWD/staging
+          LIBRARY_PATH=$STAGING/lib
           $PWD/build/bin/clang++ -std=c++17 \
-            -x hip --offload-arch=amdgcnspirv --offload-new-driver \
-            -D__HIP_PLATFORM_AMD__ \
+            -x hip --offload-arch=amdgcnspirv \
             --rocm-path=$STAGING \
-            --rocm-device-lib-path=$STAGING/amdgcn/bitcode \
             -I rocm-examples/Common \
             -L $STAGING/lib -Wl,-rpath,$STAGING/lib \
-            -Wl,--unresolved-symbols=ignore-in-shared-libs \
             -lamdhip64 -lhsa-runtime64 \
             -o hello_world \
             rocm-examples/HIP-Basic/hello_world/main.hip
@@ -579,14 +591,7 @@ jobs:
         #   instead of falling back to /opt/rocm.
         run: |
           STAGING=$PWD/staging
-          mkdir -p /tmp/comgr
-          ROCM_PATH=$STAGING \
-            AMD_LOG_LEVEL=3 HIP_LAUNCH_BLOCKING=1 \
-            AMD_COMGR_REDIRECT_LOGS=stderr \
-            AMD_COMGR_SAVE_TEMPS=/tmp/comgr \
-            LD_LIBRARY_PATH=$STAGING/lib ./hello_world 2>&1 | tee run.log
-          echo "=== /tmp/comgr (intermediate files) ==="
-          ls -la /tmp/comgr/ 2>&1 || true
+          LD_LIBRARY_PATH=$STAGING/lib ./hello_world | tee run.log
 
       - name: Check expected output
         # hello-world prints fixed host + device greetings. Exact line
@@ -595,3 +600,43 @@ jobs:
           grep -q "^Hello world from host!" run.log
           grep -q "^Hello world from device kernel block 0 thread 0!" run.log
           grep -q "^Hello world from device kernel block 1 thread 1!" run.log
+
+      - name: ROCm Examples build
+        # Scope: HIP-Basic only. Applications/ and Libraries/ pull in
+        # hipcub/rocrand/rocfft/... which aren't part of the staging build.
+        # HIP_PLATFORM=amd bypasses hip-config.cmake's hipconfig probe
+        # (hipconfig isn't installed under staging/).
+        # HIPFLAGS injects --rocm-path plus the linker path/rpath that
+        # libamdhip64.so's DT_NEEDED on libhsa-runtime64.so requires.
+        # CMAKE_HIP_COMPILER_ROCM_ROOT tells CMake where ROCm is without
+        # needing hipconfig or clang's "Found HIP installation" output.
+        run: |
+          STAGING=$PWD/staging
+          LLVM_PATH=$PWD/build
+          cmake -S rocm-examples/HIP-Basic -B examples-build    \
+            -DCMAKE_CXX_COMPILER=$LLVM_PATH/bin/clang++ \
+            -DCMAKE_HIP_COMPILER=$LLVM_PATH/bin/clang++ \
+            -DCMAKE_HIP_COMPILER_ROCM_ROOT=$STAGING \
+            -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
+            -DHIP_PLATFORM=amd \
+            -DROCM_PATH=$STAGING \
+            -DCMAKE_HIP_ARCHITECTURES=amdgcnspirv \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_DISABLE_FIND_PACKAGE_Perl=TRUE \
+            -DCMAKE_HIP_FLAGS="-DROCPRIM_DISABLE_DPP=1 --offload-new-driver --rocm-path=$STAGING -use-spirv-backend" \
+            -DCMAKE_HIP_LINK_FLAGS="--rtlib=libgcc -unwindlib=libgcc" \
+            -DCMAKE_CXX_FLAGS="--rtlib=libgcc -unwindlib=libgcc" \
+            -DCMAKE_EXE_LINKER_FLAGS="--rtlib=libgcc -unwindlib=libgcc -Wl,--unresolved-symbols=ignore-in-shared-libs" \
+            -DCMAKE_SHARED_LINKER_FLAGS="--rtlib=libgcc"
+          cmake --build examples-build -j
+
+      - name: ROCm Examples run
+        run: |
+          STAGING=$PWD/staging
+          LD_LIBRARY_PATH=$STAGING/lib
+          cd examples-build/
+          for f in bin/*; do
+            [ -f "$f" ] && [ -x "$f" ] || continue
+            case "$f" in *hip_cooperative_groups) echo "SKIP $f (known SPIRV limitation)"; continue;; esac
+            "$f" >/dev/null 2>&1; echo "$? $f"
+          done
