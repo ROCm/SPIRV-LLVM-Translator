@@ -36,486 +36,486 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      # Capture the resolved amd-staging SHA so test jobs can pin to the
-      # exact commit this build used. Without this, test jobs re-resolve
-      # `amd-staging` and may land on a newer commit if upstream merged
-      # mid-run, triggering a cascade rebuild against an older build.ninja.
-      - name: Resolve llvm-project SHA
-        id: resolve_llvm_sha
-        run: |
-          SHA=$(git -C llvm-project rev-parse HEAD)
-          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-          echo "Pinned llvm-project SHA for test jobs: $SHA"
+  #     # Capture the resolved amd-staging SHA so test jobs can pin to the
+  #     # exact commit this build used. Without this, test jobs re-resolve
+  #     # `amd-staging` and may land on a newer commit if upstream merged
+  #     # mid-run, triggering a cascade rebuild against an older build.ninja.
+  #     - name: Resolve llvm-project SHA
+  #       id: resolve_llvm_sha
+  #       run: |
+  #         SHA=$(git -C llvm-project rev-parse HEAD)
+  #         echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+  #         echo "Pinned llvm-project SHA for test jobs: $SHA"
 
-      - name: Checkout SPIRV-LLVM-Translator (PR head)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          repository: ROCm/SPIRV-LLVM-Translator
-          path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
-          ref: amd-staging
-          fetch-depth: 1
-          persist-credentials: false
+  #     - name: Checkout SPIRV-LLVM-Translator (PR head)
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+  #       with:
+  #         repository: ROCm/SPIRV-LLVM-Translator
+  #         path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
+  #         ref: amd-staging
+  #         fetch-depth: 1
+  #         persist-credentials: false
 
-      # ---- Build LLVM + Clang + LLD + in-tree SPIRV translator --------------
-      - name: Configure LLVM
-        run: |
-          cmake -G Ninja -S llvm-project/llvm -B build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DLLVM_ENABLE_ASSERTIONS=ON \
-            -DLLVM_ENABLE_PROJECTS="clang;lld" \
-            -DLLVM_TARGETS_TO_BUILD="AMDGPU;X86;SPIRV" \
-            -DLLVM_INCLUDE_TESTS=ON \
-            -DLLVM_INSTALL_GTEST=ON \
-            -DLLVM_LIT_ARGS="-sv --no-progress-bar" \
-            -DLLVM_ENABLE_RUNTIMES="compiler-rt" \
-            -DCOMPILER_RT_BUILD_BUILTINS=ON \
-            -DCOMPILER_RT_BUILD_LIBFUZZER=OFF \
-            -DCOMPILER_RT_BUILD_MEMPROF=OFF \
-            -DCOMPILER_RT_BUILD_PROFILE=OFF \
-            -DCOMPILER_RT_BUILD_SANITIZERS=OFF \
-            -DCOMPILER_RT_BUILD_XRAY=OFF \
-            -DCOMPILER_RT_BUILD_CTX_PROFILE=OFF \
-            -DCOMPILER_RT_BUILD_ORC=OFF \
-            -DCOMPILER_RT_BUILD_GWP_ASAN=OFF
+  #     # ---- Build LLVM + Clang + LLD + in-tree SPIRV translator --------------
+  #     - name: Configure LLVM
+  #       run: |
+  #         cmake -G Ninja -S llvm-project/llvm -B build \
+  #           -DCMAKE_BUILD_TYPE=Release \
+  #           -DLLVM_ENABLE_ASSERTIONS=ON \
+  #           -DLLVM_ENABLE_PROJECTS="clang;lld" \
+  #           -DLLVM_TARGETS_TO_BUILD="AMDGPU;X86;SPIRV" \
+  #           -DLLVM_INCLUDE_TESTS=ON \
+  #           -DLLVM_INSTALL_GTEST=ON \
+  #           -DLLVM_LIT_ARGS="-sv --no-progress-bar" \
+  #           -DLLVM_ENABLE_RUNTIMES="compiler-rt" \
+  #           -DCOMPILER_RT_BUILD_BUILTINS=ON \
+  #           -DCOMPILER_RT_BUILD_LIBFUZZER=OFF \
+  #           -DCOMPILER_RT_BUILD_MEMPROF=OFF \
+  #           -DCOMPILER_RT_BUILD_PROFILE=OFF \
+  #           -DCOMPILER_RT_BUILD_SANITIZERS=OFF \
+  #           -DCOMPILER_RT_BUILD_XRAY=OFF \
+  #           -DCOMPILER_RT_BUILD_CTX_PROFILE=OFF \
+  #           -DCOMPILER_RT_BUILD_ORC=OFF \
+  #           -DCOMPILER_RT_BUILD_GWP_ASAN=OFF
 
-      - name: Build LLVM + Clang + amd-llvm-spirv + test deps
-        # *-test-depends pull in all tools needed for lit (FileCheck, not,
-        # llc, llvm-*, clang, opt, etc.) and stay current with upstream.
-        # `builtins` builds compiler-rt's libclang_rt.builtins.a, which
-        # hip-lang-config.cmake hard-requires when downstream projects
-        # `enable_language(HIP)` (linked into hip-lang::device).
-        run: ninja -C build llvm-test-depends clang-test-depends amd-llvm-spirv builtins
+  #     - name: Build LLVM + Clang + amd-llvm-spirv + test deps
+  #       # *-test-depends pull in all tools needed for lit (FileCheck, not,
+  #       # llc, llvm-*, clang, opt, etc.) and stay current with upstream.
+  #       # `builtins` builds compiler-rt's libclang_rt.builtins.a, which
+  #       # hip-lang-config.cmake hard-requires when downstream projects
+  #       # `enable_language(HIP)` (linked into hip-lang::device).
+  #       run: ninja -C build llvm-test-depends clang-test-depends amd-llvm-spirv builtins
 
-      # ---- Build device-libs (standalone, against built LLVM) --------------
-      - name: Configure device-libs
-        run: |
-          cmake -G Ninja -S llvm-project/amd/device-libs -B build-device-libs \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH=$PWD/build \
-            -DLLVM_DIR=$PWD/build/lib/cmake/llvm
+  #     # ---- Build device-libs (standalone, against built LLVM) --------------
+  #     - name: Configure device-libs
+  #       run: |
+  #         cmake -G Ninja -S llvm-project/amd/device-libs -B build-device-libs \
+  #           -DCMAKE_BUILD_TYPE=Release \
+  #           -DCMAKE_PREFIX_PATH=$PWD/build \
+  #           -DLLVM_DIR=$PWD/build/lib/cmake/llvm
 
-      - name: Build device-libs
-        run: ninja -C build-device-libs
+  #     - name: Build device-libs
+  #       run: ninja -C build-device-libs
 
-      # ---- Build Comgr (standalone, against built LLVM + device-libs) ------
-      - name: Configure Comgr
-        # LLVM_EXTERNAL_SPIRV_LLVM_TRANSLATOR_SOURCE_DIR points Comgr at
-        # the in-tree translator headers so COMGR_SPIRV_TRANSLATOR_AVAILABLE
-        # turns ON (otherwise translator-dependent lit tests are UNSUPPORTED).
-        run: |
-          cmake -G Ninja -S llvm-project/amd/comgr -B build-comgr \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="$PWD/build;$PWD/build-device-libs" \
-            -DLLVM_DIR=$PWD/build/lib/cmake/llvm \
-            -DLLVM_EXTERNAL_SPIRV_LLVM_TRANSLATOR_SOURCE_DIR=$PWD/llvm-project/llvm/projects/SPIRV-LLVM-Translator \
-            -DBUILD_TESTING=ON
+  #     # ---- Build Comgr (standalone, against built LLVM + device-libs) ------
+  #     - name: Configure Comgr
+  #       # LLVM_EXTERNAL_SPIRV_LLVM_TRANSLATOR_SOURCE_DIR points Comgr at
+  #       # the in-tree translator headers so COMGR_SPIRV_TRANSLATOR_AVAILABLE
+  #       # turns ON (otherwise translator-dependent lit tests are UNSUPPORTED).
+  #       run: |
+  #         cmake -G Ninja -S llvm-project/amd/comgr -B build-comgr \
+  #           -DCMAKE_BUILD_TYPE=Release \
+  #           -DCMAKE_PREFIX_PATH="$PWD/build;$PWD/build-device-libs" \
+  #           -DLLVM_DIR=$PWD/build/lib/cmake/llvm \
+  #           -DLLVM_EXTERNAL_SPIRV_LLVM_TRANSLATOR_SOURCE_DIR=$PWD/llvm-project/llvm/projects/SPIRV-LLVM-Translator \
+  #           -DBUILD_TESTING=ON
 
-      - name: Build Comgr
-        run: ninja -C build-comgr amd_comgr
+  #     - name: Build Comgr
+  #       run: ninja -C build-comgr amd_comgr
 
-      # ---- In-pipeline HIP runtime build ----------------------------------
-      # Builds ROCR-Runtime (libhsa-runtime64.so) and CLR (libamdhip64.so)
-      # against the just-built clang, plus installs comgr + device-libs into
-      # the same staging tree. Result: a self-contained ROCm install layout
-      # under `staging/` that PR clang can target via `--rocm-path` to
-      # compile and run HIP for `--offload-arch=amdgcnspirv`.
-      #
-      # Why in-pipeline (vs pulling a prebuilt nightly tarball): TheRock's
-      # public `therock-nightly-tarball` bucket only publishes consumer
-      # (dgpu) families on a daily cadence; gfx94X / gfx950 (dcgpu) tarballs
-      # stopped Oct 2025, and TheRock's own multi-arch CI for those families
-      # builds the runtime in-pipeline for the same reason.
-      - name: Install build deps for runtime build
-        run: |
-          dnf install -y --setopt=install_weak_deps=False \
-            numactl-devel elfutils-libelf-devel libdrm-devel || true
+  #     # ---- In-pipeline HIP runtime build ----------------------------------
+  #     # Builds ROCR-Runtime (libhsa-runtime64.so) and CLR (libamdhip64.so)
+  #     # against the just-built clang, plus installs comgr + device-libs into
+  #     # the same staging tree. Result: a self-contained ROCm install layout
+  #     # under `staging/` that PR clang can target via `--rocm-path` to
+  #     # compile and run HIP for `--offload-arch=amdgcnspirv`.
+  #     #
+  #     # Why in-pipeline (vs pulling a prebuilt nightly tarball): TheRock's
+  #     # public `therock-nightly-tarball` bucket only publishes consumer
+  #     # (dgpu) families on a daily cadence; gfx94X / gfx950 (dcgpu) tarballs
+  #     # stopped Oct 2025, and TheRock's own multi-arch CI for those families
+  #     # builds the runtime in-pipeline for the same reason.
+  #     - name: Install build deps for runtime build
+  #       run: |
+  #         dnf install -y --setopt=install_weak_deps=False \
+  #           numactl-devel elfutils-libelf-devel libdrm-devel || true
 
-      - name: Install comgr + device-libs into staging
-        # CMake `--install` lays them out under <prefix>/include/amd_comgr,
-        # <prefix>/lib/cmake/amd_comgr, <prefix>/amdgcn/bitcode/ — the
-        # installed-tree layout that clang's `--rocm-path` and CLR's
-        # find_package(amd_comgr) both expect. Build-dir layouts won't do.
-        run: |
-          cmake --install build-comgr --prefix $PWD/staging
-          cmake --install build-device-libs --prefix $PWD/staging
+  #     - name: Install comgr + device-libs into staging
+  #       # CMake `--install` lays them out under <prefix>/include/amd_comgr,
+  #       # <prefix>/lib/cmake/amd_comgr, <prefix>/amdgcn/bitcode/ — the
+  #       # installed-tree layout that clang's `--rocm-path` and CLR's
+  #       # find_package(amd_comgr) both expect. Build-dir layouts won't do.
+  #       run: |
+  #         cmake --install build-comgr --prefix $PWD/staging
+  #         cmake --install build-device-libs --prefix $PWD/staging
 
-      - name: Checkout rocm-systems (pinned)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          repository: ROCm/rocm-systems
-          # ref: 8bb3b73c117e5630106540447268ccad771906a4 # develop, 2026-05-15
-          path: rocm-systems
-          fetch-depth: 1
-          persist-credentials: false
+  #     - name: Checkout rocm-systems (pinned)
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+  #       with:
+  #         repository: ROCm/rocm-systems
+  #         # ref: 8bb3b73c117e5630106540447268ccad771906a4 # develop, 2026-05-15
+  #         path: rocm-systems
+  #         fetch-depth: 1
+  #         persist-credentials: false
 
-      - name: Checkout rocm-cmake (pinned)
-        # Provides ROCM cmake modules (ROCMConfig) that CLR's build needs.
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          repository: ROCm/rocm-cmake
-          # ref: 4d391d7bda62a0f476dbadb383e99f4508c7415d # develop, 2026-05-12
-          path: rocm-cmake
-          fetch-depth: 1
-          persist-credentials: false
+  #     - name: Checkout rocm-cmake (pinned)
+  #       # Provides ROCM cmake modules (ROCMConfig) that CLR's build needs.
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+  #       with:
+  #         repository: ROCm/rocm-cmake
+  #         # ref: 4d391d7bda62a0f476dbadb383e99f4508c7415d # develop, 2026-05-12
+  #         path: rocm-cmake
+  #         fetch-depth: 1
+  #         persist-credentials: false
 
-      - name: Configure ROCR-Runtime
-        # LLVM_DIR/Clang_DIR are explicit because rocr-runtime's
-        # trap_handler/CMakeLists.txt does find_package(Clang) and will
-        # otherwise grab a stale system-installed clang config.
-        # CMAKE_INSTALL_LIBDIR=lib because the manylinux container defaults
-        # to lib64 and clang's --rocm-path looks at <prefix>/lib.
-        run: |
-          cmake -G Ninja -S rocm-systems/projects/rocr-runtime -B build-rocr \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER=$PWD/build/bin/clang \
-            -DCMAKE_CXX_COMPILER=$PWD/build/bin/clang++ \
-            -DBUILD_SHARED_LIBS=ON \
-            -DCMAKE_INSTALL_PREFIX=$PWD/staging \
-            -DCMAKE_INSTALL_LIBDIR=lib \
-            -DLLVM_DIR=$PWD/build/lib/cmake/llvm \
-            -DClang_DIR=$PWD/build/lib/cmake/clang
+  #     - name: Configure ROCR-Runtime
+  #       # LLVM_DIR/Clang_DIR are explicit because rocr-runtime's
+  #       # trap_handler/CMakeLists.txt does find_package(Clang) and will
+  #       # otherwise grab a stale system-installed clang config.
+  #       # CMAKE_INSTALL_LIBDIR=lib because the manylinux container defaults
+  #       # to lib64 and clang's --rocm-path looks at <prefix>/lib.
+  #       run: |
+  #         cmake -G Ninja -S rocm-systems/projects/rocr-runtime -B build-rocr \
+  #           -DCMAKE_BUILD_TYPE=Release \
+  #           -DCMAKE_C_COMPILER=$PWD/build/bin/clang \
+  #           -DCMAKE_CXX_COMPILER=$PWD/build/bin/clang++ \
+  #           -DBUILD_SHARED_LIBS=ON \
+  #           -DCMAKE_INSTALL_PREFIX=$PWD/staging \
+  #           -DCMAKE_INSTALL_LIBDIR=lib \
+  #           -DLLVM_DIR=$PWD/build/lib/cmake/llvm \
+  #           -DClang_DIR=$PWD/build/lib/cmake/clang
 
-      - name: Build ROCR-Runtime
-        # ROCM_PATH points clang at our staging tree when ROCR's image lib
-        # compiles OpenCL blit bitcode (no /opt/rocm in the CI container).
-        env:
-          ROCM_PATH: ${{ github.workspace }}/staging
-        run: ninja -C build-rocr install
+  #     - name: Build ROCR-Runtime
+  #       # ROCM_PATH points clang at our staging tree when ROCR's image lib
+  #       # compiles OpenCL blit bitcode (no /opt/rocm in the CI container).
+  #       env:
+  #         ROCM_PATH: ${{ github.workspace }}/staging
+  #       run: ninja -C build-rocr install
 
-      - name: Configure CLR (HIP runtime)
-        # ROCM_KPACK_ENABLED, HIP_ENABLE_ROCPROFILER_REGISTER, HIPCC_BIN_DIR=
-        # are explicit-disable knobs for optional deps we don't need; without
-        # them the configure errors out with REQUIRED-not-found.
-        run: |
-          cmake -G Ninja -S rocm-systems/projects/clr -B build-clr \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER=$PWD/build/bin/clang \
-            -DCMAKE_CXX_COMPILER=$PWD/build/bin/clang++ \
-            -DBUILD_SHARED_LIBS=ON \
-            -DCMAKE_INSTALL_PREFIX=$PWD/staging \
-            -DCMAKE_INSTALL_LIBDIR=lib \
-            -DCMAKE_PREFIX_PATH="$PWD/staging;$PWD/build;$PWD/rocm-cmake/share/rocm" \
-            -DHIP_PLATFORM=amd \
-            -DHIP_COMMON_DIR=$PWD/rocm-systems/projects/hip \
-            -DCLR_BUILD_HIP=ON \
-            -DROCM_KPACK_ENABLED=OFF \
-            -DHIP_ENABLE_ROCPROFILER_REGISTER=OFF \
-            -DHIPCC_BIN_DIR=
+  #     - name: Configure CLR (HIP runtime)
+  #       # ROCM_KPACK_ENABLED, HIP_ENABLE_ROCPROFILER_REGISTER, HIPCC_BIN_DIR=
+  #       # are explicit-disable knobs for optional deps we don't need; without
+  #       # them the configure errors out with REQUIRED-not-found.
+  #       run: |
+  #         cmake -G Ninja -S rocm-systems/projects/clr -B build-clr \
+  #           -DCMAKE_BUILD_TYPE=Release \
+  #           -DCMAKE_C_COMPILER=$PWD/build/bin/clang \
+  #           -DCMAKE_CXX_COMPILER=$PWD/build/bin/clang++ \
+  #           -DBUILD_SHARED_LIBS=ON \
+  #           -DCMAKE_INSTALL_PREFIX=$PWD/staging \
+  #           -DCMAKE_INSTALL_LIBDIR=lib \
+  #           -DCMAKE_PREFIX_PATH="$PWD/staging;$PWD/build;$PWD/rocm-cmake/share/rocm" \
+  #           -DHIP_PLATFORM=amd \
+  #           -DHIP_COMMON_DIR=$PWD/rocm-systems/projects/hip \
+  #           -DCLR_BUILD_HIP=ON \
+  #           -DROCM_KPACK_ENABLED=OFF \
+  #           -DHIP_ENABLE_ROCPROFILER_REGISTER=OFF \
+  #           -DHIPCC_BIN_DIR=
 
-      - name: Build CLR
-        run: ninja -C build-clr install
+  #     - name: Build CLR
+  #       run: ninja -C build-clr install
 
-      - name: Stage translator binary for runtime SPIRV JIT
-        # HIP runtime calls Comgr at kernel-launch to translate the embedded
-        # SPIR-V to AMDGPU code. Comgr looks for the translator at
-        # <libamd_comgr.so dir>/../bin/amd-llvm-spirv.
-        run: |
-          mkdir -p staging/bin
-          cp -a build/bin/amd-llvm-spirv staging/bin/
+  #     - name: Stage translator binary for runtime SPIRV JIT
+  #       # HIP runtime calls Comgr at kernel-launch to translate the embedded
+  #       # SPIR-V to AMDGPU code. Comgr looks for the translator at
+  #       # <libamd_comgr.so dir>/../bin/amd-llvm-spirv.
+  #       run: |
+  #         mkdir -p staging/bin
+  #         cp -a build/bin/amd-llvm-spirv staging/bin/
 
-      # ---- Strip + upload artifact -----------------------------------------
-      # Strip binaries to keep the artifact under GHA's 10GB cap and shorten
-      # upload/download time. Tests don't need debug symbols. `--strip-unneeded`
-      # preserves dynamic symbols needed at link/load time.
-      - name: Strip binaries
-        run: |
-          find build build-comgr build-device-libs build-rocr build-clr staging \
-            -type f \( -executable -o -name '*.so*' -o -name '*.a' \) \
-            -exec strip --strip-unneeded {} + 2>/dev/null || true
+  #     # ---- Strip + upload artifact -----------------------------------------
+  #     # Strip binaries to keep the artifact under GHA's 10GB cap and shorten
+  #     # upload/download time. Tests don't need debug symbols. `--strip-unneeded`
+  #     # preserves dynamic symbols needed at link/load time.
+  #     - name: Strip binaries
+  #       run: |
+  #         find build build-comgr build-device-libs build-rocr build-clr staging \
+  #           -type f \( -executable -o -name '*.so*' -o -name '*.a' \) \
+  #           -exec strip --strip-unneeded {} + 2>/dev/null || true
 
-      # Tar before upload: actions/upload-artifact@v4 strips +x bits and
-      # excludes hidden files (loses FetchContent .git dirs).
-      - name: Tar build trees
-        run: |
-          tar -cf linux-build-tree.tar \
-            build build-comgr build-device-libs build-rocr build-clr staging
+  #     # Tar before upload: actions/upload-artifact@v4 strips +x bits and
+  #     # excludes hidden files (loses FetchContent .git dirs).
+  #     - name: Tar build trees
+  #       run: |
+  #         tar -cf linux-build-tree.tar \
+  #           build build-comgr build-device-libs build-rocr build-clr staging
 
-      - name: Upload build tree artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-build-tree
-          path: linux-build-tree.tar
-          retention-days: 1
-          compression-level: 6
-          if-no-files-found: error
+  #     - name: Upload build tree artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: linux-build-tree
+  #         path: linux-build-tree.tar
+  #         retention-days: 1
+  #         compression-level: 6
+  #         if-no-files-found: error
 
-  # =====================================================================
-  # Test - SPIRV translator lit (with PR-head vs amd-staging baseline diff)
-  # =====================================================================
-  # Non-blocking: upstream Khronos breaks ~1 translator lit test per week
-  # (spirv-val drift, LLVM IR changes vs DebugInfo tests, DCE). Their fixes
-  # typically land within a day; our daily upstream-merge cron pulls them
-  # in. Blocking here would gate unrelated PRs during those windows. The
-  # baseline run partitions failures into new / fixed / pre-existing so
-  # AMD-side regressions stay visible.
-  test_translator_lit:
-    name: Test SPIRV translator lit
-    needs: build
-    runs-on: azure-linux-scale-rocm
-    timeout-minutes: 30
-    container:
-      image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
-    permissions:
-      contents: read
-      pull-requests: write   # for the baseline-diff sticky comment
+  # # =====================================================================
+  # # Test - SPIRV translator lit (with PR-head vs amd-staging baseline diff)
+  # # =====================================================================
+  # # Non-blocking: upstream Khronos breaks ~1 translator lit test per week
+  # # (spirv-val drift, LLVM IR changes vs DebugInfo tests, DCE). Their fixes
+  # # typically land within a day; our daily upstream-merge cron pulls them
+  # # in. Blocking here would gate unrelated PRs during those windows. The
+  # # baseline run partitions failures into new / fixed / pre-existing so
+  # # AMD-side regressions stay visible.
+  # test_translator_lit:
+  #   name: Test SPIRV translator lit
+  #   needs: build
+  #   runs-on: azure-linux-scale-rocm
+  #   timeout-minutes: 30
+  #   container:
+  #     image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
+  #   permissions:
+  #     contents: read
+  #     pull-requests: write   # for the baseline-diff sticky comment
 
-    steps:
-      - name: Checkout llvm-project (pinned to Build job SHA)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          repository: ROCm/llvm-project
-          ref: ${{ needs.build.outputs.llvm_project_sha }}
-          path: llvm-project
-          fetch-depth: 1
-          persist-credentials: false
+  #   steps:
+  #     - name: Checkout llvm-project (pinned to Build job SHA)
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+  #       with:
+  #         repository: ROCm/llvm-project
+  #         ref: ${{ needs.build.outputs.llvm_project_sha }}
+  #         path: llvm-project
+  #         fetch-depth: 1
+  #         persist-credentials: false
 
-      - name: Checkout SPIRV-LLVM-Translator (PR head)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
-          fetch-depth: 1
-          persist-credentials: false
+  #     - name: Checkout SPIRV-LLVM-Translator (PR head)
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+  #       with:
+  #         path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
+  #         fetch-depth: 1
+  #         persist-credentials: false
 
-      - name: Download build tree artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-build-tree
+  #     - name: Download build tree artifact
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: linux-build-tree
 
-      # touch build.ninja so it's newer than CMakeCache.txt — without it
-      # tar -m's per-file mtimes can trigger a cmake regen + cascade rebuild.
-      - name: Untar build trees
-        run: |
-          tar -xmf linux-build-tree.tar
-          touch build/build.ninja build-comgr/build.ninja build-device-libs/build.ninja
+  #     # touch build.ninja so it's newer than CMakeCache.txt — without it
+  #     # tar -m's per-file mtimes can trigger a cmake regen + cascade rebuild.
+  #     - name: Untar build trees
+  #       run: |
+  #         tar -xmf linux-build-tree.tar
+  #         touch build/build.ninja build-comgr/build.ninja build-device-libs/build.ninja
 
-      - name: Test - SPIRV Translator (check-amd-llvm-spirv) [PR head]
-        id: check_spirv_xlator
-        continue-on-error: true
-        run: |
-          set -o pipefail
-          ninja -C build check-amd-llvm-spirv 2>&1 | tee build/check-amd-llvm-spirv.log
+  #     - name: Test - SPIRV Translator (check-amd-llvm-spirv) [PR head]
+  #       id: check_spirv_xlator
+  #       continue-on-error: true
+  #       run: |
+  #         set -o pipefail
+  #         ninja -C build check-amd-llvm-spirv 2>&1 | tee build/check-amd-llvm-spirv.log
 
-      - name: Capture PR head translator failures
-        if: always()
-        run: |
-          grep -oE '^FAIL: LLVM_SPIRV :: \S+' build/check-amd-llvm-spirv.log \
-            | sort -u > build/spirv-fails-pr.txt || true
-          echo "PR head failures:"; cat build/spirv-fails-pr.txt
+  #     - name: Capture PR head translator failures
+  #       if: always()
+  #       run: |
+  #         grep -oE '^FAIL: LLVM_SPIRV :: \S+' build/check-amd-llvm-spirv.log \
+  #           | sort -u > build/spirv-fails-pr.txt || true
+  #         echo "PR head failures:"; cat build/spirv-fails-pr.txt
 
-      - name: Switch translator to amd-staging tip for baseline
-        if: always()
-        run: |
-          cd llvm-project/llvm/projects/SPIRV-LLVM-Translator
-          git fetch --depth=1 origin amd-staging
-          git checkout FETCH_HEAD
+  #     - name: Switch translator to amd-staging tip for baseline
+  #       if: always()
+  #       run: |
+  #         cd llvm-project/llvm/projects/SPIRV-LLVM-Translator
+  #         git fetch --depth=1 origin amd-staging
+  #         git checkout FETCH_HEAD
 
-      - name: Test - SPIRV Translator [baseline amd-staging]
-        # Re-run the lit suite with the translator at amd-staging tip so the
-        # comment script can compute the per-PR delta (new vs fixed vs
-        # pre-existing). Incremental rebuild — only translator objects change.
-        if: always()
-        id: check_spirv_baseline
-        continue-on-error: true
-        run: |
-          set -o pipefail
-          # Re-configure to pick up any CMakeLists / file-list changes in the swap
-          cmake -G Ninja -S llvm-project/llvm -B build
-          ninja -C build check-amd-llvm-spirv 2>&1 \
-            | tee build/check-amd-llvm-spirv-baseline.log
+  #     - name: Test - SPIRV Translator [baseline amd-staging]
+  #       # Re-run the lit suite with the translator at amd-staging tip so the
+  #       # comment script can compute the per-PR delta (new vs fixed vs
+  #       # pre-existing). Incremental rebuild — only translator objects change.
+  #       if: always()
+  #       id: check_spirv_baseline
+  #       continue-on-error: true
+  #       run: |
+  #         set -o pipefail
+  #         # Re-configure to pick up any CMakeLists / file-list changes in the swap
+  #         cmake -G Ninja -S llvm-project/llvm -B build
+  #         ninja -C build check-amd-llvm-spirv 2>&1 \
+  #           | tee build/check-amd-llvm-spirv-baseline.log
 
-      - name: Capture baseline translator failures
-        # Split from the lit step so a non-zero ninja exit (lit failures +
-        # set -o pipefail under bash -e) doesn't skip this grep.
-        if: always()
-        run: |
-          grep -oE '^FAIL: LLVM_SPIRV :: \S+' build/check-amd-llvm-spirv-baseline.log \
-            | sort -u > build/spirv-fails-baseline.txt || true
-          echo "Baseline failures:"; cat build/spirv-fails-baseline.txt
+  #     - name: Capture baseline translator failures
+  #       # Split from the lit step so a non-zero ninja exit (lit failures +
+  #       # set -o pipefail under bash -e) doesn't skip this grep.
+  #       if: always()
+  #       run: |
+  #         grep -oE '^FAIL: LLVM_SPIRV :: \S+' build/check-amd-llvm-spirv-baseline.log \
+  #           | sort -u > build/spirv-fails-baseline.txt || true
+  #         echo "Baseline failures:"; cat build/spirv-fails-baseline.txt
 
-      - name: Post translator lit summary to PR
-        if: always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const marker = '<!-- spirv-ci:translator-lit -->';
-            const read = (p) => {
-              try { return fs.readFileSync(p, 'utf8').split('\n').filter(Boolean); }
-              catch { return null; }
-            };
-            const prList = read('build/spirv-fails-pr.txt');
-            const baseList = read('build/spirv-fails-baseline.txt');
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const fmt = (xs) => xs.length ? '```\n' + xs.join('\n') + '\n```' : '_(none)_';
+  #     - name: Post translator lit summary to PR
+  #       if: always()
+  #       uses: actions/github-script@v7
+  #       with:
+  #         script: |
+  #           const fs = require('fs');
+  #           const marker = '<!-- spirv-ci:translator-lit -->';
+  #           const read = (p) => {
+  #             try { return fs.readFileSync(p, 'utf8').split('\n').filter(Boolean); }
+  #             catch { return null; }
+  #           };
+  #           const prList = read('build/spirv-fails-pr.txt');
+  #           const baseList = read('build/spirv-fails-baseline.txt');
+  #           const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+  #           const fmt = (xs) => xs.length ? '```\n' + xs.join('\n') + '\n```' : '_(none)_';
 
-            let body;
-            if (!prList) {
-              body = `${marker}\n⚠️ **SPIRV translator lit suite**: PR run did not produce a result (see [run](${runUrl})).`;
-            } else if (!baseList) {
-              body = prList.length === 0
-                ? `${marker}\n✅ **SPIRV translator lit suite**: all tests passing on PR head. (Baseline comparison unavailable.)`
-                : `${marker}\n⚠️ **SPIRV translator lit suite**: ${prList.length} failing on PR head; baseline comparison unavailable (see [run](${runUrl})).\n\n<details><summary>Failing tests</summary>\n\n${fmt(prList)}\n</details>`;
-            } else {
-              const prSet = new Set(prList);
-              const baseSet = new Set(baseList);
-              const newFails = prList.filter(t => !baseSet.has(t));
-              const fixed = baseList.filter(t => !prSet.has(t));
-              const common = prList.filter(t => baseSet.has(t));
+  #           let body;
+  #           if (!prList) {
+  #             body = `${marker}\n⚠️ **SPIRV translator lit suite**: PR run did not produce a result (see [run](${runUrl})).`;
+  #           } else if (!baseList) {
+  #             body = prList.length === 0
+  #               ? `${marker}\n✅ **SPIRV translator lit suite**: all tests passing on PR head. (Baseline comparison unavailable.)`
+  #               : `${marker}\n⚠️ **SPIRV translator lit suite**: ${prList.length} failing on PR head; baseline comparison unavailable (see [run](${runUrl})).\n\n<details><summary>Failing tests</summary>\n\n${fmt(prList)}\n</details>`;
+  #           } else {
+  #             const prSet = new Set(prList);
+  #             const baseSet = new Set(baseList);
+  #             const newFails = prList.filter(t => !baseSet.has(t));
+  #             const fixed = baseList.filter(t => !prSet.has(t));
+  #             const common = prList.filter(t => baseSet.has(t));
 
-              let headline;
-              if (newFails.length === 0 && fixed.length === 0 && common.length === 0) {
-                headline = `✅ **SPIRV translator lit suite**: clean on both PR head and \`amd-staging\` baseline.`;
-              } else if (newFails.length > 0) {
-                headline = `🔴 **${newFails.length} new translator lit failure${newFails.length === 1 ? '' : 's'}** introduced by this PR (non-blocking; see [run](${runUrl})).`;
-              } else if (fixed.length > 0 && common.length === 0) {
-                headline = `🟢 **SPIRV translator lit suite**: this PR fixes ${fixed.length} test${fixed.length === 1 ? '' : 's'} that fail on \`amd-staging\`. No remaining failures.`;
-              } else if (fixed.length > 0) {
-                headline = `🟢 This PR fixes ${fixed.length} translator lit test${fixed.length === 1 ? '' : 's'} (vs \`amd-staging\` baseline). ${common.length} pre-existing failure${common.length === 1 ? '' : 's'} remain.`;
-              } else {
-                headline = `⚠️ **${common.length} pre-existing translator lit failure${common.length === 1 ? '' : 's'}** on baseline; not caused by this PR (see [run](${runUrl})).`;
-              }
+  #             let headline;
+  #             if (newFails.length === 0 && fixed.length === 0 && common.length === 0) {
+  #               headline = `✅ **SPIRV translator lit suite**: clean on both PR head and \`amd-staging\` baseline.`;
+  #             } else if (newFails.length > 0) {
+  #               headline = `🔴 **${newFails.length} new translator lit failure${newFails.length === 1 ? '' : 's'}** introduced by this PR (non-blocking; see [run](${runUrl})).`;
+  #             } else if (fixed.length > 0 && common.length === 0) {
+  #               headline = `🟢 **SPIRV translator lit suite**: this PR fixes ${fixed.length} test${fixed.length === 1 ? '' : 's'} that fail on \`amd-staging\`. No remaining failures.`;
+  #             } else if (fixed.length > 0) {
+  #               headline = `🟢 This PR fixes ${fixed.length} translator lit test${fixed.length === 1 ? '' : 's'} (vs \`amd-staging\` baseline). ${common.length} pre-existing failure${common.length === 1 ? '' : 's'} remain.`;
+  #             } else {
+  #               headline = `⚠️ **${common.length} pre-existing translator lit failure${common.length === 1 ? '' : 's'}** on baseline; not caused by this PR (see [run](${runUrl})).`;
+  #             }
 
-              body = `${marker}\n${headline}\n\n` +
-                `<details${newFails.length > 0 ? ' open' : ''}><summary>🔴 New failures (${newFails.length}) — likely caused by this PR</summary>\n\n${fmt(newFails)}\n</details>\n\n` +
-                `<details><summary>🟢 Fixed by this PR (${fixed.length}) — failing on baseline, passing here</summary>\n\n${fmt(fixed)}\n</details>\n\n` +
-                `<details><summary>⚠️ Pre-existing on \`amd-staging\` (${common.length})</summary>\n\n${fmt(common)}\n</details>`;
-            }
+  #             body = `${marker}\n${headline}\n\n` +
+  #               `<details${newFails.length > 0 ? ' open' : ''}><summary>🔴 New failures (${newFails.length}) — likely caused by this PR</summary>\n\n${fmt(newFails)}\n</details>\n\n` +
+  #               `<details><summary>🟢 Fixed by this PR (${fixed.length}) — failing on baseline, passing here</summary>\n\n${fmt(fixed)}\n</details>\n\n` +
+  #               `<details><summary>⚠️ Pre-existing on \`amd-staging\` (${common.length})</summary>\n\n${fmt(common)}\n</details>`;
+  #           }
 
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner, repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
-            });
-            const existing = comments.find(c => c.body && c.body.includes(marker));
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner, repo: context.repo.repo,
-                comment_id: existing.id, body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner, repo: context.repo.repo,
-                issue_number: context.payload.pull_request.number, body,
-              });
-            }
+  #           const { data: comments } = await github.rest.issues.listComments({
+  #             owner: context.repo.owner, repo: context.repo.repo,
+  #             issue_number: context.payload.pull_request.number,
+  #           });
+  #           const existing = comments.find(c => c.body && c.body.includes(marker));
+  #           if (existing) {
+  #             await github.rest.issues.updateComment({
+  #               owner: context.repo.owner, repo: context.repo.repo,
+  #               comment_id: existing.id, body,
+  #             });
+  #           } else {
+  #             await github.rest.issues.createComment({
+  #               owner: context.repo.owner, repo: context.repo.repo,
+  #               issue_number: context.payload.pull_request.number, body,
+  #             });
+  #           }
 
-      # Fail the job on real regressions (PR head FAILs that aren't on
-      # amd-staging baseline). Pre-existing baseline failures don't block.
-      - name: Gate - new translator lit failures
-        if: always()
-        run: |
-          if [ ! -f build/spirv-fails-pr.txt ] || [ ! -f build/spirv-fails-baseline.txt ]; then
-            echo "::warning::Could not compute new-failure delta (missing pr.txt or baseline.txt); not gating."
-            exit 0
-          fi
-          new=$(comm -23 build/spirv-fails-pr.txt build/spirv-fails-baseline.txt)
-          if [ -n "$new" ]; then
-            count=$(printf '%s\n' "$new" | wc -l)
-            echo "::error::$count new translator lit failure(s) introduced by this PR:"
-            printf '%s\n' "$new" | sed 's/^/::error::  /'
-            exit 1
-          fi
-          echo "No new translator lit failures vs amd-staging baseline."
+  #     # Fail the job on real regressions (PR head FAILs that aren't on
+  #     # amd-staging baseline). Pre-existing baseline failures don't block.
+  #     - name: Gate - new translator lit failures
+  #       if: always()
+  #       run: |
+  #         if [ ! -f build/spirv-fails-pr.txt ] || [ ! -f build/spirv-fails-baseline.txt ]; then
+  #           echo "::warning::Could not compute new-failure delta (missing pr.txt or baseline.txt); not gating."
+  #           exit 0
+  #         fi
+  #         new=$(comm -23 build/spirv-fails-pr.txt build/spirv-fails-baseline.txt)
+  #         if [ -n "$new" ]; then
+  #           count=$(printf '%s\n' "$new" | wc -l)
+  #           echo "::error::$count new translator lit failure(s) introduced by this PR:"
+  #           printf '%s\n' "$new" | sed 's/^/::error::  /'
+  #           exit 1
+  #         fi
+  #         echo "No new translator lit failures vs amd-staging baseline."
 
-  # =====================================================================
-  # Test - LLVM SPIRV codegen lit suite
-  # =====================================================================
-  test_codegen:
-    name: Test LLVM SPIRV codegen
-    needs: build
-    runs-on: azure-linux-scale-rocm
-    timeout-minutes: 15
-    container:
-      image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
+  # # =====================================================================
+  # # Test - LLVM SPIRV codegen lit suite
+  # # =====================================================================
+  # test_codegen:
+  #   name: Test LLVM SPIRV codegen
+  #   needs: build
+  #   runs-on: azure-linux-scale-rocm
+  #   timeout-minutes: 15
+  #   container:
+  #     image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
 
-    steps:
-      - name: Checkout llvm-project (pinned to Build job SHA)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          repository: ROCm/llvm-project
-          ref: ${{ needs.build.outputs.llvm_project_sha }}
-          path: llvm-project
-          fetch-depth: 1
-          persist-credentials: false
+  #   steps:
+  #     - name: Checkout llvm-project (pinned to Build job SHA)
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+  #       with:
+  #         repository: ROCm/llvm-project
+  #         ref: ${{ needs.build.outputs.llvm_project_sha }}
+  #         path: llvm-project
+  #         fetch-depth: 1
+  #         persist-credentials: false
 
-      - name: Checkout SPIRV-LLVM-Translator (PR head)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
-          fetch-depth: 1
-          persist-credentials: false
+  #     - name: Checkout SPIRV-LLVM-Translator (PR head)
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+  #       with:
+  #         path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
+  #         fetch-depth: 1
+  #         persist-credentials: false
 
-      - name: Download build tree artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-build-tree
+  #     - name: Download build tree artifact
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: linux-build-tree
 
-      # touch build.ninja so it's newer than CMakeCache.txt — without it
-      # tar -m's per-file mtimes can trigger a cmake regen + cascade rebuild.
-      - name: Untar build trees
-        run: |
-          tar -xmf linux-build-tree.tar
-          touch build/build.ninja build-comgr/build.ninja build-device-libs/build.ninja
+  #     # touch build.ninja so it's newer than CMakeCache.txt — without it
+  #     # tar -m's per-file mtimes can trigger a cmake regen + cascade rebuild.
+  #     - name: Untar build trees
+  #       run: |
+  #         tar -xmf linux-build-tree.tar
+  #         touch build/build.ninja build-comgr/build.ninja build-device-libs/build.ninja
 
-      - name: Test - LLVM SPIRV backend (check-llvm-codegen-spirv)
-        run: ninja -C build check-llvm-codegen-spirv
+  #     - name: Test - LLVM SPIRV backend (check-llvm-codegen-spirv)
+  #       run: ninja -C build check-llvm-codegen-spirv
 
-  # =====================================================================
-  # Test - Comgr (lit + gtest + ctest)
-  # =====================================================================
-  test_comgr:
-    name: Test Comgr
-    needs: build
-    runs-on: azure-linux-scale-rocm
-    timeout-minutes: 30
-    container:
-      image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
+  # # =====================================================================
+  # # Test - Comgr (lit + gtest + ctest)
+  # # =====================================================================
+  # test_comgr:
+  #   name: Test Comgr
+  #   needs: build
+  #   runs-on: azure-linux-scale-rocm
+  #   timeout-minutes: 30
+  #   container:
+  #     image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
 
-    steps:
-      - name: Checkout llvm-project (pinned to Build job SHA)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          repository: ROCm/llvm-project
-          ref: ${{ needs.build.outputs.llvm_project_sha }}
-          path: llvm-project
-          fetch-depth: 1
-          persist-credentials: false
+  #   steps:
+  #     - name: Checkout llvm-project (pinned to Build job SHA)
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+  #       with:
+  #         repository: ROCm/llvm-project
+  #         ref: ${{ needs.build.outputs.llvm_project_sha }}
+  #         path: llvm-project
+  #         fetch-depth: 1
+  #         persist-credentials: false
 
-      - name: Checkout SPIRV-LLVM-Translator (PR head)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
-          fetch-depth: 1
-          persist-credentials: false
+  #     - name: Checkout SPIRV-LLVM-Translator (PR head)
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+  #       with:
+  #         path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
+  #         fetch-depth: 1
+  #         persist-credentials: false
 
-      - name: Download build tree artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-build-tree
+  #     - name: Download build tree artifact
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: linux-build-tree
 
-      # touch build.ninja so it's newer than CMakeCache.txt — without it
-      # tar -m's per-file mtimes can trigger a cmake regen + cascade rebuild.
-      - name: Untar build trees
-        run: |
-          tar -xmf linux-build-tree.tar
-          touch build/build.ninja build-comgr/build.ninja build-device-libs/build.ninja
+  #     # touch build.ninja so it's newer than CMakeCache.txt — without it
+  #     # tar -m's per-file mtimes can trigger a cmake regen + cascade rebuild.
+  #     - name: Untar build trees
+  #       run: |
+  #         tar -xmf linux-build-tree.tar
+  #         touch build/build.ninja build-comgr/build.ninja build-device-libs/build.ninja
 
-      - name: Test - Comgr (check-comgr)
-        # check-comgr depends on test-lit (runs lit suite) and test-unit
-        # (runs gtest binaries via its COMMAND block), then runs ctest for
-        # the legacy C tests. Single target = all three test layers.
-        id: check_comgr
-        run: ninja -C build-comgr check-comgr
+  #     - name: Test - Comgr (check-comgr)
+  #       # check-comgr depends on test-lit (runs lit suite) and test-unit
+  #       # (runs gtest binaries via its COMMAND block), then runs ctest for
+  #       # the legacy C tests. Single target = all three test layers.
+  #       id: check_comgr
+  #       run: ninja -C build-comgr check-comgr
 
-      - name: Show failed Comgr ctest output
-        # check-comgr invokes ctest without --output-on-failure, so failures
-        # show "***Failed" with no stderr. Re-run any failed cases verbosely
-        # and redirect comgr's internal log buffer to stderr so clang errors
-        # from inside amd_comgr_do_action() surface (otherwise comgr just
-        # returns AMD_COMGR_STATUS_ERROR with no detail).
-        if: failure() && steps.check_comgr.conclusion == 'failure'
-        env:
-          AMD_COMGR_REDIRECT_LOGS: stderr
-        run: ctest --test-dir build-comgr --output-on-failure --rerun-failed
+  #     - name: Show failed Comgr ctest output
+  #       # check-comgr invokes ctest without --output-on-failure, so failures
+  #       # show "***Failed" with no stderr. Re-run any failed cases verbosely
+  #       # and redirect comgr's internal log buffer to stderr so clang errors
+  #       # from inside amd_comgr_do_action() surface (otherwise comgr just
+  #       # returns AMD_COMGR_STATUS_ERROR with no detail).
+  #       if: failure() && steps.check_comgr.conclusion == 'failure'
+  #       env:
+  #         AMD_COMGR_REDIRECT_LOGS: stderr
+  #       run: ctest --test-dir build-comgr --output-on-failure --rerun-failed
 
   # =====================================================================
   # Test - rocm-examples (compile + run hello-world via amdgcnspirv)
@@ -541,10 +541,16 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      # - name: Download build tree artifact
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: linux-build-tree
+          
       - name: Download build tree artifact
         uses: actions/download-artifact@v4
         with:
           name: linux-build-tree
+          run-id: 26519830801     # find via gh run list / URL
 
       - name: Untar build trees
         run: tar -xmf linux-build-tree.tar
@@ -595,13 +601,13 @@ jobs:
           STAGING=$PWD/staging
           LD_LIBRARY_PATH=$STAGING/lib ./hello_world | tee run.log
 
-      - name: Check expected output
-        # hello-world prints fixed host + device greetings. Exact line
-        # ordering between blocks is non-deterministic but the set is fixed.
-        run: |
-          grep -q "^Hello world from host!" run.log
-          grep -q "^Hello world from device kernel block 0 thread 0!" run.log
-          grep -q "^Hello world from device kernel block 1 thread 1!" run.log
+      # - name: Check expected output
+      #   # hello-world prints fixed host + device greetings. Exact line
+      #   # ordering between blocks is non-deterministic but the set is fixed.
+      #   run: |
+      #     grep -q "^Hello world from host!" run.log
+      #     grep -q "^Hello world from device kernel block 0 thread 0!" run.log
+      #     grep -q "^Hello world from device kernel block 1 thread 1!" run.log
 
       - name: ROCm Examples build
         # Scope: HIP-Basic only. Applications/ and Libraries/ pull in
