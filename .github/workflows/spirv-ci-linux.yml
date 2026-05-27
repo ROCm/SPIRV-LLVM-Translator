@@ -16,7 +16,7 @@ jobs:
   build:
     name: Build
     runs-on: azure-linux-scale-rocm
-    if: false
+    # if: false
     timeout-minutes: 120
     container:
       image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
@@ -535,23 +535,23 @@ jobs:
       options: --device=/dev/kfd --device=/dev/dri  --group-add video --ipc=host  --security-opt seccomp=unconfined
 
     steps:
-      # - name: Checkout rocm-examples (pinned)
-      #   uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      #   with:
-      #     repository: ROCm/rocm-examples
-      #     # ref: b4ee9992e851a078c99d93de59d6142a51f5e3a1 # develop, 2025-02-21
-      #     ref: amd-staging
-      #     path: rocm-examples
-      #     fetch-depth: 1
-      #     persist-credentials: false
+      - name: Checkout rocm-examples (pinned)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ROCm/rocm-examples
+          # ref: b4ee9992e851a078c99d93de59d6142a51f5e3a1 # develop, 2025-02-21
+          ref: amd-staging
+          path: rocm-examples
+          fetch-depth: 1
+          persist-credentials: false
 
-      # - name: Download build tree artifact
-      #   uses: actions/download-artifact@v8
-      #   with:
-      #     name: linux-build-tree
+      - name: Download build tree artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: linux-build-tree
 
-      # - name: Untar build trees
-      #   run: tar -xmf linux-build-tree.tar
+      - name: Untar build trees
+        run: tar -xmf linux-build-tree.tar
 
 
       - name: GPU health check
