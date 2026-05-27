@@ -232,7 +232,7 @@ jobs:
             build build-comgr build-device-libs build-rocr build-clr staging
 
       - name: Upload build tree artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-build-tree
           path: linux-build-tree.tar
@@ -530,20 +530,23 @@ jobs:
     # needs: build
     runs-on: linux-gfx942-1gpu-ossci-rocm
     timeout-minutes: 20
+    container:
+      image: catthehacker/ubuntu:act-latest
+      options: --device=/dev/kfd --device=/dev/dri  --group-add video --group-add render --ipc=host  --security-opt seccomp=unconfined
 
     steps:
-      - name: Checkout rocm-examples (pinned)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          repository: ROCm/rocm-examples
-          # ref: b4ee9992e851a078c99d93de59d6142a51f5e3a1 # develop, 2025-02-21
-          ref: amd-staging
-          path: rocm-examples
-          fetch-depth: 1
-          persist-credentials: false
+      # - name: Checkout rocm-examples (pinned)
+      #   uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      #   with:
+      #     repository: ROCm/rocm-examples
+      #     # ref: b4ee9992e851a078c99d93de59d6142a51f5e3a1 # develop, 2025-02-21
+      #     ref: amd-staging
+      #     path: rocm-examples
+      #     fetch-depth: 1
+      #     persist-credentials: false
 
       # - name: Download build tree artifact
-      #   uses: actions/download-artifact@v4
+      #   uses: actions/download-artifact@v8
       #   with:
       #     name: linux-build-tree
 
