@@ -120,9 +120,34 @@ jobs:
         # <prefix>/lib/cmake/amd_comgr, <prefix>/amdgcn/bitcode/ — the
         # installed-tree layout that clang's `--rocm-path` and CLR's
         # find_package(amd_comgr) both expect. Build-dir layouts won't do.
+        #
+        # Backfill the libamd_comgr.so.<MAJOR> SONAME symlink if Comgr's
+        # install rules didn't create it. Without it, the dynamic loader
+        # falls through LD_LIBRARY_PATH and resolves libamd_comgr.so.3
+        # from /opt/rocm-* on the test runner — which is an older Comgr
+        # whose API doesn't match what our libamdhip64 was built against.
         run: |
           cmake --install build-comgr --prefix $PWD/staging
           cmake --install build-device-libs --prefix $PWD/staging
+          echo "=== staging/lib after install (comgr files) ==="
+          ls -la staging/lib/libamd_comgr* 2>&1 || true
+          cd staging/lib
+          # Find the highest-versioned libamd_comgr.so.M.m.p and ensure SONAME
+          # symlink libamd_comgr.so.<MAJOR> points to it.
+          full=$(ls libamd_comgr.so.*.*.* 2>/dev/null | head -1)
+          if [ -n "$full" ]; then
+            major=$(echo "$full" | sed 's/libamd_comgr\.so\.\([0-9]*\)\..*/\1/')
+            if [ ! -e "libamd_comgr.so.$major" ]; then
+              ln -s "$full" "libamd_comgr.so.$major"
+              echo "Created SONAME symlink: libamd_comgr.so.$major -> $full"
+            fi
+            if [ ! -e "libamd_comgr.so" ]; then
+              ln -s "libamd_comgr.so.$major" "libamd_comgr.so"
+              echo "Created dev symlink: libamd_comgr.so -> libamd_comgr.so.$major"
+            fi
+          fi
+          echo "=== staging/lib after backfill (comgr files) ==="
+          ls -la libamd_comgr* 2>&1 || true
 
       - name: Checkout rocm-systems (pinned)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
