@@ -133,15 +133,8 @@ jobs:
                 "name": "Branch",
                 "value": "${{ steps.merge.outputs.branch }}"
               }],
+              "text": "[View PR](${{ steps.create-pr.outputs.pr_url }})",
               "markdown": true
-            }],
-            "potentialAction": [{
-              "@type": "OpenUri",
-              "name": "View PR",
-              "targets": [{
-                "os": "default",
-                "uri": "${{ steps.create-pr.outputs.pr_url }}"
-              }]
             }]
           }' "${{ secrets.TEAMS_WEBHOOK_URL }}"
 
@@ -193,15 +186,7 @@ jobs:
                 "name": "Total Conflicts",
                 "value": "'"$CONFLICT_COUNT"' file(s)"
               }],
-              "text": "Automatic merge of upstream main into amd-staging failed due to conflicts. Manual intervention required.",
+              "text": "Automatic merge of upstream main into amd-staging failed due to conflicts. Manual intervention required.<br><br>[View workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) · [View repository](${{ github.server_url }}/${{ github.repository }})",
               "markdown": true
-            }],
-            "potentialAction": [{
-              "@type": "OpenUri",
-              "name": "View Repository",
-              "targets": [{
-                "os": "default",
-                "uri": "${{ github.server_url }}/${{ github.repository }}"
-              }]
             }]
           }' "${{ secrets.TEAMS_WEBHOOK_URL }}"
