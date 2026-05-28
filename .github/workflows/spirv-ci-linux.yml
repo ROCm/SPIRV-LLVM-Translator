@@ -63,6 +63,7 @@ jobs:
           cmake -G Ninja -S llvm-project/llvm -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DLLVM_ENABLE_ASSERTIONS=ON \
+            -DCMAKE_INSTALL_LIBDIR=lib \
             -DLLVM_ENABLE_PROJECTS="clang;lld" \
             -DLLVM_TARGETS_TO_BUILD="AMDGPU;X86;SPIRV" \
             -DLLVM_INCLUDE_TESTS=ON \
@@ -93,6 +94,7 @@ jobs:
           cmake -G Ninja -S llvm-project/amd/device-libs -B build-device-libs \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH=$PWD/build \
+            -DCMAKE_INSTALL_LIBDIR=lib \
             -DLLVM_DIR=$PWD/build/lib/cmake/llvm
 
       - name: Build device-libs
@@ -108,6 +110,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$PWD/build;$PWD/build-device-libs" \
             -DLLVM_DIR=$PWD/build/lib/cmake/llvm \
+            -DCMAKE_INSTALL_LIBDIR=lib \
             -DLLVM_EXTERNAL_SPIRV_LLVM_TRANSLATOR_SOURCE_DIR=$PWD/llvm-project/llvm/projects/SPIRV-LLVM-Translator \
             -DBUILD_TESTING=ON
 
@@ -553,6 +556,8 @@ jobs:
       - name: Untar build trees
         run: tar -xmf linux-build-tree.tar
 
+      - name: Install libnuma
+        run: dnf install -y numactl-libs
 
       - name: GPU health check
         # Layered diagnostic from PCIe up to user-mode libs. Non-gating —
@@ -601,10 +606,13 @@ jobs:
           STAGING=$PWD/staging
           LIBRARY_PATH=$STAGING/lib
           $PWD/build/bin/clang++ -std=c++17 \
-            -x hip --offload-arch=amdgcnspirv \
+            -x hip --offload-arch=amdgcnspirv --offload-new-driver \
+            -D__HIP_PLATFORM_AMD__ \
             --rocm-path=$STAGING \
+            --rocm-device-lib-path=$STAGING/amdgcn/bitcode \
             -I rocm-examples/Common \
             -L $STAGING/lib -Wl,-rpath,$STAGING/lib \
+            -Wl,--unresolved-symbols=ignore-in-shared-libs \
             -lamdhip64 -lhsa-runtime64 \
             -o hello_world \
             rocm-examples/HIP-Basic/hello_world/main.hip
@@ -637,7 +645,7 @@ jobs:
       #   # hello-world prints fixed host + device greetings. Exact line
       #   # ordering between blocks is non-deterministic but the set is fixed.
       #   run: |
-      #     grep -q "^Hello world from host!" run.log
+      #     grep -q "^Hello world from host!" run.log 
       #     grep -q "^Hello world from device kernel block 0 thread 0!" run.log
       #     grep -q "^Hello world from device kernel block 1 thread 1!" run.log
 
