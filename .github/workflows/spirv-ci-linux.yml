@@ -478,9 +478,6 @@ jobs:
         continue-on-error: true
         run: tar -xmf linux-build-tree.tar
 
-
-    
-
       - name: Compile rocm-examples
         continue-on-error: true
         # Iterates the same example sets ROCm/RocmCIForSPIRV's
@@ -641,5 +638,3 @@ jobs:
           for f in "${RUN_FAILED[@]}"; do echo "  - $f"; done
 
           [ ${#RUN_FAILED[@]} -eq 0 ]
-
-

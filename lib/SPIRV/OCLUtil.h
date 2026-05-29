@@ -43,6 +43,7 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Support/AMDGPUAddrSpace.h"
 #include "llvm/Support/Path.h"
 
 #include <atomic>
@@ -520,17 +521,23 @@ inline unsigned int mapAMDGCNAddrSpaceToSPIRV(unsigned int AS) {
 
 inline SPIRAddressSpace mapSPIRVAddrSpaceToAMDGPU(SPIRVStorageClassKind SPVAS) {
   switch (SPVAS) {
+  case StorageClassInput:
+    return static_cast<SPIRAddressSpace>(AMDGPUAS::BUFFER_FAT_POINTER);
+  case StorageClassOutput:
+    return static_cast<SPIRAddressSpace>(AMDGPUAS::BUFFER_RESOURCE);
   case StorageClassCrossWorkgroup:
-    return static_cast<SPIRAddressSpace>(1);
+    return static_cast<SPIRAddressSpace>(AMDGPUAS::GLOBAL_ADDRESS);
   case StorageClassUniformConstant:
-    return static_cast<SPIRAddressSpace>(4);
+    return static_cast<SPIRAddressSpace>(AMDGPUAS::CONSTANT_ADDRESS);
   case StorageClassWorkgroup:
-    return static_cast<SPIRAddressSpace>(3);
+    return static_cast<SPIRAddressSpace>(AMDGPUAS::LOCAL_ADDRESS);
   case StorageClassPrivate:
   case StorageClassFunction:
-    return static_cast<SPIRAddressSpace>(5);
+    return static_cast<SPIRAddressSpace>(AMDGPUAS::PRIVATE_ADDRESS);
   case StorageClassGeneric:
-    return static_cast<SPIRAddressSpace>(0);
+  // TODO: this might need revisiting as it clashes with BUFFER_STRIDED_POINTER.
+  case StorageClassCodeSectionINTEL:
+    return static_cast<SPIRAddressSpace>(AMDGPUAS::FLAT_ADDRESS);
   default:
     llvm_unreachable("Unexpected StorageClass");
     return static_cast<SPIRAddressSpace>(UINT_MAX);
