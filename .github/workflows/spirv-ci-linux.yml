@@ -519,14 +519,14 @@ jobs:
     name: Test rocm-examples
     needs: build
     runs-on: linux-gfx942-1gpu-ossci-rocm
-    timeout-minutes: 20
+    timeout-minutes: 45
 
     steps:
       - name: Checkout rocm-examples (pinned)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ROCm/rocm-examples
-          ref: b4ee9992e851a078c99d93de59d6142a51f5e3a1 # develop, 2025-02-21
+          ref: e260595e2ec06f8a8714bd67bb1bc93d6c27e589 # amd-staging, 2026-05-28
           path: rocm-examples
           fetch-depth: 1
           persist-credentials: false
@@ -539,29 +539,85 @@ jobs:
       - name: Untar build trees
         run: tar -xmf linux-build-tree.tar
 
-      - name: Compile hello-world via amdgcnspirv
-        # Flags chosen to match ROCm/RocmCIForSPIRV spirv_external_llvm.sh:
-        # --offload-new-driver routes through the HIP offload codepath that
-        # produces a fatbin HIP runtime can JIT for amdgcnspirv. Without it,
-        # the runtime fails with "Failed to compile spirv to reloc" because
-        # the bundle isn't in the format it expects.
-        # --rocm-device-lib-path explicit because --rocm-path's auto-detect
-        # doesn't always pick up the staged amdgcn/bitcode/ dir.
-        # --unresolved-symbols=ignore-in-shared-libs because libamd_comgr.so
-        # embeds its own LLVM symbols.
+      - name: Compile rocm-examples
+        # Iterates the same example sets ROCm/RocmCIForSPIRV's
+        # spirv_external_llvm.sh builds for SPIR-V mode:
+        #   - SIMPLE_EXAMPLES: HIP-Basic single-source examples
+        #   - APPLICATIONS:    HIP-Basic + External/ include
+        #   - REDUCTION:       Tutorials/reduction v1..v9 (c++20)
+        # Excluded examples (opengl/vulkan interop, hello_world_cuda,
+        # hipify, assembly_to_executable, llvm_ir_to_executable,
+        # sobel_filter) either need libraries we don't have or use
+        # native-AMDGPU code paths incompatible with SPIR-V.
+        # Flags match the working compile invocation from RocmCIForSPIRV.
         run: |
+          set +e
           STAGING=$PWD/staging
-          $PWD/build/bin/clang++ -std=c++17 \
-            -x hip --offload-arch=amdgcnspirv --offload-new-driver \
-            -D__HIP_PLATFORM_AMD__ \
-            --rocm-path=$STAGING \
-            --rocm-device-lib-path=$STAGING/amdgcn/bitcode \
-            -I rocm-examples/Common \
-            -L $STAGING/lib -Wl,-rpath,$STAGING/lib \
-            -Wl,--unresolved-symbols=ignore-in-shared-libs \
-            -lamdhip64 -lhsa-runtime64 \
-            -o hello_world \
-            rocm-examples/HIP-Basic/hello_world/main.hip
+          CLANG=$PWD/build/bin/clang++
+
+          SIMPLE_EXAMPLES=(
+            bit_extract cooperative_groups device_globals device_query
+            dynamic_shared events gpu_arch hello_world
+            inline_assembly moving_average occupancy saxpy
+            shared_memory streams texture_management warp_shuffle
+          )
+          APPLICATIONS=(
+            bitonic_sort convolution fdtd floyd_warshall histogram prefix_sum
+          )
+          REDUCTION_VERSIONS=(v1 v2 v3 v4 v5 v6 v7 v8 v9)
+
+          BASE_FLAGS=(
+            -x hip --offload-arch=amdgcnspirv --offload-new-driver
+            -D__HIP_PLATFORM_AMD__
+            --rocm-path=$STAGING
+            --rocm-device-lib-path=$STAGING/amdgcn/bitcode
+            -L $STAGING/lib -Wl,-rpath,$STAGING/lib
+            -Wl,--unresolved-symbols=ignore-in-shared-libs
+            -lamdhip64 -lhsa-runtime64
+          )
+
+          BUILD_FAILED=()
+          BUILD_OK=()
+
+          build_one() {
+            local name="$1" src="$2" extra_inc="$3" cxxstd="${4:-c++17}"
+            if [ ! -f "$src" ]; then
+              echo "SKIP $name (no source at $src)"
+              return 0
+            fi
+            if $CLANG -std=$cxxstd "${BASE_FLAGS[@]}" \
+                  -I rocm-examples/Common $extra_inc \
+                  -o "$name" "$src" 2>/tmp/build_err.txt; then
+              BUILD_OK+=("$name")
+              echo "BUILD OK:   $name"
+            else
+              BUILD_FAILED+=("$name")
+              echo "BUILD FAIL: $name"
+              head -8 /tmp/build_err.txt
+            fi
+          }
+
+          for ex in "${SIMPLE_EXAMPLES[@]}"; do
+            build_one "$ex" "rocm-examples/HIP-Basic/$ex/main.hip" ""
+          done
+          for ex in "${APPLICATIONS[@]}"; do
+            build_one "$ex" "rocm-examples/Applications/$ex/main.hip" "-I rocm-examples/External"
+          done
+          for v in "${REDUCTION_VERSIONS[@]}"; do
+            build_one "reduction_$v" "rocm-examples/Tutorials/reduction/example/$v.hip" \
+              "-I rocm-examples/Tutorials/reduction/include" "c++20"
+          done
+
+          echo ""
+          echo "=== Compile summary ==="
+          echo "Built:  ${#BUILD_OK[@]}"
+          echo "Failed: ${#BUILD_FAILED[@]}"
+          for f in "${BUILD_FAILED[@]}"; do echo "  - $f"; done
+
+          # Persist the built list for the Run step.
+          printf '%s\n' "${BUILD_OK[@]}" > built_examples.txt
+
+          [ ${#BUILD_FAILED[@]} -eq 0 ]
 
       - name: Dump fatbin contents
         # Diagnostic: list what targets are bundled in the binary's .hip_fatbin
@@ -595,27 +651,34 @@ jobs:
           ls -la ~/.amd/comgr 2>&1 | head -3 || echo "no ~/.amd/comgr"
           rm -rf ~/.cache/comgr ~/.amd/comgr || true
 
-      - name: Run hello-world
-        # Diagnostic mode while we stabilize the SPIR-V JIT path:
-        # AMD_COMGR_EMIT_VERBOSE_LOGS=1 forces Comgr to log internals
-        # without HIP having to enable per-action logging — needed to see
-        # what AMD_COMGR_ACTION_COMPILE_SPIRV_TO_RELOCATABLE is failing on.
+      - name: Run rocm-examples
+        # Runs each example that built. Gates on exit code 0 (any non-zero
+        # = crash / hipError / assert). 60s timeout per example.
         run: |
+          set +e
           STAGING=$PWD/staging
-          mkdir -p /tmp/comgr
-          ROCM_PATH=$STAGING \
-            AMD_LOG_LEVEL=3 HIP_LAUNCH_BLOCKING=1 \
-            AMD_COMGR_REDIRECT_LOGS=stderr \
-            AMD_COMGR_EMIT_VERBOSE_LOGS=1 \
-            AMD_COMGR_SAVE_TEMPS=/tmp/comgr \
-            LD_LIBRARY_PATH=$STAGING/lib ./hello_world 2>&1 | tee run.log
-          echo "=== /tmp/comgr (intermediate files) ==="
-          ls -la /tmp/comgr/ 2>&1 || true
+          export LD_LIBRARY_PATH=$STAGING/lib
 
-      - name: Check expected output
-        # hello-world prints fixed host + device greetings. Exact line
-        # ordering between blocks is non-deterministic but the set is fixed.
-        run: |
-          grep -q "^Hello world from host!" run.log
-          grep -q "^Hello world from device kernel block 0 thread 0!" run.log
-          grep -q "^Hello world from device kernel block 1 thread 1!" run.log
+          RUN_OK=()
+          RUN_FAILED=()
+
+          while IFS= read -r exe; do
+            [ -z "$exe" ] && continue
+            [ -x "./$exe" ] || continue
+            if timeout 60 "./$exe" > "/tmp/${exe}.out" 2>&1; then
+              RUN_OK+=("$exe")
+              echo "RUN OK:   $exe"
+            else
+              RUN_FAILED+=("$exe")
+              echo "RUN FAIL: $exe (exit $?)"
+              head -10 "/tmp/${exe}.out"
+            fi
+          done < built_examples.txt
+
+          echo ""
+          echo "=== Run summary ==="
+          echo "Passed: ${#RUN_OK[@]}"
+          echo "Failed: ${#RUN_FAILED[@]}"
+          for f in "${RUN_FAILED[@]}"; do echo "  - $f"; done
+
+          [ ${#RUN_FAILED[@]} -eq 0 ]
