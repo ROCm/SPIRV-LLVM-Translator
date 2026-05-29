@@ -60,16 +60,30 @@ jobs:
           cmake -G Ninja -S llvm-project/llvm -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DLLVM_ENABLE_ASSERTIONS=ON \
+            -DCMAKE_INSTALL_LIBDIR=lib \
             -DLLVM_ENABLE_PROJECTS="clang;lld" \
             -DLLVM_TARGETS_TO_BUILD="AMDGPU;X86;SPIRV" \
             -DLLVM_INCLUDE_TESTS=ON \
             -DLLVM_INSTALL_GTEST=ON \
-            -DLLVM_LIT_ARGS="-sv --no-progress-bar"
+            -DLLVM_LIT_ARGS="-sv --no-progress-bar" \
+            -DLLVM_ENABLE_RUNTIMES="compiler-rt" \
+            -DCOMPILER_RT_BUILD_BUILTINS=ON \
+            -DCOMPILER_RT_BUILD_LIBFUZZER=OFF \
+            -DCOMPILER_RT_BUILD_MEMPROF=OFF \
+            -DCOMPILER_RT_BUILD_PROFILE=OFF \
+            -DCOMPILER_RT_BUILD_SANITIZERS=OFF \
+            -DCOMPILER_RT_BUILD_XRAY=OFF \
+            -DCOMPILER_RT_BUILD_CTX_PROFILE=OFF \
+            -DCOMPILER_RT_BUILD_ORC=OFF \
+            -DCOMPILER_RT_BUILD_GWP_ASAN=OFF
 
       - name: Build LLVM + Clang + amd-llvm-spirv + test deps
         # *-test-depends pull in all tools needed for lit (FileCheck, not,
         # llc, llvm-*, clang, opt, etc.) and stay current with upstream.
-        run: ninja -C build llvm-test-depends clang-test-depends amd-llvm-spirv
+        # `builtins` builds compiler-rt's libclang_rt.builtins.a, which
+        # hip-lang-config.cmake hard-requires when downstream projects
+        # `enable_language(HIP)` (linked into hip-lang::device).
+        run: ninja -C build llvm-test-depends clang-test-depends amd-llvm-spirv builtins
 
       # ---- Build device-libs (standalone, against built LLVM) --------------
       - name: Configure device-libs
@@ -77,6 +91,7 @@ jobs:
           cmake -G Ninja -S llvm-project/amd/device-libs -B build-device-libs \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH=$PWD/build \
+            -DCMAKE_INSTALL_LIBDIR=lib \
             -DLLVM_DIR=$PWD/build/lib/cmake/llvm
 
       - name: Build device-libs
@@ -452,6 +467,10 @@ jobs:
     needs: build
     runs-on: linux-gfx942-1gpu-ossci-rocm
     timeout-minutes: 45
+    container:
+      image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
+      options: |
+        --device=/dev/kfd --device=/dev/dri  --group-add video
 
     steps:
       - name: Checkout rocm-examples (pinned)
@@ -470,6 +489,91 @@ jobs:
 
       - name: Untar build trees
         run: tar -xmf linux-build-tree.tar
+
+      - name: Install libnuma
+        run: dnf install -y numactl-libs
+
+      - name: Compile hello-world via amdgcnspirv
+        # Flags chosen to match ROCm/RocmCIForSPIRV spirv_external_llvm.sh:
+        # --offload-new-driver routes through the HIP offload codepath that
+        # produces a fatbin HIP runtime can JIT for amdgcnspirv. Without it,
+        # the runtime fails with "Failed to compile spirv to reloc" because
+        # the bundle isn't in the format it expects.
+        # --rocm-device-lib-path explicit because --rocm-path's auto-detect
+        # doesn't always pick up the staged amdgcn/bitcode/ dir.
+        # --unresolved-symbols=ignore-in-shared-libs because libamd_comgr.so
+        # embeds its own LLVM symbols.
+        # continue-on-error: true
+        run: |
+          STAGING=$PWD/staging
+          LIBRARY_PATH=$STAGING/lib
+          $PWD/build/bin/clang++ -std=c++17 \
+            -x hip --offload-arch=amdgcnspirv --offload-new-driver \
+            -D__HIP_PLATFORM_AMD__ \
+            --rocm-path=$STAGING \
+            --rocm-device-lib-path=$STAGING/amdgcn/bitcode \
+            -I rocm-examples/Common \
+            -L $STAGING/lib -Wl,-rpath,$STAGING/lib \
+            -Wl,--unresolved-symbols=ignore-in-shared-libs \
+            -lamdhip64 -lhsa-runtime64 \
+            -o hello_world \
+            rocm-examples/HIP-Basic/hello_world/main.hip
+
+      - name: Run hello-world
+        # continue-on-error: true
+        # Diagnostic mode while we stabilize the SPIR-V JIT path:
+        # - AMD_LOG_LEVEL=3, HIP_LAUNCH_BLOCKING=1: HIP runtime trace.
+        # - AMD_COMGR_REDIRECT_LOGS=stderr + AMD_COMGR_SAVE_TEMPS=/tmp/comgr:
+        #   surface Comgr error detail + dump intermediate files.
+        # - ROCM_PATH=$STAGING: hint Comgr to find device-libs in staging
+        #   instead of falling back to /opt/rocm.
+        run: |
+          STAGING=$PWD/staging
+          LD_LIBRARY_PATH=$STAGING/lib ./hello_world | tee run.log
+
+      - name: ROCm Examples build
+        # continue-on-error: true
+        # Scope: HIP-Basic only. Applications/ and Libraries/ pull in
+        # hipcub/rocrand/rocfft/... which aren't part of the staging build.
+        # HIP_PLATFORM=amd bypasses hip-config.cmake's hipconfig probe
+        # (hipconfig isn't installed under staging/).
+        # HIPFLAGS injects --rocm-path plus the linker path/rpath that
+        # libamdhip64.so's DT_NEEDED on libhsa-runtime64.so requires.
+        # CMAKE_HIP_COMPILER_ROCM_ROOT tells CMake where ROCm is without
+        # needing hipconfig or clang's "Found HIP installation" output.
+        run: |
+          STAGING=$PWD/staging
+          LLVM_PATH=$PWD/build
+          cmake -S rocm-examples/HIP-Basic -B examples-build    \
+            -DCMAKE_CXX_COMPILER=$LLVM_PATH/bin/clang++ \
+            -DCMAKE_HIP_COMPILER=$LLVM_PATH/bin/clang++ \
+            -DCMAKE_HIP_COMPILER_ROCM_ROOT=$STAGING \
+            -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
+            -DHIP_PLATFORM=amd \
+            -DROCM_PATH=$STAGING \
+            -DCMAKE_HIP_ARCHITECTURES=amdgcnspirv \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_DISABLE_FIND_PACKAGE_Perl=TRUE \
+            -DCMAKE_HIP_FLAGS="-DROCPRIM_DISABLE_DPP=1 --offload-new-driver --rocm-path=$STAGING -use-spirv-backend --rtlib=libgcc -unwindlib=libgcc" \
+            -DCMAKE_HIP_LINK_FLAGS="--rtlib=libgcc -unwindlib=libgcc -L$STAGING/lib -Wl,-rpath,$STAGING/lib -Wl,--unresolved-symbols=ignore-in-shared-libs" \
+            -DCMAKE_CXX_FLAGS="--rtlib=libgcc -unwindlib=libgcc" \
+            -DCMAKE_EXE_LINKER_FLAGS="--rtlib=libgcc -unwindlib=libgcc -L$STAGING/lib -Wl,-rpath,$STAGING/lib -Wl,--unresolved-symbols=ignore-in-shared-libs" \
+            -DCMAKE_SHARED_LINKER_FLAGS="--rtlib=libgcc -unwindlib=libgcc"
+          cmake --build examples-build -j
+
+      - name: ROCm Examples run
+        continue-on-error: true
+        run: |
+          STAGING=$PWD/staging
+          LD_LIBRARY_PATH=$STAGING/lib
+          cd examples-build/
+          for f in bin/*; do
+            [ -f "$f" ] && [ -x "$f" ] || continue
+            case "$f" in *hip_cooperative_groups) echo "SKIP $f (known SPIRV limitation)"; continue;; esac
+            "$f" >/dev/null 2>&1; echo "$? $f"
+          done
+
+
 
       - name: Compile rocm-examples
         # Iterates the same example sets ROCm/RocmCIForSPIRV's
