@@ -21,7 +21,6 @@ jobs:
       image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
     outputs:
       llvm_project_sha: ${{ steps.resolve_llvm_sha.outputs.sha }}
-    # if: false
 
     steps:
       # ---- Checkout ---------------------------------------------------------
@@ -245,7 +244,6 @@ jobs:
     needs: build
     runs-on: azure-linux-scale-rocm
     timeout-minutes: 30
-    if: false
     container:
       image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
 
@@ -349,7 +347,6 @@ jobs:
     needs: build
     runs-on: azure-linux-scale-rocm
     timeout-minutes: 15
-    if: false
     container:
       image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
 
@@ -393,7 +390,6 @@ jobs:
     needs: build
     runs-on: azure-linux-scale-rocm
     timeout-minutes: 30
-    if: false
     container:
       image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
 
@@ -460,7 +456,6 @@ jobs:
     steps:
       - name: Checkout rocm-examples (pinned)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        continue-on-error: true
         with:
           repository: ROCm/rocm-examples
           ref: e260595e2ec06f8a8714bd67bb1bc93d6c27e589 # amd-staging, 2026-05-28
@@ -470,16 +465,13 @@ jobs:
 
       - name: Download build tree artifact
         uses: actions/download-artifact@v4
-        continue-on-error: true
         with:
           name: linux-build-tree
 
       - name: Untar build trees
-        continue-on-error: true
         run: tar -xmf linux-build-tree.tar
 
       - name: Compile rocm-examples
-        continue-on-error: true
         # Iterates the same example sets ROCm/RocmCIForSPIRV's
         # spirv_external_llvm.sh builds for SPIR-V mode:
         #   - SIMPLE_EXAMPLES:   HIP-Basic single-source examples (16)
@@ -576,7 +568,6 @@ jobs:
         # Diagnostic: list what targets are bundled in the binary's .hip_fatbin
         # section. Helps verify SPIR-V actually got embedded with the right
         # target string vs LLVM IR or some other format.
-        continue-on-error: true
         run: |
           echo "=== .hip_fatbin section ==="
           $PWD/build/bin/llvm-objdump -h hello_world | grep -E "fatbin|hip_" || true
@@ -590,7 +581,6 @@ jobs:
         # Confirm what HIP/Comgr libs are actually getting loaded — there's
         # a /opt/rocm-6.4.1 on the runner that could be overriding our
         # staged tree via libamdhip64's rpath/runpath.
-        continue-on-error: true
         run: |
           STAGING=$PWD/staging
           echo "=== /opt/rocm ==="
@@ -609,7 +599,6 @@ jobs:
       - name: Run rocm-examples
         # Runs each example that built. Gates on exit code 0 (any non-zero
         # = crash / hipError / assert). 60s timeout per example.
-        continue-on-error: true
         run: |
           set +e
           STAGING=$PWD/staging
