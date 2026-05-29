@@ -127,8 +127,6 @@ jobs:
         run: |
           cmake --install build-comgr --prefix $PWD/staging
           cmake --install build-device-libs --prefix $PWD/staging
-          echo "=== staging/lib after install (comgr files) ==="
-          ls -la staging/lib/libamd_comgr* 2>&1 || true
 
       - name: Checkout rocm-systems (pinned)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -214,7 +212,7 @@ jobs:
             -type f \( -executable -o -name '*.so*' -o -name '*.a' \) \
             -exec strip --strip-unneeded {} + 2>/dev/null || true
 
-      # Tar before upload: actions/upload-artifact@v4 strips +x bits and
+      # Tar before upload: actions/upload-artifact@v7 strips +x bits and
       # excludes hidden files (loses FetchContent .git dirs).
       - name: Tar build trees
         run: |
@@ -222,7 +220,7 @@ jobs:
             build build-comgr build-device-libs build-rocr build-clr staging
 
       - name: Upload build tree artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-build-tree
           path: linux-build-tree.tar
@@ -265,7 +263,7 @@ jobs:
           persist-credentials: false
 
       - name: Download build tree artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: linux-build-tree
 
@@ -368,7 +366,7 @@ jobs:
           persist-credentials: false
 
       - name: Download build tree artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: linux-build-tree
 
@@ -411,7 +409,7 @@ jobs:
           persist-credentials: false
 
       - name: Download build tree artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: linux-build-tree
 
@@ -464,7 +462,7 @@ jobs:
           persist-credentials: false
 
       - name: Download build tree artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: linux-build-tree
 
@@ -563,38 +561,6 @@ jobs:
           printf '%s\n' "${BUILD_OK[@]}" > built_examples.txt
 
           [ ${#BUILD_FAILED[@]} -eq 0 ]
-
-      - name: Dump fatbin contents
-        # Diagnostic: list what targets are bundled in the binary's .hip_fatbin
-        # section. Helps verify SPIR-V actually got embedded with the right
-        # target string vs LLVM IR or some other format.
-        run: |
-          echo "=== .hip_fatbin section ==="
-          $PWD/build/bin/llvm-objdump -h hello_world | grep -E "fatbin|hip_" || true
-          echo "=== Extract and list bundle ==="
-          $PWD/build/bin/llvm-objcopy --dump-section=.hip_fatbin=hello_world.fatbin hello_world || true
-          $PWD/build/bin/clang-offload-bundler --type=o --input=hello_world.fatbin --list 2>&1 | head -20 || true
-          echo "=== strings(hello_world) | grep amdgcn ==="
-          strings hello_world | grep -iE "amdgcn|spirv" | head -10 || true
-
-      - name: Probe runner state + clean caches
-        # Confirm what HIP/Comgr libs are actually getting loaded — there's
-        # a /opt/rocm-6.4.1 on the runner that could be overriding our
-        # staged tree via libamdhip64's rpath/runpath.
-        run: |
-          STAGING=$PWD/staging
-          echo "=== /opt/rocm ==="
-          ls -d /opt/rocm* 2>&1 || true
-          echo "=== ldd ./hello_world (with our LD_LIBRARY_PATH) ==="
-          LD_LIBRARY_PATH=$STAGING/lib ldd ./hello_world 2>&1 | grep -iE "amdhip|amd_comgr|hsa-runtime|hsakmt" || true
-          echo "=== rpath/runpath of staged libamdhip64.so ==="
-          readelf -d $STAGING/lib/libamdhip64.so | grep -iE "runpath|rpath|needed" | head -10 || true
-          echo "=== rpath/runpath of staged libamd_comgr.so ==="
-          readelf -d $STAGING/lib/libamd_comgr.so | grep -iE "runpath|rpath" | head -5 || true
-          echo "=== Comgr cache ==="
-          ls -la ~/.cache/comgr 2>&1 | head -3 || echo "no ~/.cache/comgr"
-          ls -la ~/.amd/comgr 2>&1 | head -3 || echo "no ~/.amd/comgr"
-          rm -rf ~/.cache/comgr ~/.amd/comgr || true
 
       - name: Run rocm-examples
         # Runs each example that built. Gates on exit code 0 (any non-zero
