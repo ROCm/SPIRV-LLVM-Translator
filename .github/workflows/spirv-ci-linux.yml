@@ -575,7 +575,6 @@ jobs:
 
           while IFS= read -r exe; do
             [ -z "$exe" ] && continue
-            [ -x "./$exe" ] || continue
             if timeout 60 "./$exe" > "/tmp/${exe}.out" 2>&1; then
               RUN_OK+=("$exe")
               echo "RUN OK:   $exe"
