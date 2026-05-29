@@ -542,13 +542,18 @@ jobs:
       - name: Compile rocm-examples
         # Iterates the same example sets ROCm/RocmCIForSPIRV's
         # spirv_external_llvm.sh builds for SPIR-V mode:
-        #   - SIMPLE_EXAMPLES: HIP-Basic single-source examples
-        #   - APPLICATIONS:    HIP-Basic + External/ include
-        #   - REDUCTION:       Tutorials/reduction v1..v9 (c++20)
-        # Excluded examples (opengl/vulkan interop, hello_world_cuda,
-        # hipify, assembly_to_executable, llvm_ir_to_executable,
-        # sobel_filter) either need libraries we don't have or use
-        # native-AMDGPU code paths incompatible with SPIR-V.
+        #   - SIMPLE_EXAMPLES:   HIP-Basic single-source examples (16)
+        #   - EXTERNAL_EXAMPLES: HIP-Basic + External/ include (2)
+        #   - runtime_compilation: HIP-Basic + -lhiprtc (1)
+        #   - APPLICATIONS:      Applications/ + External/ include (6)
+        #   - REDUCTION:         Tutorials/reduction v1..v9, c++20 (9)
+        # Excluded: opengl/vulkan interop, hello_world_cuda, hipify,
+        # assembly_to_executable, llvm_ir_to_executable, sobel_filter
+        # (need libs we don't have or use native-AMDGPU codepaths
+        # incompatible with SPIR-V). multi_gpu_data_transfer requires
+        # >1 GPU; this runner is 1gpu-ossci-rocm. Library-conditional
+        # examples (rocPRIM, hipCUB, monte_carlo_pi via hipRAND) need
+        # rocm-libraries math-libs which we don't build here.
         # Flags match the working compile invocation from RocmCIForSPIRV.
         run: |
           set +e
@@ -561,6 +566,8 @@ jobs:
             inline_assembly moving_average occupancy saxpy
             shared_memory streams texture_management warp_shuffle
           )
+          # HIP-Basic examples that need -I External
+          EXTERNAL_EXAMPLES=(bandwidth matrix_multiplication)
           APPLICATIONS=(
             bitonic_sort convolution fdtd floyd_warshall histogram prefix_sum
           )
@@ -600,6 +607,12 @@ jobs:
           for ex in "${SIMPLE_EXAMPLES[@]}"; do
             build_one "$ex" "rocm-examples/HIP-Basic/$ex/main.hip" ""
           done
+          for ex in "${EXTERNAL_EXAMPLES[@]}"; do
+            build_one "$ex" "rocm-examples/HIP-Basic/$ex/main.hip" "-I rocm-examples/External"
+          done
+          # runtime_compilation needs libhiprtc at link time.
+          build_one "runtime_compilation" \
+            "rocm-examples/HIP-Basic/runtime_compilation/main.hip" "-lhiprtc"
           for ex in "${APPLICATIONS[@]}"; do
             build_one "$ex" "rocm-examples/Applications/$ex/main.hip" "-I rocm-examples/External"
           done
