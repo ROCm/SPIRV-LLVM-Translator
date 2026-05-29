@@ -600,9 +600,13 @@ jobs:
       - name: Run rocm-examples
         # Runs everything built: HIP-Basic binaries from examples-build/bin
         # plus the Applications + Tutorials binaries from the bash-loop
-        # compile. Gates on exit code 0 (60s timeout each). hip_cooperative_groups
-        # is skipped: known SPIR-V codegen bug — "Cannot select intrinsic
-        # %llvm.amdgcn.s.wait.asynccnt" — pending an AMDGPU backend fix.
+        # compile. Gates on exit code 0 (60s timeout each).
+        #
+        # hip_cooperative_groups is currently a known failure
+        # ("Cannot select intrinsic %llvm.amdgcn.s.wait.asynccnt") and is
+        # intentionally left in the gating set — the whole point of this
+        # job is to keep surfacing this kind of break until the AMDGPU
+        # backend gets a lowering pattern. Remove this note once fixed.
         run: |
           set +e
           STAGING=$PWD/staging
@@ -610,16 +614,9 @@ jobs:
 
           RUN_OK=()
           RUN_FAILED=()
-          SKIPPED=()
 
           run_one() {
             local exe="$1" label="$2"
-            case "$exe" in *hip_cooperative_groups)
-              SKIPPED+=("$label")
-              echo "SKIP:     $label (known SPIRV limitation)"
-              return 0
-              ;;
-            esac
             if timeout 60 "$exe" > "/tmp/$(basename $exe).out" 2>&1; then
               RUN_OK+=("$label")
               echo "RUN OK:   $label"
@@ -645,9 +642,8 @@ jobs:
 
           echo ""
           echo "=== Run summary ==="
-          echo "Passed:  ${#RUN_OK[@]}"
-          echo "Skipped: ${#SKIPPED[@]}"
-          echo "Failed:  ${#RUN_FAILED[@]}"
+          echo "Passed: ${#RUN_OK[@]}"
+          echo "Failed: ${#RUN_FAILED[@]}"
           for f in "${RUN_FAILED[@]}"; do echo "  - $f"; done
 
           [ ${#RUN_FAILED[@]} -eq 0 ]
