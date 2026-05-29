@@ -1074,7 +1074,7 @@ public:
     assert(WordCount == Pairs.size() + FixedWordCount);
     assert(OpCode == OC);
     assert(Pairs.size() % 2 == 0);
-    foreachPair([=](SPIRVValue *IncomingV, SPIRVBasicBlock *IncomingBB) {
+    foreachPair([this](SPIRVValue *IncomingV, SPIRVBasicBlock *IncomingBB) {
       assert(IncomingV->isForward() || IncomingV->getType() == Type ||
              (IncomingV->getType()->isTypePointer() &&
               Type->isTypeUntypedPointerKHR()) ||
@@ -4805,6 +4805,20 @@ public:
 
 typedef SPIRVInstTemplate<SPIRVFmaKHRInstBase, OpFmaKHR, true, 6, false>
     SPIRVFmaKHR;
+
+class SPIRVFreezeKHRInstBase : public SPIRVInstTemplateBase {
+public:
+  SPIRVCapVec getRequiredCapability() const override {
+    return getVec(CapabilityPoisonFreezeKHR);
+  }
+
+  std::optional<ExtensionID> getRequiredExtension() const override {
+    return ExtensionID::SPV_KHR_poison_freeze;
+  }
+};
+
+typedef SPIRVInstTemplate<SPIRVFreezeKHRInstBase, OpFreezeKHR, true, 4, false>
+    SPIRVFreezeKHR;
 
 } // namespace SPIRV
 #endif // SPIRV_LIBSPIRV_SPIRVINSTRUCTION_H

@@ -1,0 +1,348 @@
+; REQUIRES: spirv-as
+; RUN: llvm-spirv -to-binary -spirv-allow-unknown-intrinsics -o %t.spv %s
+; RUN: spirv-val %t.spv
+
+; RUN: llvm-spirv -r --spirv-amdgcn-offload-arch=gfx906 --spirv-target-env=CL2.0 %t.spv -o %t.906.bc
+; RUN: llvm-dis %t.906.bc -o - | FileCheck --check-prefix=GFX906 %s
+
+; RUN: llvm-spirv -r --spirv-amdgcn-offload-arch=gfx1151 --spirv-target-env=CL2.0 %t.spv -o %t.1151.bc
+; RUN: llvm-dis %t.1151.bc -o - | FileCheck --check-prefix=GFX1151 %s
+
+; RUN: llvm-spirv -r --spirv-amdgcn-offload-arch=gfx1201 --spirv-target-env=CL2.0 %t.spv -o %t.1201.bc
+; RUN: llvm-dis %t.1201.bc -o - | FileCheck --check-prefix=GFX1201 %s
+
+; GFX906-NOT: declare void @llvm.amdgcn.s.wait.event.export.ready()
+; GFX906-NOT: declare void @llvm.amdgcn.s.sleep.var(i32)
+; GFX1151: declare void @llvm.amdgcn.s.wait.event.export.ready()
+; GFX1151-NOT: declare void @llvm.amdgcn.s.sleep.var(i32)
+; GFX1201: declare void @llvm.amdgcn.s.sleep.var(i32)
+; GFX1201: declare void @llvm.amdgcn.s.wait.event.export.ready()
+
+119734787 65792 458751 137 0
+2 Capability Addresses
+2 Capability Linkage
+2 Capability Kernel
+2 Capability Int64
+2 Capability Int16
+2 Capability Int8
+5 ExtInstImport 1 "OpenCL.std"
+3 MemoryModel 2 2
+3 Source 0 0
+3 Name 4 "p"
+3 Name 5 "g"
+11 Name 35 "llvm.amdgcn.feature.predicate.ids"
+9 Name 38 "llvm.amdgcn.ashr.pk.i8.i32"
+7 Name 44 "llvm.set.fpenv.i64"
+8 Name 47 "llvm.amdgcn.s.sleep.var"
+12 Name 50 "llvm.amdgcn.s.wait.event.export.ready"
+10 Name 52 "llvm.amdgcn.s.ttracedata.imm"
+4 Name 54 "kernel"
+4 Name 55 "entry"
+5 Name 56 "cond.true"
+5 Name 57 "cond.false"
+5 Name 58 "cond.end"
+6 Name 59 "lor.lhs.false"
+4 Name 60 "if.then"
+4 Name 61 "if.end"
+5 Name 62 "if.then2"
+4 Name 63 "if.else"
+6 Name 64 "lor.lhs.false3"
+5 Name 65 "if.then4"
+4 Name 66 "if.end5"
+4 Name 67 "if.end6"
+5 Name 68 "while.cond"
+5 Name 69 "while.body"
+5 Name 70 "while.end"
+4 Name 71 "do.body"
+4 Name 72 "do.cond"
+5 Name 73 "land.rhs"
+5 Name 74 "land.end"
+4 Name 75 "do.end"
+5 Name 76 "for.cond"
+5 Name 77 "for.body"
+4 Name 78 "for.inc"
+4 Name 79 "for.end"
+5 Name 80 "if.then10"
+5 Name 81 "if.else11"
+5 Name 82 "if.then12"
+5 Name 83 "if.end13"
+5 Name 84 "if.end14"
+5 Name 85 "do.body15"
+5 Name 86 "do.cond17"
+5 Name 87 "land.rhs9"
+5 Name 88 "land.end10"
+5 Name 89 "do.end18"
+5 Name 90 "for.cond19"
+5 Name 91 "for.body21"
+5 Name 92 "for.inc22"
+5 Name 93 "for.end24"
+3 Name 94 "x"
+3 Name 113 "add"
+3 Name 116 "sub"
+3 Name 119 "c"
+3 Name 123 "inc"
+4 Name 130 "sub16"
+3 Name 132 "c1"
+4 Name 136 "inc23"
+5 Decorate 4 LinkageAttributes "p" Import
+5 Decorate 5 LinkageAttributes "g" Import
+3 Decorate 5 Constant
+13 Decorate 35 LinkageAttributes "llvm.amdgcn.feature.predicate.ids" Export
+3 Decorate 35 Constant
+11 Decorate 38 LinkageAttributes "llvm.amdgcn.ashr.pk.i8.i32" Import
+9 Decorate 44 LinkageAttributes "llvm.set.fpenv.i64" Import
+10 Decorate 47 LinkageAttributes "llvm.amdgcn.s.sleep.var" Import
+14 Decorate 50 LinkageAttributes "llvm.amdgcn.s.wait.event.export.ready" Import
+12 Decorate 52 LinkageAttributes "llvm.amdgcn.s.ttracedata.imm" Import
+6 Decorate 54 LinkageAttributes "kernel" Export
+4 Decorate 96 SpecId 8
+4 Decorate 101 SpecId 3
+4 Decorate 102 SpecId 7
+4 Decorate 104 SpecId 6
+4 Decorate 106 SpecId 4
+4 Decorate 107 SpecId 5
+4 Decorate 110 SpecId 5
+4 Decorate 117 SpecId 4
+4 Decorate 120 SpecId 3
+4 Decorate 124 SpecId 0
+4 Decorate 126 SpecId 2
+4 Decorate 131 SpecId 1
+4 Decorate 133 SpecId 0
+4 TypeInt 2 32 0
+4 TypeInt 6 64 0
+4 TypeInt 8 8 0
+4 TypeInt 36 16 0
+5 Constant 6 7 137 0
+4 Constant 8 11 105
+4 Constant 8 12 115
+4 Constant 8 13 46
+4 Constant 8 14 103
+4 Constant 8 15 102
+4 Constant 8 16 120
+4 Constant 8 17 49
+4 Constant 8 18 48
+4 Constant 8 19 32
+4 Constant 8 20 52
+4 Constant 8 21 0
+4 Constant 8 22 57
+4 Constant 8 23 53
+4 Constant 8 24 56
+4 Constant 8 25 104
+4 Constant 8 26 97
+4 Constant 8 27 45
+4 Constant 8 28 110
+4 Constant 8 29 116
+4 Constant 8 30 54
+4 Constant 8 31 50
+4 Constant 8 32 51
+4 Constant 8 33 55
+4 Constant 2 97 8
+5 Constant 6 99 4294967295 4294967295
+4 Constant 36 108 1
+4 Constant 2 112 4
+4 Constant 2 115 7
+4 Constant 2 122 1
+4 Constant 2 129 12
+4 Constant 2 135 14
+4 TypePointer 3 5 2
+4 TypeArray 9 8 7
+4 TypePointer 10 5 9
+6 TypeFunction 37 36 2 2 2
+2 TypeVoid 42
+4 TypeFunction 43 42 6
+4 TypeFunction 46 42 2
+3 TypeFunction 49 42
+4 TypeFunction 51 42 36
+2 TypeBool 95
+4 Variable 3 4 5
+4 Variable 3 5 5
+140 ConstantComposite 9 34 11 12 13 14 15 16 17 18 17 18 19 20 21 11 12 13 14 15 16 22 23 18 19 24 21 11 12 13 14 15 16 17 17 18 17 19 23 21 25 26 12 13 14 15 16 17 17 27 11 28 12 29 12 19 18 21 11 12 13 14 15 16 22 18 30 19 30 21 11 12 13 14 15 16 17 31 18 17 19 32 21 25 26 12 13 14 15 16 17 31 23 18 27 11 28 12 29 12 19 17 21 25 26 12 13 14 15 16 17 18 27 11 28 12 29 12 19 31 21 25 26 12 13 14 15 16 17 31 27 11 28 12 29 12 19 33 21
+
+5 Variable 10 35 5 34
+3 SpecConstantFalse 95 96
+3 SpecConstantFalse 95 101
+3 SpecConstantFalse 95 102
+3 SpecConstantFalse 95 104
+3 SpecConstantFalse 95 106
+3 SpecConstantFalse 95 107
+3 SpecConstantFalse 95 110
+3 SpecConstantFalse 95 117
+3 ConstantFalse 95 118
+3 SpecConstantFalse 95 120
+3 SpecConstantFalse 95 124
+3 SpecConstantFalse 95 126
+3 SpecConstantFalse 95 131
+3 SpecConstantFalse 95 133
+
+
+5 Function 36 38 0 37
+3 FunctionParameter 2 39
+3 FunctionParameter 2 40
+3 FunctionParameter 2 41
+
+1 FunctionEnd
+
+5 Function 42 44 0 43
+3 FunctionParameter 6 45
+
+1 FunctionEnd
+
+5 Function 42 47 0 46
+3 FunctionParameter 2 48
+
+1 FunctionEnd
+
+5 Function 42 50 0 49
+
+1 FunctionEnd
+
+5 Function 42 52 0 51
+3 FunctionParameter 36 53
+
+1 FunctionEnd
+
+5 Function 42 54 0 49
+
+2 Label 55
+6 Load 2 94 5 2 4
+4 BranchConditional 96 56 57
+
+2 Label 56
+7 FunctionCall 36 98 38 97 97 97
+2 Branch 58
+
+2 Label 57
+5 FunctionCall 42 100 44 99
+2 Branch 58
+
+2 Label 58
+4 BranchConditional 101 60 59
+
+2 Label 59
+4 BranchConditional 102 60 61
+
+2 Label 60
+5 FunctionCall 42 103 47 94
+2 Branch 61
+
+2 Label 61
+4 BranchConditional 104 63 62
+
+2 Label 62
+4 FunctionCall 42 105 50
+2 Branch 67
+
+2 Label 63
+4 BranchConditional 106 65 64
+
+2 Label 64
+4 BranchConditional 107 65 66
+
+2 Label 65
+5 FunctionCall 42 109 52 108
+2 Branch 66
+
+2 Label 66
+2 Branch 67
+
+2 Label 67
+2 Branch 68
+
+2 Label 68
+4 BranchConditional 110 69 70
+
+2 Label 69
+6 Load 2 111 4 2 4
+5 IAdd 2 113 112 94
+5 Store 4 113 2 4
+2 Branch 70
+
+2 Label 70
+2 Branch 71
+
+2 Label 71
+6 Load 2 114 4 2 4
+5 ISub 2 116 115 94
+5 Store 4 116 2 4
+2 Branch 72
+
+2 Label 72
+4 BranchConditional 117 73 74
+
+2 Label 73
+2 Branch 74
+
+2 Label 74
+7 Phi 95 119 118 72 118 73
+4 BranchConditional 119 71 75
+
+2 Label 75
+2 Branch 76
+
+2 Label 76
+4 BranchConditional 120 77 79
+
+2 Label 77
+2 Branch 79
+
+2 Label 78
+6 Load 2 121 4 2 4
+5 IAdd 2 123 121 122
+5 Store 4 123 2 4
+2 Branch 76
+
+2 Label 79
+4 BranchConditional 124 80 81
+
+2 Label 80
+4 FunctionCall 42 125 50
+2 Branch 84
+
+2 Label 81
+4 BranchConditional 126 82 83
+
+2 Label 82
+5 FunctionCall 42 127 52 108
+2 Branch 83
+
+2 Label 83
+2 Branch 84
+
+2 Label 84
+2 Branch 85
+
+2 Label 85
+6 Load 2 128 4 2 4
+5 ISub 2 130 129 94
+5 Store 4 130 2 4
+2 Branch 86
+
+2 Label 86
+4 BranchConditional 131 87 88
+
+2 Label 87
+2 Branch 88
+
+2 Label 88
+7 Phi 95 132 118 86 118 87
+4 BranchConditional 132 85 89
+
+2 Label 89
+2 Branch 90
+
+2 Label 90
+4 BranchConditional 133 91 93
+
+2 Label 91
+2 Branch 93
+
+2 Label 92
+6 Load 2 134 4 2 4
+5 IAdd 2 136 135 122
+5 Store 4 136 2 4
+2 Branch 90
+
+2 Label 93
+1 Return
+
+1 FunctionEnd
