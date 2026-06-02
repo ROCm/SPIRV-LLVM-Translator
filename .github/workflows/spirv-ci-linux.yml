@@ -647,7 +647,12 @@ jobs:
           STAGING=$PWD/staging
           LD_LIBRARY_PATH=$STAGING/lib ./hello_world | tee run.log
 
-      - name: ROCm Examples build
+
+################################################################################
+# Applications
+################################################################################
+
+      - name: ROCm Examples build Applications
         # continue-on-error: true
         # Scope: HIP-Basic only. Applications/ and Libraries/ pull in
         # hipcub/rocrand/rocfft/... which aren't part of the staging build.
@@ -660,10 +665,11 @@ jobs:
         run: |
           STAGING=$PWD/staging
           LLVM_PATH=$PWD/build
-          cmake -S rocm-examples/HIP-Basic -B examples-build    \
+          cmake -S rocm-examples/Applications -B examples-build-Applications   \
             -DCMAKE_CXX_COMPILER=$LLVM_PATH/bin/clang++ \
             -DCMAKE_HIP_COMPILER=$LLVM_PATH/bin/clang++ \
             -DCMAKE_HIP_COMPILER_ROCM_ROOT=$STAGING \
+            -DCMAKE_PREFIX_PATH=$STAGING \
             -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
             -DHIP_PLATFORM=amd \
             -DROCM_PATH=$STAGING \
@@ -675,10 +681,15 @@ jobs:
             -DCMAKE_CXX_FLAGS="--rtlib=libgcc -unwindlib=libgcc" \
             -DCMAKE_EXE_LINKER_FLAGS="--rtlib=libgcc -unwindlib=libgcc -L$STAGING/lib -Wl,-rpath,$STAGING/lib -Wl,--unresolved-symbols=ignore-in-shared-libs" \
             -DCMAKE_SHARED_LINKER_FLAGS="--rtlib=libgcc -unwindlib=libgcc"
-          cmake --build examples-build -j
+          cmake --build examples-build-Applications -j
 
-      - name: ROCm Examples run
-        continue-on-error: true
+
+################################################################################
+# HIP-Basic
+################################################################################
+
+      - name: ROCm Examples build HIP-Basic
+        # continue-on-error: true
         run: |
           STAGING=$PWD/staging
           LLVM_PATH=$PWD/build
