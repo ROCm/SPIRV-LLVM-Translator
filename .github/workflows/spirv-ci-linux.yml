@@ -219,13 +219,127 @@ jobs:
           mkdir -p staging/bin
           cp -a build/bin/amd-llvm-spirv staging/bin/
 
+      # ---- Create hipconfig script for rocPRIM/hipCUB detection -----------
+      - name: Create hipconfig script
+        run: |
+          mkdir -p staging/bin
+          cat > staging/bin/hipconfig << 'EOF'
+          #!/bin/bash
+          case "$1" in
+            --platform) echo "amd" ;;
+            --compiler) echo "clang" ;;
+            --runtime) echo "rocclr" ;;
+            --hipclangpath) echo "$PWD/build/bin" ;;
+            *) echo "amd" ;;
+          esac
+          EOF
+          chmod +x staging/bin/hipconfig
+
+      # ---- Build rocPRIM (header-only but needs install) -------------------
+      - name: Checkout rocPRIM
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ROCm/rocPRIM
+          ref: develop
+          path: rocPRIM
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Configure and install rocPRIM
+        run: |
+          export PATH=$PWD/staging/bin:$PATH
+          cmake -G Ninja -S rocPRIM -B build-rocprim \
+            -DCMAKE_CXX_COMPILER=$PWD/build/bin/clang++ \
+            -DCMAKE_HIP_COMPILER=$PWD/build/bin/clang++ \
+            -DCMAKE_PREFIX_PATH="$PWD/staging;$PWD/build" \
+            -DCMAKE_INSTALL_PREFIX=$PWD/staging \
+            -DGPU_TARGETS="gfx942" \
+            -DBUILD_TEST=OFF \
+            -DBUILD_BENCHMARK=OFF
+          ninja -C build-rocprim
+          cmake --install build-rocprim --prefix $PWD/staging
+
+      # ---- Build hipCUB (depends on rocPRIM) -------------------------------
+      - name: Checkout hipCUB
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ROCm/hipCUB
+          ref: develop
+          path: hipCUB
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Configure and install hipCUB
+        run: |
+          cmake -G Ninja -S hipCUB -B build-hipcub \
+            -DCMAKE_CXX_COMPILER=$PWD/build/bin/clang++ \
+            -DCMAKE_HIP_COMPILER=$PWD/build/bin/clang++ \
+            -DCMAKE_PREFIX_PATH="$PWD/staging;$PWD/build" \
+            -DCMAKE_INSTALL_PREFIX=$PWD/staging \
+            -DGPU_TARGETS="gfx942" \
+            -DBUILD_TEST=OFF \
+            -DBUILD_BENCHMARK=OFF
+          ninja -C build-hipcub
+          cmake --install build-hipcub --prefix $PWD/staging
+
+      # ---- Build rocRAND ---------------------------------------------------
+      - name: Checkout rocRAND
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ROCm/rocRAND
+          ref: develop
+          path: rocRAND
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Configure and build rocRAND
+        env:
+          ROCM_PATH: ${{ github.workspace }}/staging
+        run: |
+          cmake -G Ninja -S rocRAND -B build-rocrand \
+            -DCMAKE_CXX_COMPILER=$PWD/build/bin/clang++ \
+            -DCMAKE_HIP_COMPILER=$PWD/build/bin/clang++ \
+            -DCMAKE_PREFIX_PATH="$PWD/staging;$PWD/build" \
+            -DCMAKE_INSTALL_PREFIX=$PWD/staging \
+            -DAMDGPU_TARGETS="gfx942" \
+            -DBUILD_TEST=OFF \
+            -DBUILD_BENCHMARK=OFF \
+            -DCMAKE_HIP_FLAGS="--rocm-path=$PWD/staging"
+          ninja -C build-rocrand
+          cmake --install build-rocrand --prefix $PWD/staging
+
+      # ---- Build hipRAND (wrapper over rocRAND) ---------------------------
+      - name: Checkout hipRAND
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ROCm/hipRAND
+          ref: develop
+          path: hipRAND
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Configure and build hipRAND
+        env:
+          ROCM_PATH: ${{ github.workspace }}/staging
+        run: |
+          cmake -G Ninja -S hipRAND -B build-hiprand \
+            -DCMAKE_CXX_COMPILER=$PWD/build/bin/clang++ \
+            -DCMAKE_PREFIX_PATH="$PWD/staging;$PWD/build" \
+            -DCMAKE_INSTALL_PREFIX=$PWD/staging \
+            -DBUILD_TEST=OFF \
+            -DBUILD_BENCHMARK=OFF \
+            -DROCRAND_PATH=$PWD/staging
+          ninja -C build-hiprand
+          cmake --install build-hiprand --prefix $PWD/staging
+
       # ---- Strip + upload artifact -----------------------------------------
       # Strip binaries to keep the artifact under GHA's 10GB cap and shorten
       # upload/download time. Tests don't need debug symbols. `--strip-unneeded`
       # preserves dynamic symbols needed at link/load time.
       - name: Strip binaries
         run: |
-          find build build-comgr build-device-libs build-rocr build-clr staging \
+          find build build-comgr build-device-libs build-rocr build-clr \
+            build-rocprim build-hipcub build-rocrand build-hiprand staging \
             -type f \( -executable -o -name '*.so*' -o -name '*.a' \) \
             -exec strip --strip-unneeded {} + 2>/dev/null || true
 
@@ -234,7 +348,9 @@ jobs:
       - name: Tar build trees
         run: |
           tar -cf linux-build-tree.tar \
-            build build-comgr build-device-libs build-rocr build-clr staging
+            build build-comgr build-device-libs build-rocr build-clr \
+            build-rocprim build-hipcub build-rocrand build-hiprand staging
+
 
       - name: Upload build tree artifact
         uses: actions/upload-artifact@v4
@@ -565,13 +681,113 @@ jobs:
         continue-on-error: true
         run: |
           STAGING=$PWD/staging
-          LD_LIBRARY_PATH=$STAGING/lib
-          cd examples-build/
-          for f in bin/*; do
-            [ -f "$f" ] && [ -x "$f" ] || continue
-            case "$f" in *hip_cooperative_groups) echo "SKIP $f (known SPIRV limitation)"; continue;; esac
-            "$f" >/dev/null 2>&1; echo "$? $f"
-          done
+          LLVM_PATH=$PWD/build
+          cmake -S rocm-examples/HIP-Basic -B examples-build-hip-basic    \
+            -DCMAKE_CXX_COMPILER=$LLVM_PATH/bin/clang++ \
+            -DCMAKE_HIP_COMPILER=$LLVM_PATH/bin/clang++ \
+            -DCMAKE_HIP_COMPILER_ROCM_ROOT=$STAGING \
+            -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
+            -DHIP_PLATFORM=amd \
+            -DROCM_PATH=$STAGING \
+            -DCMAKE_HIP_ARCHITECTURES=amdgcnspirv \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_DISABLE_FIND_PACKAGE_Perl=TRUE \
+            -DCMAKE_HIP_FLAGS="-DROCPRIM_DISABLE_DPP=1 --offload-new-driver --rocm-path=$STAGING -use-spirv-backend --rtlib=libgcc -unwindlib=libgcc" \
+            -DCMAKE_HIP_LINK_FLAGS="--rtlib=libgcc -unwindlib=libgcc -L$STAGING/lib -Wl,-rpath,$STAGING/lib -Wl,--unresolved-symbols=ignore-in-shared-libs" \
+            -DCMAKE_CXX_FLAGS="--rtlib=libgcc -unwindlib=libgcc" \
+            -DCMAKE_EXE_LINKER_FLAGS="--rtlib=libgcc -unwindlib=libgcc -L$STAGING/lib -Wl,-rpath,$STAGING/lib -Wl,--unresolved-symbols=ignore-in-shared-libs" \
+            -DCMAKE_SHARED_LINKER_FLAGS="--rtlib=libgcc -unwindlib=libgcc"
+          cmake --build examples-build-hip-basic -j
+
+
+################################################################################
+# Libraries
+################################################################################
+
+      - name: ROCm Examples build Libraries
+        continue-on-error: true
+        run: |
+          STAGING=$PWD/staging
+          LLVM_PATH=$PWD/build
+          cmake -S rocm-examples/Libraries -B examples-build-Libraries    \
+            -DCMAKE_CXX_COMPILER=$LLVM_PATH/bin/clang++ \
+            -DCMAKE_HIP_COMPILER=$LLVM_PATH/bin/clang++ \
+            -DCMAKE_HIP_COMPILER_ROCM_ROOT=$STAGING \
+            -DCMAKE_PREFIX_PATH=$STAGING \
+            -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
+            -DHIP_PLATFORM=amd \
+            -DROCM_PATH=$STAGING \
+            -DCMAKE_HIP_ARCHITECTURES=amdgcnspirv \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_DISABLE_FIND_PACKAGE_Perl=TRUE \
+            -DCMAKE_HIP_FLAGS="-DROCPRIM_DISABLE_DPP=1 --offload-new-driver --rocm-path=$STAGING -use-spirv-backend --rtlib=libgcc -unwindlib=libgcc" \
+            -DCMAKE_HIP_LINK_FLAGS="--rtlib=libgcc -unwindlib=libgcc -L$STAGING/lib -Wl,-rpath,$STAGING/lib -Wl,--unresolved-symbols=ignore-in-shared-libs" \
+            -DCMAKE_CXX_FLAGS="--rtlib=libgcc -unwindlib=libgcc" \
+            -DCMAKE_EXE_LINKER_FLAGS="--rtlib=libgcc -unwindlib=libgcc -L$STAGING/lib -Wl,-rpath,$STAGING/lib -Wl,--unresolved-symbols=ignore-in-shared-libs" \
+            -DCMAKE_SHARED_LINKER_FLAGS="--rtlib=libgcc -unwindlib=libgcc"
+          cmake --build examples-build-Libraries -j
+
+
+################################################################################
+# Tutorials (requires C++20)
+################################################################################
+
+      - name: ROCm Examples build Tutorials
+        continue-on-error: true
+        run: |
+          STAGING=$PWD/staging
+          LLVM_PATH=$PWD/build
+          cmake -S rocm-examples/Tutorials -B examples-build-Tutorials    \
+            -DCMAKE_CXX_COMPILER=$LLVM_PATH/bin/clang++ \
+            -DCMAKE_HIP_COMPILER=$LLVM_PATH/bin/clang++ \
+            -DCMAKE_HIP_COMPILER_ROCM_ROOT=$STAGING \
+            -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
+            -DHIP_PLATFORM=amd \
+            -DROCM_PATH=$STAGING \
+            -DCMAKE_HIP_ARCHITECTURES=amdgcnspirv \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_DISABLE_FIND_PACKAGE_Perl=TRUE \
+            -DCMAKE_CXX_STANDARD=20 \
+            -DCMAKE_HIP_FLAGS="-std=c++20 -DROCPRIM_DISABLE_DPP=1 --offload-new-driver --rocm-path=$STAGING -use-spirv-backend --rtlib=libgcc -unwindlib=libgcc" \
+            -DCMAKE_HIP_LINK_FLAGS="--rtlib=libgcc -unwindlib=libgcc -L$STAGING/lib -Wl,-rpath,$STAGING/lib -Wl,--unresolved-symbols=ignore-in-shared-libs -lpthread" \
+            -DCMAKE_CXX_FLAGS="-std=c++20 -Wno-c2y-extensions --rtlib=libgcc -unwindlib=libgcc" \
+            -DCMAKE_EXE_LINKER_FLAGS="--rtlib=libgcc -unwindlib=libgcc -L$STAGING/lib -Wl,-rpath,$STAGING/lib -Wl,--unresolved-symbols=ignore-in-shared-libs -lpthread" \
+            -DCMAKE_SHARED_LINKER_FLAGS="--rtlib=libgcc -unwindlib=libgcc"
+          cmake --build examples-build-Tutorials -j
+
+
+################################################################################
+# TESTS
+################################################################################
+
+      - name: ROCm Examples run Applications
+        continue-on-error: true
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/staging/lib
+        run: |
+          ctest --test-dir examples-build-Applications --output-on-failure --no-tests=ignore -E '^applications_monte_carlo_pi$'
+
+      - name: ROCm Examples run HIP-Basic
+        continue-on-error: true
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/staging/lib
+        run: |
+          ctest --test-dir examples-build-hip-basic --output-on-failure --no-tests=ignore -E '^hip_cooperative_groups$'
+
+      - name: ROCm Examples run Libraries
+        continue-on-error: true
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/staging/lib
+        run: |
+          ctest --test-dir examples-build-Libraries --output-on-failure --no-tests=ignore -E '^(hiprand_simple_distributions_cpp|rocrand_simple_distributions_cpp)$'
+
+      - name: ROCm Examples run Tutorials
+        continue-on-error: true
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/staging/lib
+        run: |
+          ctest --test-dir examples-build-Tutorials --output-on-failure --no-tests=ignore
+
 
 
 
