@@ -647,3 +647,80 @@ jobs:
           for f in "${RUN_FAILED[@]}"; do echo "  - $f"; done
 
           [ ${#RUN_FAILED[@]} -eq 0 ]
+
+  # =====================================================================
+  # Test - hip-tests (catch2 kernel suite via amdgcnspirv)
+  # =====================================================================
+  # Builds the hip-tests `kernel` catch2 unit suite with -DENABLE_SPIRV=ON
+  # (which sets --offload-arch=amdgcnspirv and gates out SPIR-V-incompatible
+  # cases), then runs it via ctest on a gfx942 GPU. Prototype scope: just
+  # the `kernel` unit dir to start; expand to more unit dirs once the
+  # baseline is characterized. Informational initially.
+  test_hip_tests:
+    name: Test hip-tests
+    needs: build
+    runs-on: linux-gfx942-1gpu-ossci-rocm
+    timeout-minutes: 60
+    # Same manylinux container + GPU passthrough as test_rocm_examples:
+    # isolates from any system ROCm / Comgr cache on the persistent host.
+    container:
+      image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
+      options: --device=/dev/kfd --device=/dev/dri --group-add video
+
+    steps:
+      - name: Checkout hip-tests (pinned)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ROCm/hip-tests
+          ref: d01e1f96059edc25600eb13434d7e2b71c09af01 # develop, 2026-06-03
+          path: hip-tests
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Download build tree artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: linux-build-tree
+
+      - name: Untar build trees
+        run: tar -xmf linux-build-tree.tar
+
+      - name: Install runtime deps in container
+        run: dnf install -y numactl-libs
+
+      - name: Configure hip-tests (ENABLE_SPIRV)
+        # ENABLE_SPIRV=ON makes hip-tests' own CMake set
+        # --offload-arch=amdgcnspirv and exclude SPIR-V-incompatible cases.
+        # Point CMAKE_HIP_COMPILER + hip's find_package at the staged tree;
+        # HIP_PLATFORM=amd + ROCM_PATH bypass the hipconfig probe.
+        run: |
+          STAGING=$PWD/staging
+          LLVM_PATH=$PWD/build
+          cmake -S hip-tests/catch -B hip-tests-build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_SPIRV=ON \
+            -DHIP_PLATFORM=amd \
+            -DROCM_PATH=$STAGING \
+            -DCMAKE_PREFIX_PATH="$STAGING;$STAGING/lib/cmake" \
+            -DCMAKE_HIP_COMPILER=$LLVM_PATH/bin/clang++ \
+            -DCMAKE_HIP_COMPILER_ROCM_ROOT=$STAGING \
+            -DCMAKE_HIP_ARCHITECTURES=amdgcnspirv \
+            -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
+            -DCMAKE_DISABLE_FIND_PACKAGE_Perl=TRUE \
+            -DCMAKE_HIP_FLAGS="--rocm-path=$STAGING --rtlib=libgcc -unwindlib=libgcc" \
+            -DCMAKE_HIP_LINK_FLAGS="--rtlib=libgcc -unwindlib=libgcc -L$STAGING/lib -Wl,-rpath,$STAGING/lib -Wl,--unresolved-symbols=ignore-in-shared-libs" \
+            -DCMAKE_CXX_FLAGS="--rtlib=libgcc -unwindlib=libgcc" \
+            -DCMAKE_EXE_LINKER_FLAGS="--rtlib=libgcc -unwindlib=libgcc -L$STAGING/lib -Wl,-rpath,$STAGING/lib -Wl,--unresolved-symbols=ignore-in-shared-libs" \
+            -DCMAKE_SHARED_LINKER_FLAGS="--rtlib=libgcc -unwindlib=libgcc"
+
+      - name: Build hip-tests kernel suite
+        run: cmake --build hip-tests-build --target KernelTest -j
+
+      - name: Run hip-tests kernel suite (ctest)
+        # catch_discover_tests registered each catch2 case with ctest.
+        # -R Kernel restricts to the kernel suite's cases. Gates on any
+        # ctest failure.
+        run: |
+          STAGING=$PWD/staging
+          export LD_LIBRARY_PATH=$STAGING/lib
+          ctest --test-dir hip-tests-build -R Kernel --output-on-failure
