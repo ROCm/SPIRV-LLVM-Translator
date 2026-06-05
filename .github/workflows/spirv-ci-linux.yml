@@ -702,6 +702,8 @@ jobs:
             -DHIP_PLATFORM=amd \
             -DROCM_PATH=$STAGING \
             -DCMAKE_PREFIX_PATH="$STAGING;$STAGING/lib/cmake" \
+            -DCMAKE_C_COMPILER=$LLVM_PATH/bin/clang \
+            -DCMAKE_CXX_COMPILER=$LLVM_PATH/bin/clang++ \
             -DCMAKE_HIP_COMPILER=$LLVM_PATH/bin/clang++ \
             -DCMAKE_HIP_COMPILER_ROCM_ROOT=$STAGING \
             -DCMAKE_HIP_ARCHITECTURES=amdgcnspirv \
