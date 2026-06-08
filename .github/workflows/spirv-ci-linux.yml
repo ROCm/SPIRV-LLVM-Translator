@@ -14,6 +14,7 @@ env:
   STAGING_SRC: src/therock_staging
   STAGING_BUILD: build/therock_staging
   STAGING_INSTALL: install/therock_staging
+  STAGING_ARTIFACT_NAME: therock-staging-linux
   STAGING_ARTIFACT_ARCHIVE: therock-staging-linux.tar
 
 jobs:
