@@ -7,6 +7,15 @@ name: SPIRV Compiler CI - Linux
 on:
   workflow_call:
 
+env:
+  SRC_DIR: src
+  BUILD_DIR: build
+  INSTALL_DIR: install
+  STAGING_SRC: src/therock_staging
+  STAGING_BUILD: build/therock_staging
+  STAGING_INSTALL: install/therock_staging
+  STAGING_ARTIFACT_ARCHIVE: therock-staging-linux.tar
+
 jobs:
   # =====================================================================
   # Build LLVM + Clang + amd-llvm-spirv + device-libs + Comgr.
@@ -21,6 +30,7 @@ jobs:
       image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
     outputs:
       llvm_project_sha: ${{ steps.resolve_llvm_sha.outputs.sha }}
+    if: false
 
     steps:
       # ---- Checkout ---------------------------------------------------------
@@ -582,6 +592,7 @@ jobs:
     name: Test rocm-examples
     needs: build
     runs-on: linux-gfx942-1gpu-ossci-rocm
+    if: false
     timeout-minutes: 45
     container:
       image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
@@ -958,3 +969,380 @@ jobs:
           for f in "${RUN_FAILED[@]}"; do echo "  - $f"; done
 
           [ ${#RUN_FAILED[@]} -eq 0 ]
+
+
+####################
+# TODO:
+#   run flow with native the rock - enable all tests in examples
+#   run with spirv be - passed most tests
+#   run with upstream llvm + be - passed all tests
+####
+
+
+  build_staging:
+    # name: Build TheRock with AMD Staging Compiler
+    # TODO_RM_DEBUG
+    name: build_staging
+    # runs-on: azure-linux-scale-rocm
+    # timeout-minutes: 45
+    # container:
+    #   image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
+    #   # todo : change to latest @latest image
+    #   options: --volume /tmp/act-node:/usr/local/bin/node:ro --volume /tmp/act-shared:/opt/act-shared:rw --security-opt seccomp=unconfined --ipc=host --cpuset-cpus="0-172"
+    timeout-minutes: 120
+    runs-on: linux-gfx942-1gpu-ossci-rocm
+    container:
+      image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
+      options: |
+        --device=/dev/kfd --device=/dev/dri  --group-add video
+    steps:
+
+      - name: Checkout TheRock
+        # if: false
+        uses: actions/checkout@v6
+        with:
+          repository: ROCm/TheRock
+          path: ${{env.STAGING_SRC}}
+
+
+      # - name: Get Compiler Staging
+      #   if: false
+      #   run: |
+      #     echo Not implemented yet
+      #     cd ${{env.STAGING_SRC}}/
+
+
+      - name: Setup Python
+        # if: false
+        uses: actions/setup-python@v6
+
+
+      - name: Fetch Sources
+        # if: false
+        run: |
+          python3 -m venv ${{env.BUILD_DIR}}/.venv
+          . ${{env.BUILD_DIR}}/.venv/bin/activate
+          pip install -r ${{env.STAGING_SRC}}/requirements.txt
+          python3 ${{env.STAGING_SRC}}/build_tools/fetch_sources.py --depth 1
+
+
+      - name: "Patch: Add SPIRV BE target"
+        # if: false
+        run: |
+          # TODO_RM_DEBUG
+          grep LLVM_TARGETS_TO_BUILD ${{env.STAGING_SRC}}/compiler/pre_hook_amd-llvm.cmake
+          sed -i 's|LLVM_TARGETS_TO_BUILD "AMDGPU;X86"|LLVM_TARGETS_TO_BUILD "AMDGPU;X86;SPIRV"|' ${{env.STAGING_SRC}}/compiler/pre_hook_amd-llvm.cmake
+          grep LLVM_TARGETS_TO_BUILD ${{env.STAGING_SRC}}/compiler/pre_hook_amd-llvm.cmake
+
+
+      - name: Configure
+        # if: false
+        run: |
+          # rm -rf ${{env.STAGING_BUILD}} # TODO_RM_DEBUG
+          . ${{env.BUILD_DIR}}/.venv/bin/activate
+          cmake -GNinja -S ${{env.STAGING_SRC}} -B ${{env.STAGING_BUILD}} \
+            -DTHEROCK_AMDGPU_FAMILIES=gfx90a    \
+            -DTHEROCK_BUILD_TESTING=OFF         \
+            -DTHEROCK_ENABLE_CORE_RUNTIME_TESTS=OFF \
+            -DTHEROCK_ENABLE_ALL=OFF            \
+            \
+            -DTHEROCK_ENABLE_COMPILER=ON        \
+            -DTHEROCK_ENABLE_HIPIFY=ON          \
+            -DTHEROCK_ENABLE_HIP_RUNTIME=ON     \
+            -DTHEROCK_ENABLE_OCL_RUNTIME=ON     \
+            -DTHEROCK_ENABLE_LIBHIPCXX=ON       \
+            -DTHEROCK_ENABLE_CORE_RUNTIME=ON    \
+            \
+            -DTHEROCK_ENABLE_OPENMPI=ON     \
+            -DTHEROCK_ENABLE_BLAS=ON     \
+            -DTHEROCK_ENABLE_RAND=ON     \
+            -DTHEROCK_ENABLE_FFT=ON     \
+            -DTHEROCK_ENABLE_PRIM=ON     \
+            -DTHEROCK_ENABLE_SPARSE=ON     \
+            -DTHEROCK_ENABLE_SOLVER=ON     \
+            -DTHEROCK_ENABLE_ROCWMMA=ON     \
+            -DTHEROCK_ENABLE_RCCL=ON     \
+            -DTHEROCK_ENABLE_HIPDNN=ON     \
+
+
+      # -DTHEROCK_ENABLE_AQLPROFILE=ON      \
+      # -DTHEROCK_ENABLE_ROCPROFV3=ON       \
+      # -DTHEROCK_ENABLE_ROCPROFSYS=OFF     \
+      # -DTHEROCK_ENABLE_RDC=ON             \
+      # -DTHEROCK_ENABLE_SYSDEPS_AMD_MESA=ON
+
+
+      - name: Build
+        # if: false
+        run: |
+          . ${{env.BUILD_DIR}}/.venv/bin/activate
+          cmake --build ${{env.STAGING_BUILD}} -j
+
+
+      - name: Install
+        # if: false
+        run: |
+          cmake --install ${{env.STAGING_BUILD}} --prefix ${{env.STAGING_INSTALL}}
+
+
+      - name: Tar build
+        # if: false
+        run: |
+          tar -cf ${{env.STAGING_ARTIFACT_ARCHIVE}} ${{env.STAGING_INSTALL}}
+
+
+      # - name: Stash build to shared volume (act)
+      #   if: false
+      #   # if: ${{ env.ACT }}
+      #   run: cp ${{env.STAGING_ARTIFACT_ARCHIVE}} /opt/act-shared/
+
+
+      # TODO: Github way of artifacts
+      - name: Upload build tree artifact
+        if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build-tree
+          path: linux-build-tree.tar
+          retention-days: 1
+          compression-level: 6
+          if-no-files-found: error
+
+      - name: Dump echo TODO REMOVE ME
+        run: echo echo TODO REMOVE ME
+
+################################################################################
+# ROCm Examples with Staging Compiler
+################################################################################
+
+  rocm_examples_amd_staging:
+    name: ROCm Examples with Staging Compiler
+    # TODO_RM_DEBUG
+    needs: build_staging
+    runs-on: linux-gfx942-1gpu-ossci-rocm
+    timeout-minutes: 120
+    container:
+      image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
+      # todo : change to latest @latest image
+      options: |
+        --device=/dev/kfd --device=/dev/dri  --group-add video
+        --volume /tmp/act-node:/usr/local/bin/node:ro --volume /tmp/act-shared:/opt/act-shared:ro 
+        --ipc=host  --security-opt seccomp=unconfined --ipc=host --cpuset-cpus="0-172"
+    env:
+      EXAMPLES_SRC: rocm-examples
+      EXAMPLES_BUILD: build/rocm-examples
+      HIP_ARCH: gfx90a
+
+    steps:
+
+      - name: Checkout workflow repo (for local composite action)
+        uses: actions/checkout@v6
+
+
+      - name: Export ROCM_PATH
+        run: echo "ROCM_PATH=${{ github.workspace }}/${{env.STAGING_INSTALL}}" >> "$GITHUB_ENV"
+
+
+      - name: Fetch TheRock build from shared volume (act)
+        # if: ${{ env.ACT }}
+        # if: false
+        run: cp /opt/act-shared/${{env.STAGING_ARTIFACT_ARCHIVE}} ./
+
+
+      - name: Clean staging install for reuse
+        run: rm -rf ${{env.STAGING_INSTALL}}
+
+      # - name: Untar build trees
+      #   # if: false
+      #   run: tar -xmf ${{env.STAGING_ARTIFACT_ARCHIVE}}
+      # TODO: Github way of artifacts
+      - name: Download build tree artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build-tree
+
+
+      - name: Checkout ROCm Examples
+        # if: false
+        uses: actions/checkout@v6
+        with:
+          repository: ROCm/rocm-examples
+          path: ${{env.EXAMPLES_SRC}}
+
+
+      # TODO_RM_DEBUG
+      - name: Clean build dir
+        run: |
+          rm -rf ${{env.EXAMPLES_BUILD}}  # TODO_RM_DEBUG
+          mkdir -p ${{env.EXAMPLES_BUILD}} && ls -la ${{env.EXAMPLES_BUILD}}
+
+
+      - name: ROCm Examples - Applications
+        uses: ./.github/actions/example-configure-build-test
+        with:
+          test_src_path: Applications
+          hip_arch: gfx90a
+          num_tests: 8
+
+
+      - name: ROCm Examples - HIP-Basic
+        uses: ./.github/actions/example-configure-build-test
+        with:
+          test_src_path: HIP-Basic
+          hip_arch: gfx90a
+          num_tests: 27
+
+
+      - name: ROCm Examples - Tutorials
+        uses: ./.github/actions/example-configure-build-test
+        with:
+          test_src_path: Tutorials
+          hip_arch: gfx90a
+          num_tests: 1 # X
+
+
+      - name: ROCm Examples - Libraries/hipBLAS
+        uses: ./.github/actions/example-configure-build-test
+        with:
+          test_src_path: Libraries/hipBLAS
+          hip_arch: gfx90a
+          num_tests: 3
+
+      - name: ROCm Examples - Libraries/hipCUB
+        uses: ./.github/actions/example-configure-build-test
+        with:
+          test_src_path: Libraries/hipCUB
+          hip_arch: gfx90a
+          num_tests: 2
+
+
+      - name: ROCm Examples - Libraries/hipFFT
+        uses: ./.github/actions/example-configure-build-test
+        with:
+          test_src_path: Libraries/hipFFT
+          hip_arch: gfx90a
+          num_tests: 7
+
+      - name: ROCm Examples - Libraries/hipSOLVER
+        uses: ./.github/actions/example-configure-build-test
+        with:
+          test_src_path: Libraries/hipSOLVER
+          hip_arch: gfx90a
+          num_tests: 11
+
+
+      - name: ROCm Examples - Libraries/hipSPARSE
+        uses: ./.github/actions/example-configure-build-test
+        with:
+          test_src_path: Libraries/hipSPARSE
+          hip_arch: gfx90a
+          num_tests: 4
+
+
+      - name: ROCm Examples - Libraries/rocBLAS
+        uses: ./.github/actions/example-configure-build-test
+        with:
+          test_src_path: Libraries/rocBLAS
+          hip_arch: gfx90a
+          num_tests: 9
+
+
+      - name: ROCm Examples - Libraries/rocFFT
+        uses: ./.github/actions/example-configure-build-test
+        with:
+          test_src_path: Libraries/rocFFT
+          hip_arch: gfx90a
+          num_tests: 5
+
+
+      - name: ROCm Examples - Libraries/rocPRIM
+        uses: ./.github/actions/example-configure-build-test
+        with:
+          test_src_path: Libraries/rocPRIM
+          hip_arch: gfx90a
+          num_tests: 2
+
+
+      - name: ROCm Examples - Libraries/rocRAND
+        uses: ./.github/actions/example-configure-build-test
+        with:
+          test_src_path: Libraries/rocRAND
+          hip_arch: gfx90a
+          num_tests: 3
+
+
+      - name: ROCm Examples - Libraries/rocSOLVER
+        uses: ./.github/actions/example-configure-build-test
+        with:
+          test_src_path: Libraries/rocSOLVER
+          hip_arch: gfx90a
+          num_tests: 5
+
+
+      - name: ROCm Examples - Libraries/rocThrust
+        uses: ./.github/actions/example-configure-build-test
+        with:
+          test_src_path: Libraries/rocThrust
+          hip_arch: gfx90a
+          num_tests: 6
+
+
+      - name: ROCm Examples - Libraries/hipBLASLt
+        uses: ./.github/actions/example-configure-build-test
+        with:
+          test_src_path: Libraries/hipBLASLt
+          hip_arch: gfx90a
+          num_tests: 42 # 41
+
+
+      - name: ROCm Examples - Libraries/rocSPARSE
+        uses: ./.github/actions/example-configure-build-test
+        with:
+          test_src_path: Libraries/rocSPARSE
+          hip_arch: gfx90a
+          num_tests: 34 # 33
+
+
+      - name: ROCm Examples - Libraries/RCCL
+        uses: ./.github/actions/example-configure-build-test
+        with:
+          test_src_path: Libraries/RCCL
+          hip_arch: gfx90a
+          num_tests: 9
+
+
+      - name: ROCm Examples - Libraries/hipDNN
+        uses: ./.github/actions/example-configure-build-test
+        with:
+          test_src_path: Libraries/hipDNN
+          hip_arch: gfx90a
+          num_tests: 15 # X
+
+
+      - name: ROCm Examples - Libraries/hipRAND
+        uses: ./.github/actions/example-configure-build-test
+        with:
+          test_src_path: Libraries/hipRAND
+          hip_arch: gfx90a
+          num_tests: 3 # X
+
+
+      - name: Test results summary
+        if: always()
+        shell: bash
+        run: |
+          f="$GITHUB_WORKSPACE/.test_results/results.tsv"
+          if [ ! -f "$f" ]; then
+            echo "No test results collected."
+            exit 0
+          fi
+          printf '%-45s %8s %8s\n' "test path" "failed" "total"
+          printf '%-45s %8s %8s\n' "---------" "------" "-----"
+          awk -F'\t' '{printf "%-45s %8s %8s\n", $1, $2, $3}' "$f"
+          {
+            echo "## ROCm Examples Test Results"
+            echo ""
+            echo "| test path | failed | total |"
+            echo "|---|---|---|"
+            awk -F'\t' '{printf "| %s | %s | %s |\n", $1, $2, $3}' "$f"
+          } >> "$GITHUB_STEP_SUMMARY"
