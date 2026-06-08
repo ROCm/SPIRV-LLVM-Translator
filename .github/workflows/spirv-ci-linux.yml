@@ -1123,11 +1123,8 @@ jobs:
     timeout-minutes: 120
     container:
       image: ghcr.io/rocm/therock_build_manylinux_x86_64@sha256:702a5133851e6d1daf1207d2c9fbb01c2667914a5b6dc5a01faeb3ce66ea6421
-      # todo : change to latest @latest image
       options: |
         --device=/dev/kfd --device=/dev/dri  --group-add video
-        --volume /tmp/act-node:/usr/local/bin/node:ro --volume /tmp/act-shared:/opt/act-shared:ro 
-        --ipc=host  --security-opt seccomp=unconfined --ipc=host --cpuset-cpus="0-172"
     env:
       EXAMPLES_SRC: rocm-examples
       EXAMPLES_BUILD: build/rocm-examples
