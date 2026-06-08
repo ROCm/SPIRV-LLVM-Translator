@@ -1,0 +1,58 @@
+name: Example Configure / Build / Test
+description: Configure, build, and ctest a rocm-examples subdirectory against a staging install.
+
+inputs:
+  test_src_path:
+    description: Path relative to EXAMPLES_SRC (e.g. Libraries/hipBLAS)
+    required: true
+  hip_arch:
+    required: true
+  num_tests:
+    description: Expected number of tests
+    required: true
+
+
+runs:
+  using: composite
+  steps:
+    - name: Configure (${{ inputs.test_src_path }})
+      shell: bash
+      run: |
+        export PATH=$ROCM_PATH/bin:$PATH
+        cmake -S "$EXAMPLES_SRC/${{ inputs.test_src_path }}" -B "$EXAMPLES_BUILD/${{ inputs.test_src_path }}" \
+          -DCMAKE_CXX_COMPILER=$ROCM_PATH/lib/llvm/bin/clang++ \
+          -DCMAKE_HIP_COMPILER=$ROCM_PATH/lib/llvm/bin/clang++ \
+          -DROCM_PATH=$ROCM_PATH \
+          -DCMAKE_HIP_ARCHITECTURES=${{ inputs.hip_arch }} \
+          -DCMAKE_CXX_STANDARD=20 \
+          -DHIP_PLATFORM=amd \
+          -DCMAKE_PREFIX_PATH=$ROCM_PATH || true
+
+    - name: Build (${{ inputs.test_src_path }})
+      shell: bash
+      run: cmake --build "$EXAMPLES_BUILD/${{ inputs.test_src_path }}" -j1 || true
+
+    - name: Test (${{ inputs.test_src_path }})
+      shell: bash
+      env:
+        LD_LIBRARY_PATH: ${{ env.ROCM_PATH }}/lib
+      run: |
+        log=$(mktemp)
+        set +e
+        ctest --test-dir "$EXAMPLES_BUILD/${{ inputs.test_src_path }}" --output-on-failure --no-tests=ignore -j 2>&1 | tee "$log"
+        rc=${PIPESTATUS[0]}
+        set -e
+        line=$(grep -E '[0-9]+ tests failed out of [0-9]+' "$log" | tail -1 || true)
+        if [ -n "$line" ]; then
+          failed=$(echo "$line" | grep -oE '[0-9]+ tests failed' | grep -oE '^[0-9]+')
+          total=$(echo "$line" | grep -oE 'out of [0-9]+' | grep -oE '[0-9]+')
+        elif [ "$rc" -eq 0 ]; then
+          failed=0
+          total=0
+        else
+          failed="?"
+          total="?"
+        fi
+        mkdir -p "$GITHUB_WORKSPACE/.test_results"
+        printf '%s\t%s\t%s\n' "${{ inputs.test_src_path }}" "$failed" "$total" \
+          >> "$GITHUB_WORKSPACE/.test_results/results.tsv"
