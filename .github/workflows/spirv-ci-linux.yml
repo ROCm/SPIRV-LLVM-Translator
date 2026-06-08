@@ -1143,10 +1143,10 @@ jobs:
         run: echo "ROCM_PATH=${{ github.workspace }}/${{env.STAGING_INSTALL}}" >> "$GITHUB_ENV"
 
 
-      - name: Fetch TheRock build from shared volume (act)
-        # if: ${{ env.ACT }}
-        # if: false
-        run: cp /opt/act-shared/${{env.STAGING_ARTIFACT_ARCHIVE}} ./
+      # - name: Fetch TheRock build from shared volume (act)
+      #   if: ${{ env.ACT }}
+      #   # if: false
+      #   run: cp /opt/act-shared/${{env.STAGING_ARTIFACT_ARCHIVE}} ./
 
 
       - name: Clean staging install for reuse
@@ -1161,6 +1161,9 @@ jobs:
         with:
           name: ${{env.STAGING_ARTIFACT_NAME}}
 
+      - name: Untar build trees
+        # if: false
+        run: tar -xmf ${{env.STAGING_ARTIFACT_ARCHIVE}}
 
       - name: Checkout ROCm Examples
         # if: false
