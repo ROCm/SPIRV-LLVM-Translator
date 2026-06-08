@@ -1102,8 +1102,8 @@ jobs:
         if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v4
         with:
-          name: linux-build-tree
-          path: linux-build-tree.tar
+          name: ${{env.STAGING_ARTIFACT_NAME}}
+          path: ${{env.STAGING_ARTIFACT_ARCHIVE}}
           retention-days: 1
           compression-level: 6
           if-no-files-found: error
@@ -1156,7 +1156,7 @@ jobs:
       - name: Download build tree artifact
         uses: actions/download-artifact@v4
         with:
-          name: linux-build-tree
+          name: ${{env.STAGING_ARTIFACT_NAME}}
 
 
       - name: Checkout ROCm Examples
