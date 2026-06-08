@@ -1088,7 +1088,10 @@ jobs:
       - name: Tar build
         # if: false
         run: |
+          ls -la ${{env.STAGING_INSTALL}}
           tar -cf ${{env.STAGING_ARTIFACT_ARCHIVE}} ${{env.STAGING_INSTALL}}
+          ls -la ${{env.STAGING_ARTIFACT_ARCHIVE}}
+          ls -la ./
 
 
       # - name: Stash build to shared volume (act)
@@ -1099,8 +1102,7 @@ jobs:
 
       # TODO: Github way of artifacts
       - name: Upload build tree artifact
-        if: ${{ !env.ACT }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{env.STAGING_ARTIFACT_NAME}}
           path: ${{env.STAGING_ARTIFACT_ARCHIVE}}
@@ -1154,7 +1156,7 @@ jobs:
       #   run: tar -xmf ${{env.STAGING_ARTIFACT_ARCHIVE}}
       # TODO: Github way of artifacts
       - name: Download build tree artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: ${{env.STAGING_ARTIFACT_NAME}}
 
