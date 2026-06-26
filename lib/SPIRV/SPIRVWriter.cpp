@@ -1707,16 +1707,13 @@ SPIRVValue *LLVMToSPIRVBase::transUnaryInst(UnaryInstruction *U,
   }
 
   if (isa<FreezeInst>(U)) {
-    if (BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_poison_freeze)) {
-      auto *Op = transValue(U->getOperand(0), BB);
-      SPIRVType *TransTy = transScavengedType(U);
-      return BM->addFreezeKHRInst(TransTy, Op, BB);
-    }
-    // Without the extension, move the freeze away.
-    Value *Operand = U->getOperand(0);
-    if (isa<UndefValue>(Operand))
-      return BM->addNullConstant(transScavengedType(U));
-    return transValue(Operand, BB);
+    getErrorLog().checkError(
+        BM->isAllowedToUseExtension(ExtensionID::SPV_KHR_poison_freeze),
+        SPIRVEC_InvalidInstruction, U,
+        "llvm.freeze requires SPV_KHR_poison_freeze\n");
+    auto *Op = transValue(U->getOperand(0), BB);
+    SPIRVType *TransTy = transScavengedType(U);
+    return BM->addFreezeKHRInst(TransTy, Op, BB);
   }
 
   Op BOC = OpNop;
@@ -5858,21 +5855,6 @@ SPIRVValue *LLVMToSPIRVBase::transDirectCallInst(CallInst *CI,
     if (SPIRV::FPConvertToEncodingMap::find(DemangledName)) {
       FPConversionDesc FPDesc =
           SPIRV::FPConvertToEncodingMap::map(DemangledName);
-      // SPV_EXT_float8: when SPV_EXT_float8 is enabled and
-      // SPV_INTEL_fp_conversions is not, the
-      // ClampConvert<Src>To<E4M3|E5M2>INTEL builtin maps to OpFConvert
-      // decorated with SaturatedToLargestFloat8NormalConversionEXT instead of
-      // the SPV_INTEL_fp_conversions OpClampConvertFToFINTEL opcode. When both
-      // extensions are enabled, SPV_INTEL_fp_conversions wins to preserve the
-      // pre-existing encoding.
-      bool IsSaturatedFP8 =
-          FPDesc.ConvOpCode == internal::OpClampConvertFToFINTEL &&
-          (FPDesc.DstEncoding == FPEncodingWrap::E4M3 ||
-           FPDesc.DstEncoding == FPEncodingWrap::E5M2) &&
-          BM->isAllowedToUseExtension(ExtensionID::SPV_EXT_float8) &&
-          !BM->isAllowedToUseExtension(ExtensionID::SPV_INTEL_fp_conversions);
-      if (IsSaturatedFP8)
-        FPDesc.ConvOpCode = OpFConvert;
       Value *Src = CI->getOperand(0);
       Type *LLVMSrcTy = Src->getType();
       Type *LLVMDstTy = CI->getType();
@@ -5951,7 +5933,7 @@ SPIRVValue *LLVMToSPIRVBase::transDirectCallInst(CallInst *CI,
 
       SPIRVValue *Conv = BM->addInstTemplate(OC, BM->getIds(Ops), BB, DstTy);
 
-      if (IsSaturatedFP8)
+      if (FPDesc.Saturate)
         Conv->addDecorate(new SPIRVDecorate(
             DecorationSaturatedToLargestFloat8NormalConversionEXT, Conv));
 
@@ -7720,7 +7702,7 @@ void addPassesForSPIRV(ModulePassManager &PassMgr,
   PassMgr.addPass(PreprocessMetadataPass());
   PassMgr.addPass(SPIRVLowerOCLBlocksPass());
   PassMgr.addPass(OCLToSPIRVPass());
-  PassMgr.addPass(SPIRVRegularizeLLVMPass());
+  PassMgr.addPass(SPIRVRegularizeLLVMPass(Opts));
   PassMgr.addPass(SPIRVLowerConstExprPass());
   PassMgr.addPass(SPIRVLowerBoolPass());
   PassMgr.addPass(SPIRVLowerMemmovePass());
