@@ -130,35 +130,27 @@ jobs:
         if: steps.merge.outputs.conflict == 'false'
         run: |
           curl -sf -o /dev/null -H "Content-Type: application/json" -d '{
-            "type": "message",
-            "summary": "Upstream merge PR created",
-            "attachments": [{
-              "contentType": "application/vnd.microsoft.card.adaptive",
-              "contentUrl": null,
-              "content": {
-                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-                "type": "AdaptiveCard",
-                "version": "1.4",
-                "body": [{
-                  "type": "TextBlock",
-                  "text": "✅ Upstream Merge PR Created",
-                  "weight": "Bolder",
-                  "size": "Large",
-                  "wrap": true
-                }, {
-                  "type": "FactSet",
-                  "facts": [{
-                    "title": "Time",
-                    "value": "${{ steps.timestamp.outputs.datetime }}"
-                  }, {
-                    "title": "Branch",
-                    "value": "${{ steps.merge.outputs.branch }}"
-                  }, {
-                    "title": "PR",
-                    "value": "${{ steps.create-pr.outputs.pr_url }}"
-                  }]
-                }]
-              }
+            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+            "type": "AdaptiveCard",
+            "version": "1.4",
+            "body": [{
+              "type": "TextBlock",
+              "text": "✅ Upstream Merge PR Created",
+              "weight": "Bolder",
+              "size": "Large",
+              "wrap": true
+            }, {
+              "type": "FactSet",
+              "facts": [{
+                "title": "Time",
+                "value": "${{ steps.timestamp.outputs.datetime }}"
+              }, {
+                "title": "Branch",
+                "value": "${{ steps.merge.outputs.branch }}"
+              }, {
+                "title": "PR",
+                "value": "${{ steps.create-pr.outputs.pr_url }}"
+              }]
             }]
           }' "${{ secrets.TEAMS_WEBHOOK_URL }}"
 
@@ -166,33 +158,25 @@ jobs:
         if: steps.check-commits.outputs.has_changes == 'false'
         run: |
           curl -sf -o /dev/null -H "Content-Type: application/json" -d '{
-            "type": "message",
-            "summary": "No upstream changes",
-            "attachments": [{
-              "contentType": "application/vnd.microsoft.card.adaptive",
-              "contentUrl": null,
-              "content": {
-                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-                "type": "AdaptiveCard",
-                "version": "1.4",
-                "body": [{
-                  "type": "TextBlock",
-                  "text": "ℹ️ No New Upstream Commits",
-                  "weight": "Bolder",
-                  "size": "Large",
-                  "wrap": true
-                }, {
-                  "type": "FactSet",
-                  "facts": [{
-                    "title": "Time",
-                    "value": "${{ steps.timestamp.outputs.datetime }}"
-                  }]
-                }, {
-                  "type": "TextBlock",
-                  "text": "amd-staging is already up to date with upstream main.",
-                  "wrap": true
-                }]
-              }
+            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+            "type": "AdaptiveCard",
+            "version": "1.4",
+            "body": [{
+              "type": "TextBlock",
+              "text": "ℹ️ No New Upstream Commits",
+              "weight": "Bolder",
+              "size": "Large",
+              "wrap": true
+            }, {
+              "type": "FactSet",
+              "facts": [{
+                "title": "Time",
+                "value": "${{ steps.timestamp.outputs.datetime }}"
+              }]
+            }, {
+              "type": "TextBlock",
+              "text": "amd-staging is already up to date with upstream main.",
+              "wrap": true
             }]
           }' "${{ secrets.TEAMS_WEBHOOK_URL }}"
 
@@ -202,40 +186,15 @@ jobs:
           CONFLICT_FILES: ${{ steps.merge.outputs.conflict_files }}
           CONFLICT_COUNT: ${{ steps.merge.outputs.conflict_count }}
         run: |
-          curl -sf -o /dev/null -H "Content-Type: application/json" -d "{
-            \"type\": \"message\",
-            \"summary\": \"Upstream merge conflict\",
-            \"attachments\": [{
-              \"contentType\": \"application/vnd.microsoft.card.adaptive\",
-              \"contentUrl\": null,
-              \"content\": {
-                \"\$schema\": \"http://adaptivecards.io/schemas/adaptive-card.json\",
-                \"type\": \"AdaptiveCard\",
-                \"version\": \"1.4\",
-                \"body\": [{
-                  \"type\": \"TextBlock\",
-                  \"text\": \"⚠️ Merge Conflicts Detected\",
-                  \"weight\": \"Bolder\",
-                  \"size\": \"Large\",
-                  \"wrap\": true
-                }, {
-                  \"type\": \"FactSet\",
-                  \"facts\": [{
-                    \"title\": \"Time\",
-                    \"value\": \"${{ steps.timestamp.outputs.datetime }}\"
-                  }, {
-                    \"title\": \"Conflicting Files\",
-                    \"value\": \"${CONFLICT_COUNT} file(s)\"
-                  }]
-                }, {
-                  \"type\": \"TextBlock\",
-                  \"text\": \"Conflicting files:\\n${CONFLICT_FILES}\",
-                  \"wrap\": true
-                }, {
-                  \"type\": \"TextBlock\",
-                  \"text\": \"[View workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\",
-                  \"wrap\": true
-                }]
-              }
-            }]
-          }" "${{ secrets.TEAMS_WEBHOOK_URL }}"
+          python3 -c "
+import json, sys, urllib.request
+dt, files, count, run_url, url = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
+payload = {'\$schema': 'http://adaptivecards.io/schemas/adaptive-card.json', 'type': 'AdaptiveCard', 'version': '1.4', 'body': [{'type': 'TextBlock', 'text': '⚠️ Merge Conflicts Detected', 'weight': 'Bolder', 'size': 'Large', 'wrap': True}, {'type': 'FactSet', 'facts': [{'title': 'Time', 'value': dt}, {'title': 'Conflicting Files', 'value': f'{count} file(s)'}]}, {'type': 'TextBlock', 'text': f'Conflicting files:\n{files}', 'wrap': True}, {'type': 'TextBlock', 'text': f'[View workflow run]({run_url})', 'wrap': True}]}
+req = urllib.request.Request(url, json.dumps(payload).encode(), {'Content-Type': 'application/json'}, method='POST')
+with urllib.request.urlopen(req, timeout=30) as r: print(f'Teams HTTP {r.status}')
+" \
+            "${{ steps.timestamp.outputs.datetime }}" \
+            "$CONFLICT_FILES" \
+            "${{ steps.merge.outputs.conflict_count }}" \
+            "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            "${{ secrets.TEAMS_WEBHOOK_URL }}"
