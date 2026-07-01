@@ -129,39 +129,70 @@ jobs:
       - name: Notify Teams - PR Created
         if: steps.merge.outputs.conflict == 'false'
         run: |
-          curl -H "Content-Type: application/json" -d '{
-            "@type": "MessageCard",
-            "themeColor": "00FF00",
+          curl -sf -o /dev/null -H "Content-Type: application/json" -d '{
+            "type": "message",
             "summary": "Upstream merge PR created",
-            "sections": [{
-              "activityTitle": "✅ Upstream Merge PR Created",
-              "facts": [{
-                "name": "Time",
-                "value": "${{ steps.timestamp.outputs.datetime }}"
-              }, {
-                "name": "Branch",
-                "value": "${{ steps.merge.outputs.branch }}"
-              }],
-              "text": "[View PR](${{ steps.create-pr.outputs.pr_url }})",
-              "markdown": true
+            "attachments": [{
+              "contentType": "application/vnd.microsoft.card.adaptive",
+              "contentUrl": null,
+              "content": {
+                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                "type": "AdaptiveCard",
+                "version": "1.4",
+                "body": [{
+                  "type": "TextBlock",
+                  "text": "✅ Upstream Merge PR Created",
+                  "weight": "Bolder",
+                  "size": "Large",
+                  "wrap": true
+                }, {
+                  "type": "FactSet",
+                  "facts": [{
+                    "title": "Time",
+                    "value": "${{ steps.timestamp.outputs.datetime }}"
+                  }, {
+                    "title": "Branch",
+                    "value": "${{ steps.merge.outputs.branch }}"
+                  }, {
+                    "title": "PR",
+                    "value": "${{ steps.create-pr.outputs.pr_url }}"
+                  }]
+                }]
+              }
             }]
           }' "${{ secrets.TEAMS_WEBHOOK_URL }}"
 
       - name: Notify Teams - No Changes
         if: steps.check-commits.outputs.has_changes == 'false'
         run: |
-          curl -H "Content-Type: application/json" -d '{
-            "@type": "MessageCard",
-            "themeColor": "808080",
+          curl -sf -o /dev/null -H "Content-Type: application/json" -d '{
+            "type": "message",
             "summary": "No upstream changes",
-            "sections": [{
-              "activityTitle": "ℹ️ No New Upstream Commits",
-              "facts": [{
-                "name": "Time",
-                "value": "${{ steps.timestamp.outputs.datetime }}"
-              }],
-              "text": "amd-staging is already up to date with upstream main.",
-              "markdown": true
+            "attachments": [{
+              "contentType": "application/vnd.microsoft.card.adaptive",
+              "contentUrl": null,
+              "content": {
+                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                "type": "AdaptiveCard",
+                "version": "1.4",
+                "body": [{
+                  "type": "TextBlock",
+                  "text": "ℹ️ No New Upstream Commits",
+                  "weight": "Bolder",
+                  "size": "Large",
+                  "wrap": true
+                }, {
+                  "type": "FactSet",
+                  "facts": [{
+                    "title": "Time",
+                    "value": "${{ steps.timestamp.outputs.datetime }}"
+                  }]
+                }, {
+                  "type": "TextBlock",
+                  "text": "amd-staging is already up to date with upstream main.",
+                  "wrap": true
+                }]
+              }
             }]
           }' "${{ secrets.TEAMS_WEBHOOK_URL }}"
 
@@ -169,33 +200,42 @@ jobs:
         if: steps.merge.outputs.conflict == 'true'
         env:
           CONFLICT_FILES: ${{ steps.merge.outputs.conflict_files }}
+          CONFLICT_COUNT: ${{ steps.merge.outputs.conflict_count }}
         run: |
-          # Format conflict files for display (replace newlines with <br>)
-          FORMATTED_FILES=$(echo "$CONFLICT_FILES" | sed ':a;N;$!ba;s/\n/<br>/g')
-          CONFLICT_COUNT="${{ steps.merge.outputs.conflict_count }}"
-
-          # Add note if there are more than 10 files
-          if [ "$CONFLICT_COUNT" -gt 10 ]; then
-            FORMATTED_FILES="${FORMATTED_FILES}<br>... and $((CONFLICT_COUNT - 10)) more"
-          fi
-
-          curl -H "Content-Type: application/json" -d '{
-            "@type": "MessageCard",
-            "themeColor": "FF0000",
-            "summary": "Upstream merge conflict",
-            "sections": [{
-              "activityTitle": "⚠️ Merge Conflicts Detected",
-              "facts": [{
-                "name": "Time",
-                "value": "${{ steps.timestamp.outputs.datetime }}"
-              }, {
-                "name": "Conflicting Files",
-                "value": "'"$FORMATTED_FILES"'"
-              }, {
-                "name": "Total Conflicts",
-                "value": "'"$CONFLICT_COUNT"' file(s)"
-              }],
-              "text": "Automatic merge of upstream main into amd-staging failed due to conflicts. Manual intervention required.<br><br>[View workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) · [View repository](${{ github.server_url }}/${{ github.repository }})",
-              "markdown": true
+          curl -sf -o /dev/null -H "Content-Type: application/json" -d "{
+            \"type\": \"message\",
+            \"summary\": \"Upstream merge conflict\",
+            \"attachments\": [{
+              \"contentType\": \"application/vnd.microsoft.card.adaptive\",
+              \"contentUrl\": null,
+              \"content\": {
+                \"\$schema\": \"http://adaptivecards.io/schemas/adaptive-card.json\",
+                \"type\": \"AdaptiveCard\",
+                \"version\": \"1.4\",
+                \"body\": [{
+                  \"type\": \"TextBlock\",
+                  \"text\": \"⚠️ Merge Conflicts Detected\",
+                  \"weight\": \"Bolder\",
+                  \"size\": \"Large\",
+                  \"wrap\": true
+                }, {
+                  \"type\": \"FactSet\",
+                  \"facts\": [{
+                    \"title\": \"Time\",
+                    \"value\": \"${{ steps.timestamp.outputs.datetime }}\"
+                  }, {
+                    \"title\": \"Conflicting Files\",
+                    \"value\": \"${CONFLICT_COUNT} file(s)\"
+                  }]
+                }, {
+                  \"type\": \"TextBlock\",
+                  \"text\": \"Conflicting files:\\n${CONFLICT_FILES}\",
+                  \"wrap\": true
+                }, {
+                  \"type\": \"TextBlock\",
+                  \"text\": \"[View workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\",
+                  \"wrap\": true
+                }]
+              }
             }]
-          }' "${{ secrets.TEAMS_WEBHOOK_URL }}"
+          }" "${{ secrets.TEAMS_WEBHOOK_URL }}"
