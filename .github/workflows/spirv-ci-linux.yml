@@ -550,12 +550,7 @@ jobs:
           ref: amd-staging
           path: rocm-examples
 
-      - name: Fetch build tree from shared volume (act)
-        if: ${{ env.ACT }}
-        run: cp /opt/act-shared/linux-build-tree.tar linux-build-tree.tar
-
       - name: Download build tree artifact
-        if: ${{ !env.ACT }}
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: linux-build-tree
