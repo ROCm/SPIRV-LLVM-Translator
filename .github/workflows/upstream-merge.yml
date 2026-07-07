@@ -186,13 +186,7 @@ jobs:
           CONFLICT_FILES: ${{ steps.merge.outputs.conflict_files }}
           CONFLICT_COUNT: ${{ steps.merge.outputs.conflict_count }}
         run: |
-          python3 -c "
-import json, sys, urllib.request
-dt, files, count, run_url, url = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
-payload = {'\$schema': 'http://adaptivecards.io/schemas/adaptive-card.json', 'type': 'AdaptiveCard', 'version': '1.4', 'body': [{'type': 'TextBlock', 'text': '⚠️ Merge Conflicts Detected', 'weight': 'Bolder', 'size': 'Large', 'wrap': True}, {'type': 'FactSet', 'facts': [{'title': 'Time', 'value': dt}, {'title': 'Conflicting Files', 'value': f'{count} file(s)'}]}, {'type': 'TextBlock', 'text': f'Conflicting files:\n{files}', 'wrap': True}, {'type': 'TextBlock', 'text': f'[View workflow run]({run_url})', 'wrap': True}]}
-req = urllib.request.Request(url, json.dumps(payload).encode(), {'Content-Type': 'application/json'}, method='POST')
-with urllib.request.urlopen(req, timeout=30) as r: print(f'Teams HTTP {r.status}')
-" \
+          python3 -c "import json, sys, urllib.request; dt, files, count, run_url, url = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]; payload = {'\$schema': 'http://adaptivecards.io/schemas/adaptive-card.json', 'type': 'AdaptiveCard', 'version': '1.4', 'body': [{'type': 'TextBlock', 'text': '⚠️ Merge Conflicts Detected', 'weight': 'Bolder', 'size': 'Large', 'wrap': True}, {'type': 'FactSet', 'facts': [{'title': 'Time', 'value': dt}, {'title': 'Conflicting Files', 'value': f'{count} file(s)'}]}, {'type': 'TextBlock', 'text': f'Conflicting files:\n{files}', 'wrap': True}, {'type': 'TextBlock', 'text': f'[View workflow run]({run_url})', 'wrap': True}]}; req = urllib.request.Request(url, json.dumps(payload).encode(), {'Content-Type': 'application/json'}, method='POST'); r = urllib.request.urlopen(req, timeout=30); print(f'Teams HTTP {r.status}')" \
             "${{ steps.timestamp.outputs.datetime }}" \
             "$CONFLICT_FILES" \
             "${{ steps.merge.outputs.conflict_count }}" \
