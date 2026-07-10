@@ -86,6 +86,7 @@ public:
   bool isTypeReserveId() const;
   bool isTypeFloat(unsigned Bits = 0,
                    unsigned FloatingPointEncoding = FPEncodingMax) const;
+  bool isTypeIEEE754Float() const;
   bool isTypeImage() const;
   bool isTypeOCLImage() const;
   bool isTypePipe() const;
@@ -438,10 +439,14 @@ public:
     if (CompCount == 8 || CompCount == 16)
       V.push_back(CapabilityVector16);
 
-    if (Module->isAllowedToUseExtension(ExtensionID::SPV_INTEL_vector_compute))
-      if (CompCount == 1 || (CompCount > 4 && CompCount < 8) ||
-          (CompCount > 8 && CompCount < 16) || CompCount > 16)
+    if (CompCount == 1 || (CompCount > 4 && CompCount < 8) ||
+        (CompCount > 8 && CompCount < 16) || CompCount > 16) {
+      if (Module->isAllowedToUseExtension(ExtensionID::SPV_EXT_long_vector))
+        V.push_back(CapabilityLongVectorEXT);
+      else if (Module->isAllowedToUseExtension(
+                   ExtensionID::SPV_INTEL_vector_compute))
         V.push_back(CapabilityVectorAnyINTEL);
+    }
     return V;
   }
 
@@ -455,7 +460,8 @@ protected:
     SPIRVEntry::validate();
     CompType->validate();
 #ifndef NDEBUG
-    if (!(Module->isAllowedToUseExtension(
+    if (!Module->isAllowedToUseExtension(ExtensionID::SPV_EXT_long_vector) &&
+        !(Module->isAllowedToUseExtension(
             ExtensionID::SPV_INTEL_vector_compute))) {
       assert(CompCount == 2 || CompCount == 3 || CompCount == 4 ||
              CompCount == 8 || CompCount == 16);
@@ -645,6 +651,8 @@ public:
       CV.push_back(CapabilityImageReadWrite);
     if (Desc.MS)
       CV.push_back(CapabilityImageMipmap);
+    if (Desc.Format == ImageFormatR64ui || Desc.Format == ImageFormatR64i)
+      CV.push_back(CapabilityInt64ImageEXT);
     return CV;
   }
   SPIRVType *getSampledType() const { return get<SPIRVType>(SampledType); }
@@ -656,17 +664,16 @@ public:
 protected:
   _SPIRV_DEF_ENCDEC9(Id, SampledType, Desc.Dim, Desc.Depth, Desc.Arrayed,
                      Desc.MS, Desc.Sampled, Desc.Format, Acc)
-  // The validation assumes OpenCL image or sampler type.
   void validate() const override {
     assert(OpCode == OC);
     assert(WordCount == FixedWC + Acc.size());
     assert(SampledType != SPIRVID_INVALID && "Invalid sampled type");
     assert(Desc.Dim <= 5);
-    assert(Desc.Depth <= 1);
+    assert(Desc.Depth <= 2);
     assert(Desc.Arrayed <= 1);
     assert(Desc.MS <= 1);
-    assert(Desc.Sampled == 0); // For OCL only
-    assert(Desc.Format == 0);  // For OCL only
+    assert(Desc.Sampled <= 2);
+    assert(Desc.Format <= ImageFormatR64i);
     assert(Acc.size() <= 1);
   }
   void setWordCount(SPIRVWord TheWC) override {

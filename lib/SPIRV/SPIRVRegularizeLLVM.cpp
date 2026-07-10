@@ -46,9 +46,12 @@
 #include "llvm/CodeGen/IntrinsicLowering.h"
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicsSPIRV.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Transforms/Utils/LowerMemIntrinsics.h" // expandMemSetAsLoop()
 
 #include <set>
@@ -134,11 +137,11 @@ void SPIRVRegularizeLLVMBase::lowerIntrinsicToFunction(
   case Intrinsic::bswap: {
     BasicBlock *EntryBB = BasicBlock::Create(M->getContext(), "entry", F);
     IRBuilder<> IRB(EntryBB);
-    auto *BSwap = IRB.CreateIntrinsic(Intrinsic::bswap, Intrinsic->getType(),
-                                      F->getArg(0));
+    Value *BSwap = IRB.CreateIntrinsic(Intrinsic::bswap, Intrinsic->getType(),
+                                       F->getArg(0));
     IRB.CreateRet(BSwap);
     IntrinsicLowering IL(M->getDataLayout());
-    IL.LowerIntrinsicCall(BSwap);
+    IL.LowerIntrinsicCall(cast<CallInst>(BSwap));
     break;
   }
   default:
@@ -610,6 +613,61 @@ void prepareCacheControlsTranslation(Metadata *MD, Instruction *Inst) {
     GEP->setMetadata(SPIRV_MD_DECORATIONS, MDList);
   }
 }
+
+bool tryAssignPredicateSpecConstIDs(Function *F) {
+  StringMap<unsigned> IDs;
+  for (auto &&U : F->users()) {
+    auto *CI = dyn_cast<CallInst>(U);
+    if (!CI) {
+      llvm::reportFatalUsageError("spv_named_boolean_spec_constant should be "
+                                  "called!");
+      return false;
+    }
+
+    auto *SpecID = dyn_cast<ConstantInt>(CI->getArgOperand(0));
+    if (!SpecID) {
+      llvm::reportFatalUsageError("The Specialisation Constant ID should be a "
+                                  "constant integer!");
+      return false;
+    }
+
+    unsigned ID = SpecID->getZExtValue();
+    if (ID != UINT32_MAX) {
+      llvm::reportFatalUsageError("The only valid Specialisation Constant ID is"
+                                  " UINT32_MAX!");
+      return false;
+    }
+
+    // Replace placeholder Specialisation Constant IDs with unique IDs
+    // associated with the predicate being evaluated, which is encoded via
+    // spv_assign_name.
+    auto *MD =
+        cast<MDNode>(cast<MetadataAsValue>(CI->getOperand(2))->getMetadata());
+    auto *P = cast<MDString>(MD->getOperand(0));
+
+    ID = IDs.try_emplace(P->getString(), IDs.size()).first->second;
+    CI->setArgOperand(0, ConstantInt::get(CI->getArgOperand(0)->getType(), ID));
+  }
+
+  if (IDs.empty())
+    return false;
+
+  Module *M = F->getParent();
+  // Store the predicate -> ID mapping as a fixed format string
+  // (predicate ID\0...), for later use during SPIR-V consumption.
+  std::string Tmp;
+  for (auto &&[Predicate, SpecID] : IDs)
+    Tmp.append(Predicate).append(" ").append(utostr(SpecID)).push_back('\0');
+
+  Constant *PredSpecIDStr =
+      ConstantDataArray::getString(M->getContext(), Tmp, false);
+
+  new GlobalVariable(*M, PredSpecIDStr->getType(), true,
+                     GlobalVariable::LinkageTypes::ExternalLinkage,
+                     PredSpecIDStr, "llvm.amdgcn.feature.predicate.ids");
+
+  return true;
+}
 } // namespace
 
 /// Remove entities not representable by SPIR-V
@@ -618,6 +676,35 @@ bool SPIRVRegularizeLLVMBase::regularize() {
   expandSYCLTypeUsing(M);
   cleanupConversionToNonStdIntegers(M);
   replacePrivateConstGlobalsWithAllocas(M);
+
+  if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD) {
+    // TODO: Currently, for AMDGCN flavoured SPIR-V, the symbol can only be
+    //       inserted via feature predicate use, but in the future this will
+    //       need to be revisited if we start making more liberal use of the
+    //       intrinsic.
+    if (Function *F = Intrinsic::getDeclarationIfExists(
+            M, Intrinsic::spv_named_boolean_spec_constant)) {
+      tryAssignPredicateSpecConstIDs(F);
+      // We re-use existing SpecConstant handling here, it will only make sense
+      // to add custom lowering for the intrinsic when / if we start using the
+      // name metadata.
+      FunctionCallee SCF = M->getOrInsertFunction(
+          "__spirv_SpecConstant",
+          FunctionType::get(
+              F->getReturnType(),
+              {F->getArg(0)->getType(), F->getArg(1)->getType()}, false));
+      for (auto &&U : make_early_inc_range(F->users())) {
+        if (auto *CI = dyn_cast<CallInst>(U)) {
+          auto *NCI = CallInst::Create(
+              SCF, {CI->getArgOperand(0), CI->getArgOperand(1)}, "",
+              CI->getIterator());
+          CI->replaceAllUsesWith(NCI);
+          CI->dropAllReferences();
+          CI->eraseFromParent();
+        }
+      }
+    }
+  }
 
   for (auto I = M->begin(), E = M->end(); I != E;) {
     Function *F = &(*I++);
@@ -721,14 +808,15 @@ bool SPIRVRegularizeLLVMBase::regularize() {
             BO->setIsExact(false);
         }
 
-        // FIXME: This is not valid handling for freeze instruction
-        if (auto *FI = dyn_cast<FreezeInst>(&II)) {
-          auto *V = FI->getOperand(0);
-          if (isa<UndefValue>(V))
-            V = Constant::getNullValue(V->getType());
-          FI->replaceAllUsesWith(V);
-          FI->dropAllReferences();
-          ToErase.push_back(FI);
+        if (!Opts.isAllowedToUseExtension(ExtensionID::SPV_KHR_poison_freeze)) {
+          if (auto *FI = dyn_cast<FreezeInst>(&II)) {
+            Value *V = FI->getOperand(0);
+            if (isa<UndefValue>(V))
+              V = Constant::getNullValue(V->getType());
+            FI->replaceAllUsesWith(V);
+            FI->dropAllReferences();
+            ToErase.push_back(FI);
+          }
         }
 
         // Remove metadata not supported by SPIRV

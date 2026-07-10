@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   pre-commit:
+    if: ${{ github.repository == 'ROCm/SPIRV-LLVM-Translator' }}
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout TheRock repository
