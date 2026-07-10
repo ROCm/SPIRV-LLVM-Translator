@@ -882,6 +882,8 @@ SPIRVType *LLVMToSPIRVBase::transScavengedType(Value *V) {
                                    SPIRVEC_UnsupportedVarArgFunction);
 
     SPIRVType *RT = transType(FnTy->getReturnType());
+    // TODO: Replace this AMD intrinsic-only rewrite to Constant AS with a
+    // generic handling of AS mismatches around `Constant`.
     if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
       if (F->getReturnType()->isPtrOrPtrVectorTy() && F->hasName() &&
           F->getName().starts_with("llvm.amdgcn."))
@@ -909,17 +911,18 @@ SPIRVType *LLVMToSPIRVBase::transScavengedType(Value *V) {
 
         auto AS = static_cast<SPIRAddressSpace>(
             Arg.getType()->getPointerAddressSpace());
-        auto *NewType =
-            BM->addPointerType(SPIRSPIRVAddrSpaceMap::map(AS), transType(ElTy));
+        auto *NewType = BM->addPointerType(SPIRSPIRVAddrSpaceMap::map(AS),
+                                           transType(ElTy));
         PT.push_back(NewType);
         continue;
       } else if (M->getTargetTriple().getVendor() == Triple::AMD) {
         // TODO: this is temporary and rather ugly, we should fix the BIs to
         //       not take an explicit AS in their signature.
-        if (F->hasName() && (F->getName() == "llvm.amdgcn.is.shared" ||
-                             F->getName() == "llvm.amdgcn.is.private")) {
-          PT.push_back(
-              transType(PointerType::get(F->getContext(), SPIRAS_Generic)));
+        if (F->hasName() &&
+            (F->getName() == "llvm.amdgcn.is.shared" ||
+             F->getName() == "llvm.amdgcn.is.private")) {
+          PT.push_back(transType(PointerType::get(F->getContext(),
+                                                  SPIRAS_Generic)));
           continue;
         }
       }
