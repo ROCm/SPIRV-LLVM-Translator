@@ -882,8 +882,7 @@ SPIRVType *LLVMToSPIRVBase::transScavengedType(Value *V) {
                                    SPIRVEC_UnsupportedVarArgFunction);
 
     SPIRVType *RT = transType(FnTy->getReturnType());
-    if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
-        F->isIntrinsic())
+    if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
       if (F->getReturnType()->isPtrOrPtrVectorTy() && F->hasName() &&
           F->getName().starts_with("llvm.amdgcn."))
         RT = transType(F->getReturnType()->getWithNewType(
