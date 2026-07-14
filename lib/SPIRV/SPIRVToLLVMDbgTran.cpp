@@ -79,10 +79,10 @@ void SPIRVToLLVMDbgTran::addDbgInfoVersion() {
 DIFile *
 SPIRVToLLVMDbgTran::getDIFile(const std::string &FileName,
                               std::optional<DIFile::ChecksumInfo<StringRef>> CS,
-                              std::optional<StringRef> Source) {
-  return getOrInsert(FileMap, FileName, [=]() {
+                              std::optional<std::string> Source) {
+  return getOrInsert(FileMap, FileName, [this, FileName, CS, Source]() {
     SplitFileName Split(FileName);
-    // Use the first builder from the map to crete DIFile since it's
+    // Use the first builder from the map to create DIFile since it's
     // relations with other debug metadata is not going through DICompileUnit
     if (!Split.BaseName.empty())
       return BuilderMap.begin()->second->createFile(Split.BaseName, Split.Path,
@@ -136,11 +136,11 @@ const std::string &SPIRVToLLVMDbgTran::getString(const SPIRVId Id) {
   return String->getStr();
 }
 
-const std::string
+std::optional<std::string>
 SPIRVToLLVMDbgTran::getStringSourceContinued(const SPIRVId Id,
                                              SPIRVExtInst *DebugInst) {
   if (!isValidId(Id) || getDbgInst<SPIRVDebug::DebugInfoNone>(Id))
-    return "";
+    return std::nullopt;
   std::string Str = BM->get<SPIRVString>(Id)->getStr();
   using namespace SPIRVDebug::Operand::SourceContinued;
   for (auto *I : DebugInst->getContinuedInstructions()) {
@@ -1019,7 +1019,8 @@ void SPIRVToLLVMDbgTran::transFunctionBody(DISubprogram *DIS, SPIRVId FuncId) {
   SPIRVEntry *E = BM->getEntry(FuncId);
   if (E->getOpCode() == OpFunction) {
     SPIRVFunction *BF = static_cast<SPIRVFunction *>(E);
-    llvm::Function *F = SPIRVReader->transFunction(BF);
+    llvm::Function *F =
+        SPIRVReader->transFunction(BF, BM->getFunctionProgramAddrSpace());
     assert(F && "Translation of function failed!");
     if (!F->hasMetadata("dbg"))
       F->setMetadata("dbg", DIS);
@@ -1728,6 +1729,15 @@ MDNode *SPIRVToLLVMDbgTran::transDebugInstImpl(const SPIRVExtInst *DebugInst) {
     return transTypeArrayDynamic(DebugInst);
 
   default:
+    // Non-semantic shader debug info opcodes that are unknown to this
+    // translator are silently ignored to avoid crashing on modules produced
+    // by newer producers. The semantic OpenCL/SPIRV.debug paths still
+    // require every opcode to be implemented.
+    // TODO: since introduction of rolling version of NonSemanticDebugInfo, we
+    // must no longer just ignore unknown debug info set, but instead process
+    // instructions, that the translator know.
+    if (isNonSemanticDebugInfo(DebugInst->getExtSetKind()))
+      return nullptr;
     llvm_unreachable("Not implemented SPIR-V debug instruction!");
   }
 }
@@ -1810,6 +1820,8 @@ SPIRVToLLVMDbgTran::transDebugIntrinsic(const SPIRVExtInst *DebugInst,
     return DbgValIntr;
   }
   default:
+    if (isNonSemanticDebugInfo(DebugInst->getExtSetKind()))
+      return nullptr;
     llvm_unreachable("Unknown debug intrinsic!");
   }
 }
