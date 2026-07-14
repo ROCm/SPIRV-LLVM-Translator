@@ -881,14 +881,24 @@ SPIRVType *LLVMToSPIRVBase::transScavengedType(Value *V) {
       BM->getErrorLog().checkError(!FnTy->isVarArg(),
                                    SPIRVEC_UnsupportedVarArgFunction);
 
+    // LLVM's intrinsic table (IntrinsicsAMDGPU.td) is used for getting the
+    // arguments and return type.
+    FunctionType *CanonicalFT = nullptr;
+    if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD &&
+        F->hasName() && F->getName().starts_with("llvm.amdgcn.")) {
+      Intrinsic::ID IID = F->getIntrinsicID();
+      if (IID != Intrinsic::not_intrinsic && !Intrinsic::isOverloaded(IID))
+        CanonicalFT = Intrinsic::getType(F->getContext(), IID);
+    }
+
     SPIRVType *RT = transType(FnTy->getReturnType());
-    // TODO: Replace this AMD intrinsic-only rewrite to Constant AS with a
-    // generic handling of AS mismatches around `Constant`.
-    if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
-      if (F->getReturnType()->isPtrOrPtrVectorTy() && F->hasName() &&
-          F->getName().starts_with("llvm.amdgcn."))
-        RT = transType(F->getReturnType()->getWithNewType(
-            PointerType::get(F->getContext(), SPIRAS_Constant)));
+    if (CanonicalFT) {
+      Type *CanonicalRT = CanonicalFT->getReturnType();
+      if (CanonicalRT->isPtrOrPtrVectorTy())
+        RT = transType(CanonicalRT->getWithNewType(PointerType::get(
+            F->getContext(),
+            mapAMDGCNAddrSpaceToSPIRV(CanonicalRT->getPointerAddressSpace()))));
+    }
 
     std::vector<SPIRVType *> PT;
     for (Argument &Arg : F->args()) {
@@ -915,14 +925,12 @@ SPIRVType *LLVMToSPIRVBase::transScavengedType(Value *V) {
                                            transType(ElTy));
         PT.push_back(NewType);
         continue;
-      } else if (M->getTargetTriple().getVendor() == Triple::AMD) {
-        // TODO: this is temporary and rather ugly, we should fix the BIs to
-        //       not take an explicit AS in their signature.
-        if (F->hasName() &&
-            (F->getName() == "llvm.amdgcn.is.shared" ||
-             F->getName() == "llvm.amdgcn.is.private")) {
-          PT.push_back(transType(PointerType::get(F->getContext(),
-                                                  SPIRAS_Generic)));
+      } else if (CanonicalFT) {
+        Type *CanonicalPT = CanonicalFT->getParamType(Arg.getArgNo());
+        if (CanonicalPT->isPtrOrPtrVectorTy()) {
+          PT.push_back(transType(CanonicalPT->getWithNewType(PointerType::get(
+              F->getContext(), mapAMDGCNAddrSpaceToSPIRV(
+                                   CanonicalPT->getPointerAddressSpace())))));
           continue;
         }
       }
