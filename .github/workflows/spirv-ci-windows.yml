@@ -48,6 +48,9 @@ jobs:
       - name: Install zstd via vcpkg
         run: vcpkg install zstd:x64-windows
 
+      - name: Add vcpkg bin to PATH (zstd.dll runtime lookup)
+        run: echo 'C:\vcpkg\installed\x64-windows\bin' >> "$GITHUB_PATH"
+
       - name: Checkout llvm-project (amd-staging)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -80,18 +83,27 @@ jobs:
       # zstd. FORCE_ON makes the configure fail loudly if zstd is missing
       # rather than silently building clang-offload-bundler without
       # compression.
+      # CMAKE_DISABLE_PRECOMPILE_HEADERS=ON: LLVM enables PCH by default, but the
+      # clang unit tests (built via clang-test-depends) reuse LLVMSupport's PCH.
+      # Upstream adds /utf-8 to the BasicTests target for unicode in test sources
+      # (llvm/llvm-project#206993); MSVC then rejects the PCH because its charset
+      # flags differ from the producer's (error C2855). Disabling PCH sidesteps
+      # this whole class of PCH consumer/producer flag-mismatch errors on MSVC.
+      # Mirrors ROCm/TheRock#6219, which disables PCH for the same reason (clang).
       - name: Configure LLVM
         run: |
           cmake -G Ninja -S llvm-project/llvm -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_APPLOCAL_DEPS=OFF \
             -DLLVM_ENABLE_ASSERTIONS=ON \
             -DLLVM_ENABLE_PROJECTS="clang;lld" \
             -DLLVM_TARGETS_TO_BUILD="AMDGPU;X86;SPIRV" \
             -DLLVM_ENABLE_ZSTD=FORCE_ON \
             -DLLVM_INCLUDE_TESTS=ON \
             -DLLVM_INSTALL_GTEST=ON \
-            -DLLVM_LIT_ARGS="-sv --no-progress-bar"
+            -DLLVM_LIT_ARGS="-sv --no-progress-bar" \
+            -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON
 
       - name: Build LLVM + Clang + amd-llvm-spirv + test deps
         run: ninja -C build llvm-test-depends clang-test-depends amd-llvm-spirv
@@ -109,6 +121,7 @@ jobs:
           cmake -G Ninja -S llvm-project/amd/device-libs -B build-device-libs \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_APPLOCAL_DEPS=OFF \
             -DCMAKE_PREFIX_PATH=$PWD_WIN/build \
             -DLLVM_DIR=$PWD_WIN/build/lib/cmake/llvm
 
@@ -121,6 +134,7 @@ jobs:
           cmake -G Ninja -S llvm-project/amd/comgr -B build-comgr \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_APPLOCAL_DEPS=OFF \
             -DCMAKE_PREFIX_PATH="$PWD_WIN/build;$PWD_WIN/build-device-libs" \
             -DLLVM_DIR=$PWD_WIN/build/lib/cmake/llvm \
             -DAMDDeviceLibs_DIR=$PWD_WIN/build-device-libs/lib/cmake/AMDDeviceLibs \
@@ -153,6 +167,8 @@ jobs:
     needs: build
     runs-on: azure-windows-scale-rocm
     timeout-minutes: 30
+    permissions:
+      contents: read
     defaults:
       run:
         shell: bash
@@ -178,6 +194,9 @@ jobs:
       # build-edge input that ninja validates at planning time.
       - name: Install zstd via vcpkg
         run: vcpkg install zstd:x64-windows
+
+      - name: Add vcpkg bin to PATH (zstd.dll runtime lookup)
+        run: echo 'C:\vcpkg\installed\x64-windows\bin' >> "$GITHUB_PATH"
 
       - name: Checkout llvm-project (pinned to Build job SHA)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -295,6 +314,9 @@ jobs:
       - name: Install zstd via vcpkg
         run: vcpkg install zstd:x64-windows
 
+      - name: Add vcpkg bin to PATH (zstd.dll runtime lookup)
+        run: echo 'C:\vcpkg\installed\x64-windows\bin' >> "$GITHUB_PATH"
+
       - name: Checkout llvm-project (pinned to Build job SHA)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -359,6 +381,9 @@ jobs:
       # build-edge input that ninja validates at planning time.
       - name: Install zstd via vcpkg
         run: vcpkg install zstd:x64-windows
+
+      - name: Add vcpkg bin to PATH (zstd.dll runtime lookup)
+        run: echo 'C:\vcpkg\installed\x64-windows\bin' >> "$GITHUB_PATH"
 
       - name: Checkout llvm-project (pinned to Build job SHA)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
