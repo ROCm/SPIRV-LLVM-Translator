@@ -244,7 +244,9 @@ jobs:
         if: always()
         run: |
           cd llvm-project/llvm/projects/SPIRV-LLVM-Translator
-          git fetch --depth=1 origin amd-staging
+          # Fetch from the canonical repo by URL, not `origin`: for fork PRs
+          # `origin` is the contributor's fork, which lacks amd-staging.
+          git fetch --depth=1 https://github.com/ROCm/SPIRV-LLVM-Translator amd-staging
           git checkout FETCH_HEAD
 
       - name: Test - SPIRV Translator [baseline amd-staging]
