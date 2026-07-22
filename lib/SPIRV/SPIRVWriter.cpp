@@ -220,6 +220,23 @@ static void translateSEVDecoration(Attribute Sev, SPIRVValue *Val) {
     Val->addDecorate(DecorationSingleElementVectorINTEL);
 }
 
+/// Encode AMDGPU-specific atomic metadata as UserSemantic decorations so
+/// SPIRVToLLVM::transAMDGPUAtomicDecorations can restore them on read.
+static void transAMDGPUAtomicMetadataDecorations(const Module *Mod,
+                                                 SPIRVValue *SPIRVInst,
+                                                 const AtomicRMWInst *ARMW) {
+  if (Mod->getTargetTriple().getVendor() != Triple::VendorType::AMD)
+    return;
+
+  for (const char *MDName : {"amdgpu.no.fine.grained.memory",
+                             "amdgpu.no.remote.memory",
+                             "amdgpu.ignore.denormal.mode"}) {
+    if (ARMW->getMetadata(MDName))
+      SPIRVInst->addDecorate(
+          new SPIRVDecorateUserSemanticAttr(SPIRVInst, MDName));
+  }
+}
+
 LLVMToSPIRVBase::LLVMToSPIRVBase(SPIRVModule *SMod)
     : BuiltinCallHelper(ManglingRules::None), M(nullptr), Ctx(nullptr),
       BM(SMod), SrcLang(0), SrcLangVer(0) {
@@ -2869,12 +2886,15 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
       auto IncDec = mapValue(V, BM->addInstTemplate(OC, Ops, BB, Ty));
       IncDec->addDecorate(
           new SPIRVDecorate(DecorationMaxByteOffsetId, IncDec, WrapV));
+      transAMDGPUAtomicMetadataDecorations(M, IncDec, ARMW);
       return IncDec;
       // TODO: figure out handling of saturating val.
     } else
       OC = LLVMSPIRVAtomicRmwOpCodeMap::map(Op);
 
-    return mapValue(V, BM->addInstTemplate(OC, Ops, BB, Ty));
+    auto *AtomicInst = mapValue(V, BM->addInstTemplate(OC, Ops, BB, Ty));
+    transAMDGPUAtomicMetadataDecorations(M, AtomicInst, ARMW);
+    return AtomicInst;
   }
 
   if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(V)) {
