@@ -108,11 +108,10 @@ jobs:
             --body "$(cat <<'EOF'
           Automated merge of upstream KhronosGroup/SPIRV-LLVM-Translator main branch.
 
-          **Merge this PR using "Create a merge commit" — do NOT squash.**
-          Squash-merging destroys upstream ancestry tracking and will cause
-          conflicts on every future merge.
-
           This PR was created automatically by the upstream-merge workflow.
+
+          > [!IMPORTANT]
+          > Merge with **"Create a merge commit"**, not squash — squashing destroys the upstream ancestry link and causes conflicts on every future merge.
           EOF
           )")
           echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
