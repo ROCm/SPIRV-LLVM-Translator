@@ -1014,7 +1014,8 @@ SPIRVFunction *LLVMToSPIRVBase::transFunctionDecl(Function *F) {
           SPIRVEC_RequiresExtension, "SPV_KHR_uniform_group_instructions\n");
     BM->setName(BF, F->getName().str());
   }
-  if (!isKernel(F) && F->getLinkage() != GlobalValue::InternalLinkage)
+  if (!isKernel(F) && F->hasName() &&
+      F->getLinkage() != GlobalValue::InternalLinkage)
     BF->setLinkageType(transLinkageType(F));
 
   // Translate OpenCL/SYCL buffer_location metadata if it's attached to the
@@ -3355,7 +3356,8 @@ bool LLVMToSPIRVBase::transDecoration(Value *V, SPIRVValue *BV) {
       (isa<AtomicRMWInst>(V) && cast<AtomicRMWInst>(V)->isVolatile()))
     BV->setVolatile(true);
 
-  if (auto *BVO = dyn_cast_or_null<OverflowingBinaryOperator>(V)) {
+  if (auto *BVO = dyn_cast_or_null<OverflowingBinaryOperator>(V);
+      BVO && !BVO->getType()->isIntOrIntVectorTy(1)) {
     if (BVO->hasNoSignedWrap()) {
       BV->setNoIntegerDecorationWrap<DecorationNoSignedWrap>(true);
     }
@@ -4237,6 +4239,7 @@ bool LLVMToSPIRVBase::isKnownIntrinsic(Intrinsic::ID Id) {
   case Intrinsic::round:
   case Intrinsic::roundeven:
   case Intrinsic::sin:
+  case Intrinsic::sincos:
   case Intrinsic::sqrt:
   case Intrinsic::tan:
   case Intrinsic::trunc:
@@ -4649,6 +4652,32 @@ SPIRVValue *LLVMToSPIRVBase::transIntrinsicInst(IntrinsicInst *II,
     // Create the struct.
     SPIRVType *STy = transType(II->getType());
     std::vector<SPIRVId> StructVals{Modf->getId(), IntegralVal->getId()};
+    return BM->addCompositeConstructInst(STy, StructVals, BB);
+  }
+  case Intrinsic::sincos: {
+    // llvm.sincos(x) returns {sin(x), cos(x)}, while OpenCLLIB::Sincos takes
+    // (x, cos_ptr) and returns sin(x), storing cos(x) via the pointer.
+    // Create a temporary function variable for the cos output, call OpenCL
+    // sincos, load the cos value, then construct the result struct.
+    SPIRVType *CosTy = transType(II->getType()->getStructElementType(1));
+    SPIRVType *CosPtrTy = BM->addPointerType(StorageClassFunction, CosTy);
+    SPIRVBasicBlock *EntryBB = BB->getParent()->getBasicBlock(0);
+    SPIRVValue *CosPtr =
+        BM->addVariable(static_cast<SPIRVTypePointer *>(CosPtrTy), nullptr,
+                        false, spv::internal::LinkageTypeInternal, nullptr, "",
+                        StorageClassFunction, EntryBB);
+
+    SPIRVType *SinTy = transType(II->getType()->getStructElementType(0));
+    SPIRVValue *Arg = transValue(II->getArgOperand(0), BB);
+    std::vector<SPIRVValue *> Ops{Arg, CosPtr};
+    SPIRVValue *SinVal =
+        BM->addExtInst(SinTy, BM->getExtInstSetId(SPIRVEIS_OpenCL),
+                       OpenCLLIB::Sincos, Ops, BB);
+
+    SPIRVValue *CosVal = BM->addLoadInst(CosPtr, {}, BB, CosTy);
+
+    SPIRVType *STy = transType(II->getType());
+    std::vector<SPIRVId> StructVals{SinVal->getId(), CosVal->getId()};
     return BM->addCompositeConstructInst(STy, StructVals, BB);
   }
   // Binary FP intrinsics
@@ -6553,6 +6582,8 @@ void LLVMToSPIRVBase::transFunction(Function *I) {
   fpContractUpdateRecursive(I, getFPContract(I));
 
   if (isKernel(I)) {
+    BM->getErrorLog().checkError(I->hasName(), SPIRVEC_InvalidLlvmModule,
+                                 "Entry point function must have a name");
     auto Interface = collectEntryPointInterfaces(BF, I);
     BM->addEntryPoint(ExecutionModelKernel, BF->getId(), I->getName().str(),
                       Interface);
