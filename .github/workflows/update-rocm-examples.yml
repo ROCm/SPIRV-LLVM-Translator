@@ -1,0 +1,195 @@
+# Daily bot that advances the pinned ROCm/rocm-examples revision consumed by
+# the test_rocm_examples job in spirv-ci-linux.yml (env ROCM_EXAMPLES_REF).
+#
+# Flow:
+#   1. Resolve the latest ROCm/rocm-examples amd-staging tip.
+#   2. If it already matches the pin -> nothing to do.
+#   3. Otherwise rewrite the ROCM_EXAMPLES_REF line, force-push a rolling
+#      branch (deps/rocm-examples), open/refresh a single PR, and enable
+#      auto-merge.
+#
+# The bump only LANDS if the candidate SHA passes CI's Build + Test
+# rocm-examples jobs -- that gate is enforced by automerge-rocm-examples.yml,
+# not here. This workflow just proposes the candidate.
+#
+# Rolling branch (force-pushed, single reused PR): a stale candidate that never
+# went green is simply replaced by the next day's tip -- no PR pile-up.
+#
+# Requires (same App as upstream-merge.yml):
+#   - Secret MERGE_APP_ID
+#   - Secret MERGE_APP_PRIVATE_KEY
+#   - Repository setting "Allow auto-merge" enabled.
+
+name: Update rocm-examples pin
+
+on:
+  schedule:
+    # Daily at 07:13 UTC. Off-the-hour to avoid cron-fleet pile-ups.
+    - cron: '13 7 * * *'
+  workflow_dispatch: # Allow manual triggering
+
+concurrency:
+  group: update-rocm-examples
+  cancel-in-progress: true
+
+permissions:
+  contents: write       # Push the rolling branch
+  pull-requests: write  # Create / update the PR
+
+env:
+  CI_FILE: .github/workflows/spirv-ci-linux.yml
+  ROLLING_BRANCH: deps/rocm-examples
+  BASE_BRANCH: amd-staging
+  EXAMPLES_REPO: ROCm/rocm-examples
+  EXAMPLES_BRANCH: amd-staging
+  PR_TITLE: Bump rocm-examples pin
+
+jobs:
+  update-pin:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.MERGE_APP_ID }}
+          private-key: ${{ secrets.MERGE_APP_PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASE_BRANCH }}
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Resolve latest rocm-examples tip
+        id: resolve
+        run: |
+          set -euo pipefail
+          LATEST=$(git ls-remote "https://github.com/${EXAMPLES_REPO}" \
+            "refs/heads/${EXAMPLES_BRANCH}" | cut -f1)
+          if [ -z "${LATEST}" ]; then
+            echo "::error::Could not resolve ${EXAMPLES_REPO}@${EXAMPLES_BRANCH}"
+            exit 1
+          fi
+          echo "latest=${LATEST}" >> "$GITHUB_OUTPUT"
+          echo "Latest ${EXAMPLES_REPO}@${EXAMPLES_BRANCH}: ${LATEST}"
+
+      - name: Read current pin
+        id: current
+        run: |
+          set -euo pipefail
+          CURRENT=$(grep -oE 'ROCM_EXAMPLES_REF:[[:space:]]*[0-9a-fA-F]+' "${CI_FILE}" \
+            | awk '{print $2}')
+          if [ -z "${CURRENT}" ]; then
+            echo "::error::Could not find ROCM_EXAMPLES_REF in ${CI_FILE}"
+            exit 1
+          fi
+          echo "current=${CURRENT}" >> "$GITHUB_OUTPUT"
+          echo "Current pin: ${CURRENT}"
+
+      - name: Decide whether a bump is needed
+        id: decide
+        env:
+          LATEST: ${{ steps.resolve.outputs.latest }}
+          CURRENT: ${{ steps.current.outputs.current }}
+        run: |
+          set -euo pipefail
+          if [ "${LATEST}" = "${CURRENT}" ]; then
+            echo "Pin already at latest tip; nothing to do."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Bump needed: ${CURRENT} -> ${LATEST}"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Rewrite pin line
+        if: steps.decide.outputs.changed == 'true'
+        env:
+          LATEST: ${{ steps.resolve.outputs.latest }}
+          CURRENT: ${{ steps.current.outputs.current }}
+        run: |
+          set -euo pipefail
+          sed -i "s/ROCM_EXAMPLES_REF:[[:space:]]*${CURRENT}/ROCM_EXAMPLES_REF: ${LATEST}/" "${CI_FILE}"
+          # Verify exactly the intended change happened.
+          if ! grep -q "ROCM_EXAMPLES_REF: ${LATEST}" "${CI_FILE}"; then
+            echo "::error::sed did not update the pin as expected"
+            git --no-pager diff -- "${CI_FILE}"
+            exit 1
+          fi
+          git --no-pager diff -- "${CI_FILE}"
+
+      - name: Push rolling branch
+        if: steps.decide.outputs.changed == 'true'
+        env:
+          LATEST: ${{ steps.resolve.outputs.latest }}
+        run: |
+          set -euo pipefail
+          SHORT="${LATEST:0:12}"
+          git checkout -B "${ROLLING_BRANCH}"
+          git add "${CI_FILE}"
+          git commit -m "Bump rocm-examples pin to ${SHORT}"
+          # Force-push: the rolling branch always carries a single bump commit
+          # on top of the current base tip.
+          git push --force origin "${ROLLING_BRANCH}"
+
+      - name: Create or refresh PR
+        id: pr
+        if: steps.decide.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          LATEST: ${{ steps.resolve.outputs.latest }}
+          CURRENT: ${{ steps.current.outputs.current }}
+        run: |
+          set -euo pipefail
+          PR=$(gh pr list --repo "${{ github.repository }}" \
+            --head "${ROLLING_BRANCH}" --base "${BASE_BRANCH}" --state open \
+            --json number -q '.[0].number // empty')
+
+          BODY=$(cat <<EOF
+          Automated bump of the pinned \`ROCm/rocm-examples\` revision consumed by
+          the \`test_rocm_examples\` job.
+
+          - From: \`${CURRENT}\`
+          - To:   \`${LATEST}\`
+
+          This PR is force-updated daily by the \`Update rocm-examples pin\`
+          workflow. It lands automatically only once the **Build** and
+          **Test rocm-examples** CI jobs pass on this commit (enforced by
+          \`automerge-rocm-examples.yml\`). Other CI jobs do not gate this bump.
+          EOF
+          )
+
+          if [ -z "${PR}" ]; then
+            gh pr create \
+              --repo "${{ github.repository }}" \
+              --base "${BASE_BRANCH}" \
+              --head "${ROLLING_BRANCH}" \
+              --title "${PR_TITLE}" \
+              --body "${BODY}"
+            PR=$(gh pr list --repo "${{ github.repository }}" \
+              --head "${ROLLING_BRANCH}" --base "${BASE_BRANCH}" --state open \
+              --json number -q '.[0].number // empty')
+          else
+            # Force-push already refreshed the branch; keep title/body current.
+            gh pr edit "${PR}" --repo "${{ github.repository }}" \
+              --title "${PR_TITLE}" --body "${BODY}"
+          fi
+          echo "number=${PR}" >> "$GITHUB_OUTPUT"
+
+      - name: Enable auto-merge (merge commit)
+        if: steps.decide.outputs.changed == 'true' && steps.pr.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          # Best-effort: the real gate is automerge-rocm-examples.yml, which
+          # merges once Build + Test rocm-examples are green. A force-push
+          # clears auto-merge, so re-assert it each run.
+          gh pr merge "${{ steps.pr.outputs.number }}" \
+            --repo "${{ github.repository }}" --auto --merge \
+            || echo "::warning::Could not enable auto-merge; watcher will merge on green gate."

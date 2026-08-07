@@ -8,6 +8,12 @@ on:
   workflow_call:
 
 env:
+  # Pinned ROCm/rocm-examples revision consumed by the test_rocm_examples job.
+  # Bumped daily by .github/workflows/update-rocm-examples.yml, which lands the
+  # bump only after CI's Build + Test rocm-examples jobs pass on the candidate
+  # SHA (gated by .github/workflows/automerge-rocm-examples.yml). Keep this on
+  # its own line: the bumper rewrites exactly this line via sed.
+  ROCM_EXAMPLES_REF: 269e9068d6fd6e68b1cc5a76eb77744f88af42ec
   LLVM_BUILD: build
   DEVLIBS_BUILD: build-device-libs
   COMGR_BUILD: build-comgr
@@ -573,7 +579,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: ROCm/rocm-examples
-          ref: amd-staging
+          ref: ${{ env.ROCM_EXAMPLES_REF }}
           path: rocm-examples
 
       - name: Download build tree artifact

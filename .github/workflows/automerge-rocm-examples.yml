@@ -1,0 +1,120 @@
+# Merge-watcher for the rocm-examples pin bump PRs produced by
+# update-rocm-examples.yml (PR title "Bump rocm-examples pin").
+#
+# Unlike automerge-after-ci.yml, this does NOT require the whole "SPIRV
+# Compiler CI" workflow to succeed. The rocm-examples pin only depends on two
+# jobs -- Build and Test rocm-examples -- so an unrelated red job (test_codegen,
+# test_comgr, test_translator_lit) must not block the bump. We therefore fire on
+# any workflow_run conclusion and self-gate on the two specific check-runs.
+#
+# Because the jobs run inside the called reusable workflow spirv-ci-linux.yml
+# (via the "Linux::release" caller job), their check-run names surface as:
+#   "Linux::release / Build"
+#   "Linux::release / Test rocm-examples"
+# We suffix-match ("/ Build", "/ Test rocm-examples") to stay robust to caller
+# job renames.
+#
+# Requires (same App as upstream-merge.yml):
+#   - Secret MERGE_APP_ID
+#   - Secret MERGE_APP_PRIVATE_KEY
+#   - The MERGE_APP App must be a bypass actor on the
+#     block-merge-commit-on-amd-*-branches ruleset.
+
+name: Auto-merge rocm-examples pin PRs
+
+on:
+  workflow_run:
+    workflows: ["SPIRV Compiler CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: read
+
+concurrency:
+  group: automerge-rocm-examples-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+
+jobs:
+  gated-merge:
+    name: Merge rocm-examples bump if Build + Test rocm-examples passed
+    runs-on: ubuntu-latest
+    # Note: no conclusion == 'success' filter -- we self-gate on check-runs.
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      startsWith(github.event.workflow_run.display_title, 'Bump rocm-examples pin')
+    steps:
+      - name: Generate App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.MERGE_APP_ID }}
+          private-key: ${{ secrets.MERGE_APP_PRIVATE_KEY }}
+
+      - name: Gate on Build + Test rocm-examples, then merge
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          REPO: ${{ github.repository }}
+          PULL_REQUESTS_JSON: ${{ toJSON(github.event.workflow_run.pull_requests) }}
+        run: |
+          set -euo pipefail
+
+          # ---- Resolve the PR number -----------------------------------------
+          # Prefer workflow_run.pull_requests when GitHub attaches it
+          # (same-repo PRs). Fall back to a head-branch lookup.
+          PR=""
+          if command -v jq >/dev/null 2>&1; then
+            PR=$(echo "${PULL_REQUESTS_JSON}" | jq -r '
+              if . == null or . == [] then empty
+              elif type == "array" then .[0].number | tostring
+              else empty end' 2>/dev/null || true)
+          fi
+          if [ -z "${PR}" ] || [ "${PR}" = "null" ]; then
+            PR="$(gh pr list --repo "${REPO}" --head "${HEAD_BRANCH}" --base amd-staging --state open \
+              --json number -q '.[0].number // empty' 2>/dev/null || true)"
+          fi
+          if [ -z "${PR}" ] || [ "${PR}" = "null" ]; then
+            echo "No open PR found for head branch ${HEAD_BRANCH} -> amd-staging; skipping."
+            exit 0
+          fi
+
+          BASE="$(gh pr view "${PR}" --repo "${REPO}" --json baseRefName -q .baseRefName)"
+          if [ "${BASE}" != "amd-staging" ]; then
+            echo "PR #${PR} base is ${BASE}, not amd-staging; skipping."
+            exit 0
+          fi
+
+          DRAFT="$(gh pr view "${PR}" --repo "${REPO}" --json isDraft -q .isDraft)"
+          if [ "${DRAFT}" = "true" ]; then
+            echo "PR #${PR} is draft; skipping."
+            exit 0
+          fi
+
+          # ---- Self-gate on the two required check-runs ----------------------
+          RUNS=$(gh api "repos/${REPO}/commits/${HEAD_SHA}/check-runs" --paginate \
+            -q '.check_runs[] | [.name, .conclusion] | @tsv')
+          echo "Check-runs for ${HEAD_SHA}:"
+          printf '%s\n' "${RUNS}"
+
+          build_ok=$(printf '%s\n' "${RUNS}" \
+            | awk -F'\t' '$1 ~ /\/ Build$/ && $2 == "success"' | head -1)
+          examples_ok=$(printf '%s\n' "${RUNS}" \
+            | awk -F'\t' '$1 ~ /\/ Test rocm-examples$/ && $2 == "success"' | head -1)
+
+          if [ -z "${build_ok}" ] || [ -z "${examples_ok}" ]; then
+            echo "Gate not met (need both Build and Test rocm-examples = success); skipping."
+            echo "  Build ok:            ${build_ok:-<none>}"
+            echo "  Test rocm-examples:  ${examples_ok:-<none>}"
+            exit 0
+          fi
+
+          # ---- Merge ---------------------------------------------------------
+          # Direct merge as the bypass-eligible App: we have already confirmed
+          # our own gate, so we deliberately do not wait on org-level required
+          # checks (which may include unrelated jobs).
+          echo "Gate met for PR #${PR}; merging (merge commit)."
+          gh pr merge "${PR}" --repo "${REPO}" --merge
