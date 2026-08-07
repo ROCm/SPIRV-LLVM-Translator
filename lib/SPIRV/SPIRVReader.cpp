@@ -4023,8 +4023,27 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
     std::replace(FuncName.begin(), FuncName.end(), '_', '.');
   }
   Function *F = M->getFunction(FuncName);
-  if (!F)
-    F = Function::Create(FT, Linkage, AS, FuncName, M);
+  if (!F) {
+    // A `spirv.llvm_*` import lowered from an LLVM intrinsic during forward
+    // translation is reconstructed here by mangling the name back to
+    // `llvm.<name>`. Recreating it with `Function::Create` and the SPIR-V
+    // derived `FT` is unsafe: SPIR-V has no notion of the AMDGPU-specific
+    // address spaces, so pointer types in `FT` fall back to the default AS.
+    // For intrinsics whose signature is fixed (non-overloaded), that produces
+    // a declaration that mismatches the intrinsic's required prototype and
+    // fails the IR verifier (e.g. `llvm.amdgcn.implicitarg.ptr` must return
+    // `ptr addrspace(4)`, not `ptr`). Rebuild those from the intrinsic
+    // definition so the correct prototype is used. Overloaded intrinsics are
+    // left to the existing per-intrinsic special cases above, since they need
+    // the overload types derived from `FT`.
+    Intrinsic::ID IID = Intrinsic::not_intrinsic;
+    if (StringRef(FuncName).starts_with("llvm."))
+      IID = Intrinsic::lookupIntrinsicID(FuncName);
+    if (IID != Intrinsic::not_intrinsic && !Intrinsic::isOverloaded(IID))
+      F = Intrinsic::getOrInsertDeclaration(M, IID);
+    else
+      F = Function::Create(FT, Linkage, AS, FuncName, M);
+  }
 
   F = cast<Function>(mapValue(BF, F));
 
