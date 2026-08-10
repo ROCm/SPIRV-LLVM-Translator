@@ -6,9 +6,6 @@
 ; return type from LLVM's intrinsic declaration, otherwise it emits
 ; `declare ptr @llvm.amdgcn.implicitarg.ptr()` (addrspace(0)) instead of the
 ; required `ptr addrspace(4)`, producing IR that fails the verifier.
-;
-; Reverse-side counterpart of the forward-side fix in #246
-; (test/llvm-intrinsics/amdgcn-intrinsic-ptr-arg-addrspace.ll).
 
 ; RUN: llvm-spirv -to-binary %s -o %t.spv
 ; RUN: llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s
