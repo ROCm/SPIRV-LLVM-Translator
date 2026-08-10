@@ -4025,7 +4025,7 @@ Function *SPIRVToLLVM::transFunction(SPIRVFunction *BF, unsigned AS) {
   Function *F = M->getFunction(FuncName);
   if (!F) {
     Intrinsic::ID IID = Intrinsic::not_intrinsic;
-    if (StringRef(FuncName).starts_with("llvm."))
+    if (StringRef(FuncName).starts_with("llvm.amdgcn."))
       IID = Intrinsic::lookupIntrinsicID(FuncName);
     if (IID != Intrinsic::not_intrinsic && !Intrinsic::isOverloaded(IID))
       F = Intrinsic::getOrInsertDeclaration(M, IID);
