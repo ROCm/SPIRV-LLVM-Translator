@@ -39,6 +39,7 @@ concurrency:
 
 jobs:
   setup:
+    if: ${{ github.repository == 'ROCm/SPIRV-LLVM-Translator' }}
     uses: ./.github/workflows/setup_multi_arch.yml
     with:
       build_variant: "asan"
