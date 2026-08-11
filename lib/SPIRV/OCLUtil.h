@@ -505,24 +505,6 @@ inline OCLMemOrderKind mapSPIRVMemOrderToOCL(unsigned Sema) {
   return OCLMemOrderMap::rmap(extractSPIRVMemOrderSemantic(Sema));
 }
 
-inline unsigned int mapAMDGCNAddrSpaceToSPIRV(unsigned int AS) {
-  switch (AS) {
-  case 0:
-    return SPIRAS_Generic;
-  case 1:
-    return SPIRAS_Global;
-  case 3:
-    return SPIRAS_Local;
-  case 4:
-    return SPIRAS_Constant;
-  case 5:
-    return SPIRAS_Private;
-  default:
-    llvm_unreachable("Unexpected AMDGCN Address Space");
-    return UINT_MAX;
-  }
-}
-
 inline SPIRAddressSpace mapSPIRVAddrSpaceToAMDGPU(SPIRVStorageClassKind SPVAS) {
   switch (SPVAS) {
   case StorageClassInput:
