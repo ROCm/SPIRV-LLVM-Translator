@@ -4289,21 +4289,7 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
   }
 
   if (BM->getDesiredBIsRepresentation() != BIsRepresentation::SPIRVFriendlyIR)
-    if (!BM->getAddrSpaceMap() &&
-        M->getTargetTriple().getVendor() == Triple::VendorType::AMD) {
-      auto TmpTys = ArgTys;
-      for (auto &&Ty : TmpTys) {
-        if (auto TPT = dyn_cast<TypedPointerType>(Ty))
-          Ty = TypedPointerType::get(TPT->getElementType(),
-                                     mapAMDGCNAddrSpaceToSPIRV(TPT->getAddressSpace()));
-        else if (isa<PointerType>(Ty))
-          Ty = PointerType::get(Ty->getContext(),
-                                mapAMDGCNAddrSpaceToSPIRV(Ty->getPointerAddressSpace()));
-      }
-      mangleOpenClBuiltin(FuncName, TmpTys, MangledName);
-    } else {
-      mangleOpenClBuiltin(FuncName, ArgTys, MangledName, BM->getAddrSpaceMap());
-    }
+    mangleOpenClBuiltin(FuncName, ArgTys, MangledName, BM->getAddrSpaceMap());
   else
     MangledName = getSPIRVFriendlyIRFunctionName(FuncName, OC, ArgTys, Ops,
                                                  BM->getAddrSpaceMap());
