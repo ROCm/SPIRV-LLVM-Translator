@@ -2924,38 +2924,19 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     Function *Callee = transFunction(BC->getFunction(),
                                      BM->getFunctionProgramAddrSpace());
     if (!BM->getAddrSpaceMap() && M->getTargetTriple().isAMDGCN()) {
-      if (isKernel(BC->getFunction())) {
-        // In HIPSTDPAR mode we sometimes get some host side calls that have not
-        // yet been pruned (this happens later on reverse translated AMDGPU LLVM
-        // IR); whilst these are essentially dead, we should generate valid IR
-        // nonetheless, and this might require inserting an AS cast.
-        // TODO: we should only do this for HIPSTDPAR modules; this is a
-        //       temporary workaround.
-        std::transform(
-          Callee->arg_begin(), Callee->arg_end(), Args.begin(), Args.begin(),
-          [BB](auto &&Formal, auto &&Actual) {
-          if (!Formal.getType()->isPointerTy())
-            return Actual;
+      std::transform(
+        Callee->arg_begin(), Callee->arg_end(), Args.begin(), Args.begin(),
+        [BB](auto &&Formal, auto &&Actual) {
+        if (!Formal.getType()->isPointerTy())
+          return Actual;
 
-          if (Formal.getType()->getPointerAddressSpace() ==
-              Actual->getType()->getPointerAddressSpace())
-            return Actual;
+        if (Formal.getType()->getPointerAddressSpace() ==
+            Actual->getType()->getPointerAddressSpace())
+          return Actual;
 
-          return cast<Value>(CastInst::CreatePointerBitCastOrAddrSpaceCast(
-              Actual, Formal.getType(), "", BB));
-        });
-      } else if (Args.size() == 1 &&
-                 (BC->getFunction()->getName() == "llvm.amdgcn.is.shared" ||
-                  BC->getFunction()->getName() == "llvm.amdgcn.is.private")) {
-        if (BC->getArgumentValues().front()->getType()->getPointerStorageClass()
-            != StorageClassGeneric) {
-          auto *PTy = PointerType::get(
-              F->getContext(), mapSPIRVAddrSpaceToAMDGPU(StorageClassGeneric));
-          Args[0] =
-              CastInst::CreatePointerBitCastOrAddrSpaceCast(Args[0], PTy, "",
-                                                            BB);
-        }
-      }
+        return cast<Value>(CastInst::CreatePointerBitCastOrAddrSpaceCast(
+            Actual, Formal.getType(), "", BB));
+      });
     }
     auto *Call = CallInst::Create(Callee, Args, BC->getName(), BB);
     setCallingConv(Call);
