@@ -1,0 +1,59 @@
+; Test that a non-overloaded AMDGCN intrinsic returning a pointer in a specific
+; address space is reconstructed with the correct return type on reverse
+; translation. Such an intrinsic is imported as an external function carrying
+; only a SPIR-V function type; its pointer return uses the Function storage
+; class, which maps to addrspace(0). The reader must recover the canonical
+; return type from LLVM's intrinsic declaration, otherwise it emits
+; `declare ptr @llvm.amdgcn.implicitarg.ptr()` (addrspace(0)) instead of the
+; required `ptr addrspace(4)`, producing IR that fails the verifier.
+
+; RUN: llvm-spirv -to-binary %s -o %t.spv
+; RUN: llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s
+; The reverse-translated module must be valid IR:
+; RUN: llvm-spirv -r %t.spv -o - | llvm-dis | llvm-as -o /dev/null
+
+; CHECK: declare {{.*}}ptr addrspace(4) @llvm.amdgcn.implicitarg.ptr()
+; CHECK: call ptr addrspace(4) @llvm.amdgcn.implicitarg.ptr()
+
+119734787 65536 458751 16 0 
+2 Capability Addresses 
+2 Capability Linkage 
+2 Capability Kernel 
+2 Capability Int64 
+2 Capability GenericPointer 
+2 Capability Int8 
+5 ExtInstImport 1 "OpenCL.std" 
+3 MemoryModel 2 2 
+5 EntryPoint 6 11 "test" 
+3 Source 0 0 
+9 Name 6 "llvm.amdgcn.implicitarg.ptr" 
+3 Name 12 "o" 
+4 Name 13 "entry" 
+
+11 Decorate 6 LinkageAttributes "llvm.amdgcn.implicitarg.ptr" Import 
+4 TypeInt 2 8 0 
+4 TypeInt 8 64 0 
+4 TypePointer 3 8 2 
+4 TypePointer 4 8 2 
+3 TypeFunction 5 4 
+2 TypeVoid 7 
+4 TypePointer 9 5 8 
+4 TypeFunction 10 7 9 
+
+
+
+5 Function 4 6 0 5 
+
+1 FunctionEnd 
+
+5 Function 7 11 0 10 
+3 FunctionParameter 9 12 
+
+2 Label 13 
+4 FunctionCall 4 14 6 
+4 ConvertPtrToU 8 15 14 
+5 Store 12 15 2 8 
+1 Return 
+
+1 FunctionEnd 
+

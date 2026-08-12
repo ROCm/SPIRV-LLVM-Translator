@@ -18,6 +18,7 @@ permissions:
 
 jobs:
   merge-upstream:
+    if: ${{ github.repository == 'ROCm/SPIRV-LLVM-Translator' }}
     runs-on: ubuntu-latest
     steps:
       - name: Generate GitHub App token

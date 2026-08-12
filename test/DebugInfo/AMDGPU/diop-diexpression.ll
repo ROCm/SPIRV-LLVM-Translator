@@ -3,12 +3,18 @@
 ; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -mcpu=gfx1030 -mtriple=amdgcn-amd-amdhsa -O0 -filetype=obj -o %t %t.ll
 ; RUN: llvm-dwarfdump -debug-info %t | FileCheck %s
-; XFAIL: *
 
 ; REQUIRES: diop-diexpressions
 
 ;; Verify that we can produce valid dwarf from DIOp-based DIExpressions in a
 ;; simple program with a global and local variable.
+
+; CHECK: DW_TAG_variable
+; CHECK-NEXT: DW_AT_location ({{.*}} DW_OP_lit5, DW_OP_LLVM_user DW_OP_LLVM_form_aspace_address)
+; CHECK-NEXT: DW_AT_name ("local")
+; CHECK-NEXT: DW_AT_decl_file ("t.cpp")
+; CHECK-NEXT: DW_AT_decl_line (4)
+; CHECK-NEXT: DW_AT_type
 
 ; CHECK: DW_TAG_variable
 ; CHECK-DAG: DW_AT_name ("global")
@@ -17,13 +23,6 @@
 ; CHECK-NEXT: DW_AT_decl_file ("t.cpp")
 ; CHECK-NEXT: DW_AT_decl_line (3)
 ; CHECK-NEXT: DW_AT_location ({{.*}} DW_OP_lit0, DW_OP_LLVM_user DW_OP_LLVM_form_aspace_address)
-
-; CHECK: DW_TAG_variable
-; CHECK-NEXT: DW_AT_location ({{.*}} DW_OP_lit5, DW_OP_LLVM_user DW_OP_LLVM_form_aspace_address)
-; CHECK-NEXT: DW_AT_name ("local")
-; CHECK-NEXT: DW_AT_decl_file ("t.cpp")
-; CHECK-NEXT: DW_AT_decl_line (4)
-; CHECK-NEXT: DW_AT_type
 
 target triple = "spirv64-amd-amdhsa"
 
