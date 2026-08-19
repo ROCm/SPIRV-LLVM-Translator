@@ -4612,13 +4612,6 @@ bool SPIRVToLLVM::translate() {
     transUserSemantic(BM->getFunction(I));
   }
 
-  if (M->getTargetTriple().isAMDGCN()) {
-    SmallVector<Function *> MaybeUnreachable = collectUsedFunctions(*M);
-    for (auto &&[F, FPU] : FeaturePredicateUsers)
-      maybeFoldFeaturePredicates(F, FPU);
-    removeUnreachableFunctions(MaybeUnreachable);
-  }
-
   transGlobalAnnotations();
 
   if (!transMetadata())
@@ -4651,6 +4644,12 @@ bool SPIRVToLLVM::translate() {
 
   if (M->getTargetTriple().getVendor() != Triple::VendorType::AMD)
     return true;
+
+  SmallVector<Function *> MaybeUnreachable = collectUsedFunctions(*M);
+  for (auto &&[F, FPU] : FeaturePredicateUsers)
+    maybeFoldFeaturePredicates(F, FPU);
+  removeUnreachableFunctions(MaybeUnreachable);
+
   // TODO: this is temporary hardcoding, but will ultimately get handled in the
   // FE.
   M->addModuleFlag(llvm::Module::Error, "amdhsa_code_object_version", 600);
