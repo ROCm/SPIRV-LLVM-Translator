@@ -13,7 +13,7 @@ env:
   # bump only after CI's Build + Test rocm-examples jobs pass on the candidate
   # SHA (gated by .github/workflows/automerge-rocm-examples.yml). Keep this on
   # its own line: the bumper rewrites exactly this line via sed.
-  ROCM_EXAMPLES_REF: 269e9068d6fd6e68b1cc5a76eb77744f88af42ec
+  ROCM_EXAMPLES_REF: 33f07a01bd386a5213de5d8253df69b11dcf7bdd
   LLVM_BUILD: build
   DEVLIBS_BUILD: build-device-libs
   COMGR_BUILD: build-comgr
