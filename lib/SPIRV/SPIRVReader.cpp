@@ -2714,6 +2714,18 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
         if (auto GV =
               dyn_cast<GlobalValue>(CE->getOperand(0)->stripPointerCasts()))
           BaseTy = GV->getValueType();
+      if (Index.size() == 2 &&
+          !GetElementPtrInst::getIndexedType(BaseTy, Index)) {
+        // This might've come from a G_PTR_ADD, but because we've retrieved the
+        // full structured type we have to form the correct GEP.
+        Type *ElemTy = BaseTy;
+        APInt Residual = cast<ConstantInt>(Index[1])->getValue();
+        Index.clear();
+        llvm::transform(
+          M->getDataLayout().getGEPIndicesForOffset(ElemTy, Residual),
+          std::back_inserter(Index),
+          [this](auto &&Idx) { return ConstantInt::get(*Context, Idx); });
+      }
       V = ConstantExpr::getGetElementPtr(BaseTy, CT, Index, IsInbound);
     }
     return mapValue(BV, V);
