@@ -1571,14 +1571,17 @@ void SPIRVToLLVM::addMemAliasMetadata(Instruction *I, SPIRVId AliasListId,
 }
 
 void SPIRVToLLVM::transFunctionPointerCallArgumentAttributes(
-    SPIRVValue *BV, CallInst *CI, SPIRVTypeFunction *CalledFnTy) {
+    SPIRVValue *BV, CallInst *CI, SPIRVFunctionPointerCallINTEL *Call) {
   std::vector<SPIRVDecorate const *> ArgumentAttributes =
       BV->getDecorations(internal::DecorationArgumentAttributeINTEL);
 
+  std::vector<SPIRVValue *> ArgValues = Call->getArgumentValues();
   for (const auto *Dec : ArgumentAttributes) {
     std::vector<SPIRVWord> Literals = Dec->getVecLiteral();
     SPIRVWord ArgNo = Literals[0];
     SPIRVWord SpirvAttr = Literals[1];
+    if (ArgNo >= ArgValues.size())
+      continue; // Ignore a malformed ArgumentAttributeINTEL decoration.
     // There is no value to rmap SPIR-V FunctionParameterAttributeNoCapture, as
     // LLVM does not have Attribute::NoCapture anymore. Adding special handling
     // for this case.
@@ -1589,15 +1592,25 @@ void SPIRVToLLVM::transFunctionPointerCallArgumentAttributes(
     }
     Attribute::AttrKind LlvmAttrKind = SPIRSPIRVFuncParamAttrMap::rmap(
         static_cast<SPIRVFuncParamAttrKind>(SpirvAttr));
-    auto LlvmAttr =
-        Attribute::isTypeAttrKind(LlvmAttrKind)
-            ? Attribute::get(CI->getContext(), LlvmAttrKind,
-                             transType(CalledFnTy->getParameterType(ArgNo)
-                                           ->getPointerElementType()))
-            : (LlvmAttrKind != Attribute::Captures)
-                  ? Attribute::get(CI->getContext(), LlvmAttrKind)
-                  : Attribute::getWithCaptureInfo(CI->getContext(),
-                                                  CaptureInfo::none());
+    SPIRVValue *Arg = ArgValues[ArgNo];
+    Attribute LlvmAttr;
+    if (Attribute::isTypeAttrKind(LlvmAttrKind)) {
+      // assume all byval/sret args are always emitted as typed pointers
+      if (!BM->getErrorLog().checkError(
+              !Arg->getType()->isTypeUntypedPointerKHR(), SPIRVEC_InvalidModule,
+              "FunctionPointerCallINTEL: type-attributed function arguments in "
+              "an indirect call should always be a typed "
+              "pointer argument for now"))
+        return;
+      LlvmAttr =
+          Attribute::get(CI->getContext(), LlvmAttrKind,
+                         transType(Arg->getType()->getPointerElementType()));
+    } else if (LlvmAttrKind != Attribute::Captures) {
+      LlvmAttr = Attribute::get(CI->getContext(), LlvmAttrKind);
+    } else {
+      LlvmAttr =
+          Attribute::getWithCaptureInfo(CI->getContext(), CaptureInfo::none());
+    }
     CI->addParamAttr(ArgNo, LlvmAttr);
   }
 }
@@ -3010,15 +3023,22 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     SPIRVFunctionPointerCallINTEL *BC =
         static_cast<SPIRVFunctionPointerCallINTEL *>(BV);
     auto *V = transValue(BC->getCalledValue(), F, BB);
-    auto *RetTy = transType(BC->getType());
-    auto ArgsTy = transTypeVector(BC->getArgumentValueTypes());
-    auto *FnTy = FunctionType::get(RetTy, ArgsTy, false);
-    auto *Call = CallInst::Create(
-        FnTy, V, transValue(BC->getArgumentValues(), F, BB), BC->getName(), BB);
-    if (!BC->getCalledValue()->getType()->getPointerElementType()->isTypeUntypedPointerKHR())
-      transFunctionPointerCallArgumentAttributes(
-          BV, Call,
-          static_cast<SPIRVTypeFunction *>(BC->getCalledValue()->getType()->getPointerElementType()));
+    std::vector<Value *> Args = transValue(BC->getArgumentValues(), F, BB);
+    SPIRVType *SpirvPtrTy = BC->getCalledValue()->getType();
+    FunctionType *FnTy = nullptr;
+    if (SpirvPtrTy->isTypeUntypedPointerKHR()) {
+      // An untyped function pointer has no pointee type, so rebuild the
+      // signature from the call's return and argument types.
+      SmallVector<Type *, 8> ArgTys;
+      for (Value *Arg : Args)
+        ArgTys.push_back(Arg->getType());
+      FnTy = FunctionType::get(transType(BC->getType()), ArgTys,
+                               /*isVarArg=*/false);
+    } else {
+      FnTy = cast<FunctionType>(transType(SpirvPtrTy->getPointerElementType()));
+    }
+    auto *Call = CallInst::Create(FnTy, V, Args, BC->getName(), BB);
+    transFunctionPointerCallArgumentAttributes(BV, Call, BC);
     // Assuming we are calling a regular device function
     Call->setCallingConv(
         M->getTargetTriple().getVendor() == Triple::VendorType::AMD
