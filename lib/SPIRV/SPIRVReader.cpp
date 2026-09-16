@@ -353,6 +353,7 @@ Type *SPIRVToLLVM::transType(SPIRVType *T, bool UseTPT) {
   SPIRVDBG(spvdbgs() << "[transType] " << *T << " -> ";)
   T->validate();
   auto IsAMDGCN = M->getTargetTriple().getVendor() == Triple::VendorType::AMD;
+  bool UseLegacyAMDGCNMap = IsAMDGCN && !BM->getAddrSpaceMap();
   switch (static_cast<SPIRVWord>(T->getOpCode())) {
   case OpTypeVoid:
     return mapType(T, Type::getVoidTy(*Context));
@@ -376,15 +377,16 @@ Type *SPIRVToLLVM::transType(SPIRVType *T, bool UseTPT) {
     return mapType(T, Type::getTokenTy(*Context));
   case OpTypePointer: {
     unsigned AS =
-        IsAMDGCN ? mapSPIRVAddrSpaceToAMDGPU(T->getPointerStorageClass()) :
-                   SPIRSPIRVAddrSpaceMap::rmap(T->getPointerStorageClass());
+        UseLegacyAMDGCNMap
+            ? mapSPIRVAddrSpaceToAMDGPU(T->getPointerStorageClass())
+            : SPIRSPIRVAddrSpaceMap::rmap(T->getPointerStorageClass());
     if (AS == SPIRAS_CodeSectionINTEL && !BM->shouldEmitFunctionPtrAddrSpace())
-      AS = IsAMDGCN ?
-          M->getDataLayout().getProgramAddressSpace() : SPIRAS_Private;
+      AS = UseLegacyAMDGCNMap ? M->getDataLayout().getProgramAddressSpace()
+                              : SPIRAS_Private;
     if (BM->shouldEmitFunctionPtrAddrSpace() &&
         T->getPointerElementType()->getOpCode() == OpTypeFunction)
-      AS = IsAMDGCN ?
-          M->getDataLayout().getProgramAddressSpace() : SPIRAS_CodeSectionINTEL;
+      AS = UseLegacyAMDGCNMap ? M->getDataLayout().getProgramAddressSpace()
+                              : SPIRAS_CodeSectionINTEL;
     unsigned MappedAS = BM->getAddrSpaceMap() ? BM->mapAddrSpace(AS) : AS;
     Type *ElementTy = transType(T->getPointerElementType(), UseTPT);
     if (UseTPT)
@@ -392,12 +394,13 @@ Type *SPIRVToLLVM::transType(SPIRVType *T, bool UseTPT) {
     return mapType(T, PointerType::get(*Context, MappedAS));
   }
   case OpTypeUntypedPointerKHR: {
-    unsigned AS = IsAMDGCN ?
-        mapSPIRVAddrSpaceToAMDGPU(T->getPointerStorageClass()) :
-        SPIRSPIRVAddrSpaceMap::rmap(T->getPointerStorageClass());
+    unsigned AS =
+        UseLegacyAMDGCNMap
+            ? mapSPIRVAddrSpaceToAMDGPU(T->getPointerStorageClass())
+            : SPIRSPIRVAddrSpaceMap::rmap(T->getPointerStorageClass());
     if (AS == SPIRAS_CodeSectionINTEL && !BM->shouldEmitFunctionPtrAddrSpace())
-      AS = IsAMDGCN ?
-          M->getDataLayout().getProgramAddressSpace() : SPIRAS_Private;
+      AS = UseLegacyAMDGCNMap ? M->getDataLayout().getProgramAddressSpace()
+                              : SPIRAS_Private;
     unsigned MappedAS = BM->getAddrSpaceMap() ? BM->mapAddrSpace(AS) : AS;
     return mapType(T, PointerType::get(*Context, MappedAS));
   }
@@ -1571,14 +1574,17 @@ void SPIRVToLLVM::addMemAliasMetadata(Instruction *I, SPIRVId AliasListId,
 }
 
 void SPIRVToLLVM::transFunctionPointerCallArgumentAttributes(
-    SPIRVValue *BV, CallInst *CI, SPIRVTypeFunction *CalledFnTy) {
+    SPIRVValue *BV, CallInst *CI, SPIRVFunctionPointerCallINTEL *Call) {
   std::vector<SPIRVDecorate const *> ArgumentAttributes =
       BV->getDecorations(internal::DecorationArgumentAttributeINTEL);
 
+  std::vector<SPIRVValue *> ArgValues = Call->getArgumentValues();
   for (const auto *Dec : ArgumentAttributes) {
     std::vector<SPIRVWord> Literals = Dec->getVecLiteral();
     SPIRVWord ArgNo = Literals[0];
     SPIRVWord SpirvAttr = Literals[1];
+    if (ArgNo >= ArgValues.size())
+      continue; // Ignore a malformed ArgumentAttributeINTEL decoration.
     // There is no value to rmap SPIR-V FunctionParameterAttributeNoCapture, as
     // LLVM does not have Attribute::NoCapture anymore. Adding special handling
     // for this case.
@@ -1589,15 +1595,25 @@ void SPIRVToLLVM::transFunctionPointerCallArgumentAttributes(
     }
     Attribute::AttrKind LlvmAttrKind = SPIRSPIRVFuncParamAttrMap::rmap(
         static_cast<SPIRVFuncParamAttrKind>(SpirvAttr));
-    auto LlvmAttr =
-        Attribute::isTypeAttrKind(LlvmAttrKind)
-            ? Attribute::get(CI->getContext(), LlvmAttrKind,
-                             transType(CalledFnTy->getParameterType(ArgNo)
-                                           ->getPointerElementType()))
-            : (LlvmAttrKind != Attribute::Captures)
-                  ? Attribute::get(CI->getContext(), LlvmAttrKind)
-                  : Attribute::getWithCaptureInfo(CI->getContext(),
-                                                  CaptureInfo::none());
+    SPIRVValue *Arg = ArgValues[ArgNo];
+    Attribute LlvmAttr;
+    if (Attribute::isTypeAttrKind(LlvmAttrKind)) {
+      // assume all byval/sret args are always emitted as typed pointers
+      if (!BM->getErrorLog().checkError(
+              !Arg->getType()->isTypeUntypedPointerKHR(), SPIRVEC_InvalidModule,
+              "FunctionPointerCallINTEL: type-attributed function arguments in "
+              "an indirect call should always be a typed "
+              "pointer argument for now"))
+        return;
+      LlvmAttr =
+          Attribute::get(CI->getContext(), LlvmAttrKind,
+                         transType(Arg->getType()->getPointerElementType()));
+    } else if (LlvmAttrKind != Attribute::Captures) {
+      LlvmAttr = Attribute::get(CI->getContext(), LlvmAttrKind);
+    } else {
+      LlvmAttr =
+          Attribute::getWithCaptureInfo(CI->getContext(), CaptureInfo::none());
+    }
     CI->addParamAttr(ArgNo, LlvmAttr);
   }
 }
@@ -1976,8 +1992,10 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
       AddrSpace = VectorComputeUtil::getVCGlobalVarAddressSpace(BS);
       Initializer = PoisonValue::get(Ty);
     } else
-      AddrSpace = M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
-          mapSPIRVAddrSpaceToAMDGPU(BS) : SPIRSPIRVAddrSpaceMap::rmap(BS);
+      AddrSpace = !BM->getAddrSpaceMap() && M->getTargetTriple().getVendor() ==
+                                                Triple::VendorType::AMD
+                      ? mapSPIRVAddrSpaceToAMDGPU(BS)
+                      : SPIRSPIRVAddrSpaceMap::rmap(BS);
     // Force SPIRV BuiltIn variable's name to be __spirv_BuiltInXXXX.
     // No matter what BV's linkage name is.
     SPIRVBuiltinVariableKind BVKind;
@@ -3010,15 +3028,22 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     SPIRVFunctionPointerCallINTEL *BC =
         static_cast<SPIRVFunctionPointerCallINTEL *>(BV);
     auto *V = transValue(BC->getCalledValue(), F, BB);
-    auto *RetTy = transType(BC->getType());
-    auto ArgsTy = transTypeVector(BC->getArgumentValueTypes());
-    auto *FnTy = FunctionType::get(RetTy, ArgsTy, false);
-    auto *Call = CallInst::Create(
-        FnTy, V, transValue(BC->getArgumentValues(), F, BB), BC->getName(), BB);
-    if (!BC->getCalledValue()->getType()->getPointerElementType()->isTypeUntypedPointerKHR())
-      transFunctionPointerCallArgumentAttributes(
-          BV, Call,
-          static_cast<SPIRVTypeFunction *>(BC->getCalledValue()->getType()->getPointerElementType()));
+    std::vector<Value *> Args = transValue(BC->getArgumentValues(), F, BB);
+    SPIRVType *SpirvPtrTy = BC->getCalledValue()->getType();
+    FunctionType *FnTy = nullptr;
+    if (SpirvPtrTy->isTypeUntypedPointerKHR()) {
+      // An untyped function pointer has no pointee type, so rebuild the
+      // signature from the call's return and argument types.
+      SmallVector<Type *, 8> ArgTys;
+      for (Value *Arg : Args)
+        ArgTys.push_back(Arg->getType());
+      FnTy = FunctionType::get(transType(BC->getType()), ArgTys,
+                               /*isVarArg=*/false);
+    } else {
+      FnTy = cast<FunctionType>(transType(SpirvPtrTy->getPointerElementType()));
+    }
+    auto *Call = CallInst::Create(FnTy, V, Args, BC->getName(), BB);
+    transFunctionPointerCallArgumentAttributes(BV, Call, BC);
     // Assuming we are calling a regular device function
     Call->setCallingConv(
         M->getTargetTriple().getVendor() == Triple::VendorType::AMD
@@ -4752,51 +4777,60 @@ bool SPIRVToLLVM::transAddressingModel() {
     return true;
   }
 
-  // No -G: LLVM auto-injects -G1 for spir triples, and emitting our own
-  // would shift getDefaultGlobalsAddressSpace() away from AS 0 (the LLVM
-  // convention for llvm.global.annotations / llvm.metadata fields).
+  // The datalayout depends on the triple, so resolve triple first.
+  Triple OverrideTT;
+  StringRef Override = BM->getTargetTripleOverride();
+  if (!Override.empty()) {
+    OverrideTT = Triple(Triple::normalize(Override));
+    SPIRVCKRT(OverrideTT.getArch() != Triple::UnknownArch,
+              InvalidTargetTripleOverride, Override.str());
+  }
+
   auto AppendAddrSpaceModifiers = [this](std::string &DL) {
+    // A target datalayout may already pin these; only override on divergence.
+    DataLayout Base(DL);
     if (BM->getAddrSpaceMap()) {
       unsigned PrivateAS = BM->mapAddrSpace(SPIRAS_Private);
-      if (PrivateAS != SPIRAS_Private)
+      if (PrivateAS != Base.getAllocaAddrSpace())
         DL += "-A" + std::to_string(PrivateAS);
     }
     unsigned ProgramAS = BM->getFunctionProgramAddrSpace();
-    if (ProgramAS != 0)
+    if (ProgramAS != Base.getProgramAddressSpace())
       DL += "-P" + std::to_string(ProgramAS);
   };
 
+  auto SetTripleAndDataLayout = [&](const char *SPIRTriple,
+                                    const char *SPIRDataLayout) {
+    Triple TT = Override.empty() ? Triple(SPIRTriple) : OverrideTT;
+    M->setTargetTriple(TT);
+    // A non-SPIR target sizes pointers per address space (AMDGPU: 32-bit
+    // local/private, 64-bit global/constant/flat); SPIR's uniform 64-bit
+    // layout would misreport them. No -G on the SPIR path: LLVM auto-injects
+    // -G1 for spir triples, and emitting our own would shift
+    // getDefaultGlobalsAddressSpace() away from AS 0 (the LLVM convention for
+    // llvm.global.annotations / llvm.metadata fields).
+    std::string DL = TT.isSPIR() || TT.isSPIRV() ? std::string(SPIRDataLayout)
+                                                 : TT.computeDataLayout();
+    AppendAddrSpaceModifiers(DL);
+    M->setDataLayout(DL);
+  };
+
   switch (BM->getAddressingModel()) {
-  case AddressingModelPhysical64: {
-    M->setTargetTriple(Triple(SPIR_TARGETTRIPLE64));
-    std::string DL = SPIR_DATALAYOUT64;
-    AppendAddrSpaceModifiers(DL);
-    M->setDataLayout(DL);
+  case AddressingModelPhysical64:
+    SetTripleAndDataLayout(SPIR_TARGETTRIPLE64, SPIR_DATALAYOUT64);
     break;
-  }
-  case AddressingModelPhysical32: {
-    M->setTargetTriple(Triple(SPIR_TARGETTRIPLE32));
-    std::string DL = SPIR_DATALAYOUT32;
-    AppendAddrSpaceModifiers(DL);
-    M->setDataLayout(DL);
+  case AddressingModelPhysical32:
+    SetTripleAndDataLayout(SPIR_TARGETTRIPLE32, SPIR_DATALAYOUT32);
     break;
-  }
   case AddressingModelLogical:
-    // Do not set target triple and data layout
+    // No datalayout; the override still names the target.
+    if (!Override.empty())
+      M->setTargetTriple(OverrideTT);
     break;
   default:
     SPIRVCKRT(0, InvalidAddressingModel,
               "Actual addressing mode is " +
                   std::to_string(BM->getAddressingModel()));
-  }
-
-  // Optional override replaces the triple.
-  StringRef Override = BM->getTargetTripleOverride();
-  if (!Override.empty()) {
-    Triple TT(Triple::normalize(Override));
-    SPIRVCKRT(TT.getArch() != Triple::UnknownArch, InvalidTargetTripleOverride,
-              Override.str());
-    M->setTargetTriple(TT);
   }
 
   return true;
@@ -5788,13 +5822,17 @@ bool SPIRVToLLVM::transOCLMetadata(SPIRVFunction *BF) {
       Context, SPIR_MD_KERNEL_ARG_ADDR_SPACE, BF, F,
       [this](SPIRVFunctionParameter *Arg) {
         SPIRVType *ArgTy = Arg->getType();
+        bool UseLegacyAMDGCNMap =
+            !BM->getAddrSpaceMap() &&
+            M->getTargetTriple().getVendor() == Triple::VendorType::AMD;
         SPIRAddressSpace AS =
-          M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
-            mapSPIRVAddrSpaceToAMDGPU(StorageClassFunction) : SPIRAS_Private;
+            UseLegacyAMDGCNMap ? mapSPIRVAddrSpaceToAMDGPU(StorageClassFunction)
+                               : SPIRAS_Private;
         if (ArgTy->isTypePointer())
-          AS = M->getTargetTriple().getVendor() == Triple::VendorType::AMD ?
-              mapSPIRVAddrSpaceToAMDGPU(ArgTy->getPointerStorageClass()) :
-              SPIRSPIRVAddrSpaceMap::rmap(ArgTy->getPointerStorageClass());
+          AS = UseLegacyAMDGCNMap
+                   ? mapSPIRVAddrSpaceToAMDGPU(ArgTy->getPointerStorageClass())
+                   : SPIRSPIRVAddrSpaceMap::rmap(
+                         ArgTy->getPointerStorageClass());
         else if (ArgTy->isTypeOCLImage() || ArgTy->isTypePipe())
           AS = SPIRAS_Global;
         return ConstantAsMetadata::get(
@@ -6801,7 +6839,20 @@ SPIRVModuleTextReport formatSpirvReport(const SPIRVModuleReport &Report) {
 std::unique_ptr<SPIRVModule> readSpirvModule(std::istream &IS,
                                              const SPIRV::TranslatorOpts &Opts,
                                              std::string &ErrMsg) {
-  std::unique_ptr<SPIRVModule> BM(SPIRVModule::createSPIRVModule(Opts));
+  const SPIRV::TranslatorOpts *EffectiveOpts = &Opts;
+  SPIRV::TranslatorOpts AdjustedOpts;
+  if (!Opts.getSPIRVTargetTriple().empty()) {
+    AdjustedOpts = Opts;
+    if (!AdjustedOpts.deriveTargetAddrSpaces()) {
+      ErrMsg = ("No address space map for target triple '" +
+                Twine(Opts.getSPIRVTargetTriple()) + "'")
+                   .str();
+      return nullptr;
+    }
+    EffectiveOpts = &AdjustedOpts;
+  }
+  std::unique_ptr<SPIRVModule> BM(
+      SPIRVModule::createSPIRVModule(*EffectiveOpts));
 
   IS >> *BM;
   if (!BM->isModuleValid()) {
@@ -6885,7 +6936,10 @@ bool llvm::readSpirv(LLVMContext &C, const SPIRV::TranslatorOpts &Opts,
     return false;
   }
 
-  M = convertSpirvToLLVM(C, *BM, Opts, ErrMsg).release();
+  // readSpirvModule normalizes the target triple and derives the address
+  // space map and then builds the module. Take Opts from the module to
+  // avoid divergence.
+  M = convertSpirvToLLVM(C, *BM, BM->getTranslationOpts(), ErrMsg).release();
 
   if (!M)
     return false;
