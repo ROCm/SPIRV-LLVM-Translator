@@ -613,6 +613,10 @@ public:
     return TranslationOpts.shouldEmitFunctionPtrAddrSpace();
   }
 
+  const SPIRV::TranslatorOpts &getTranslationOpts() const noexcept {
+    return TranslationOpts;
+  }
+
   unsigned mapAddrSpace(unsigned SPIRAS) const noexcept {
     return TranslationOpts.mapAddrSpace(SPIRAS);
   }
