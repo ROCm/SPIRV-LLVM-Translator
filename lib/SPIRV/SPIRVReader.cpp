@@ -4767,8 +4767,13 @@ bool SPIRVToLLVM::translate() {
 bool SPIRVToLLVM::transAddressingModel() {
   // AMD-specific: preserve target triple for AMDGCN generator version
   if (!BM->getAddrSpaceMap() && BM->getGeneratorVer() == UINT16_MAX) {
-    M->setTargetTriple(Triple("amdgcn-amd-amdhsa"));
-    M->setDataLayout(M->getTargetTriple().computeDataLayout());
+    Triple TT("amdgcn-amd-amdhsa");
+    auto SubArch =
+        AMDGPU::getSubArchFromGPUName(BM->getAMDGCNSPIRVOffloadArch());
+    if (SubArch != Triple::NoSubArch)
+      TT.setArch(TT.getArch(), SubArch);
+    M->setTargetTriple(TT);
+    M->setDataLayout(TT.computeDataLayout());
     return true;
   }
 
