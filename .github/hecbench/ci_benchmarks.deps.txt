@@ -70,6 +70,7 @@ romberg-cuda
 rowwiseMoments-cuda
 rsc-cuda
 sc-cuda
+shmembench-cuda
 tqs-cuda
 tsa-cuda
 wyllie-cuda
