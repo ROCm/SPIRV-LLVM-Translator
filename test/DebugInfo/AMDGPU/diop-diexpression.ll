@@ -1,6 +1,6 @@
 ; RUN: llvm-as < %s -o %t.bc
 ; RUN: llvm-spirv --spirv-debug-info-version=nonsemantic-shader-200 %t.bc -o %t.spv
-; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o %t.ll
+; RUN: llvm-spirv -r --spirv-target-triple=amdgcn-amd-amdhsa %t.spv -o - | llvm-dis -o %t.ll
 ; RUN: llc -mcpu=gfx1030 -mtriple=amdgcn-amd-amdhsa -O0 -filetype=obj -o %t %t.ll
 ; RUN: llvm-dwarfdump -debug-info %t | FileCheck %s
 

@@ -2,13 +2,13 @@
 ; RUN: llvm-spirv -to-binary -spirv-allow-unknown-intrinsics -o %t.spv %s
 ; RUN: spirv-val %t.spv
 
-; RUN: llvm-spirv -r --spirv-amdgcn-offload-arch=gfx906 --spirv-target-env=CL2.0 %t.spv -o %t.906.bc
+; RUN: llvm-spirv -r --spirv-target-triple=amdgcn-amd-amdhsa --spirv-amdgcn-offload-arch=gfx906 --spirv-target-env=CL2.0 %t.spv -o %t.906.bc
 ; RUN: llvm-dis %t.906.bc -o - | FileCheck --check-prefix=GFX906 %s
 
-; RUN: llvm-spirv -r --spirv-amdgcn-offload-arch=gfx1151 --spirv-target-env=CL2.0 %t.spv -o %t.1151.bc
+; RUN: llvm-spirv -r --spirv-target-triple=amdgcn-amd-amdhsa --spirv-amdgcn-offload-arch=gfx1151 --spirv-target-env=CL2.0 %t.spv -o %t.1151.bc
 ; RUN: llvm-dis %t.1151.bc -o - | FileCheck --check-prefix=GFX1151 %s
 
-; RUN: llvm-spirv -r --spirv-amdgcn-offload-arch=gfx1201 --spirv-target-env=CL2.0 %t.spv -o %t.1201.bc
+; RUN: llvm-spirv -r --spirv-target-triple=amdgcn-amd-amdhsa --spirv-amdgcn-offload-arch=gfx1201 --spirv-target-env=CL2.0 %t.spv -o %t.1201.bc
 ; RUN: llvm-dis %t.1201.bc -o - | FileCheck --check-prefix=GFX1201 %s
 
 ; GFX906-NOT: declare void @llvm.amdgcn.s.wait.event.export.ready()

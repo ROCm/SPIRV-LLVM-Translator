@@ -6692,10 +6692,7 @@ static bool hasVectorComputeMetadata(Module *M) {
 }
 
 bool LLVMToSPIRVBase::translate() {
-  if (M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
-    BM->setGeneratorVer(UINT16_MAX);
-  else
-    BM->setGeneratorVer(KTranslatorVer);
+  BM->setGeneratorVer(KTranslatorVer);
 
   if (!BM->getErrorLog().checkError(
           M->getModuleInlineAsm().empty(), SPIRVEC_InvalidLlvmModule,

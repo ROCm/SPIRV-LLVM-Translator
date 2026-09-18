@@ -4768,13 +4768,6 @@ bool SPIRVToLLVM::translate() {
 }
 
 bool SPIRVToLLVM::transAddressingModel() {
-  // AMD-specific: preserve target triple for AMDGCN generator version
-  if (!BM->getAddrSpaceMap() && BM->getGeneratorVer() == UINT16_MAX) {
-    M->setTargetTriple(Triple("amdgcn-amd-amdhsa"));
-    M->setDataLayout(M->getTargetTriple().computeDataLayout());
-    return true;
-  }
-
   // The datalayout depends on the triple, so resolve triple first.
   Triple OverrideTT;
   StringRef Override = BM->getTargetTripleOverride();
