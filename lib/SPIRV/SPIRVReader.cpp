@@ -4711,6 +4711,9 @@ bool SPIRVToLLVM::translate() {
   transGeneratorMD();
   if (!lowerBuiltins(BM, M))
     return false;
+  // Only AMD targets emit these helpers, so only AMD targets reconstruct them.
+  if (M->getTargetTriple().getVendor() == Triple::AMD)
+    lowerAtomicWrapCalls(M);
   if (BM->getDesiredBIsRepresentation() == BIsRepresentation::SPIRVFriendlyIR) {
     SPIRVWord SrcLangVer = 0;
     BM->getSourceLanguage(&SrcLangVer);
@@ -4768,13 +4771,6 @@ bool SPIRVToLLVM::translate() {
 }
 
 bool SPIRVToLLVM::transAddressingModel() {
-  // AMD-specific: preserve target triple for AMDGCN generator version
-  if (!BM->getAddrSpaceMap() && BM->getGeneratorVer() == UINT16_MAX) {
-    M->setTargetTriple(Triple("amdgcn-amd-amdhsa"));
-    M->setDataLayout(M->getTargetTriple().computeDataLayout());
-    return true;
-  }
-
   // The datalayout depends on the triple, so resolve triple first.
   Triple OverrideTT;
   StringRef Override = BM->getTargetTripleOverride();
