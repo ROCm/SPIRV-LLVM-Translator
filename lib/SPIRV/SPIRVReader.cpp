@@ -2992,7 +2992,10 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     std::vector<Value *> Args = transValue(BC->getArgumentValues(), F, BB);
     Function *Callee = transFunction(BC->getFunction(),
                                      BM->getFunctionProgramAddrSpace());
-    if (!BM->getAddrSpaceMap() && M->getTargetTriple().isAMDGCN()) {
+    if (M->getTargetTriple().isAMDGCN() &&
+        (!BM->getAddrSpaceMap() || Callee->isIntrinsic())) {
+      // Intrinsic pointer parameters retain their canonical address spaces,
+      // even when an explicit map remaps the SPIR-V argument types.
       // In HIPSTDPAR mode we sometimes get some host side calls that have not
       // yet been pruned (this happens later on reverse translated AMDGPU LLVM
       // IR); whilst these are essentially dead, we should generate valid IR
