@@ -33,6 +33,7 @@ class LitGateTest(unittest.TestCase):
         write_report: bool = True,
         rebuild: bool = False,
         build_error: bool = False,
+        lit_name: str = "llvm-lit",
     ) -> subprocess.CompletedProcess[str]:
         report = self.report(code)
         fake_lit = (
@@ -45,7 +46,7 @@ class LitGateTest(unittest.TestCase):
                 f"json.dumps({report!r}))\n"
             )
         fake_lit += f"sys.exit({exit_code})\n"
-        (self.build / "bin/llvm-lit").write_text(fake_lit, encoding="utf-8")
+        (self.build / "bin" / lit_name).write_text(fake_lit, encoding="utf-8")
         command = [
             sys.executable,
             str(Path(spirv_ci_lit.__file__)),
@@ -91,6 +92,11 @@ class LitGateTest(unittest.TestCase):
         result = self.run_driver("FAIL", 1)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.output.read_text(), "has_failures=true\n")
+
+    def test_windows_launcher(self) -> None:
+        result = self.run_driver(lit_name="llvm-lit.py")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.output.read_text(), "has_failures=false\n")
 
     def test_existing_failure_is_allowed(self) -> None:
         result = self.run_driver("FAIL", 1, pr_code="FAIL")

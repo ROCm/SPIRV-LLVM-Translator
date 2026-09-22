@@ -56,9 +56,14 @@ def run_lit(
         )
         command = ["ninja", "-C", str(build_dir), "check-amd-llvm-spirv"]
     else:
+        lit = build_dir / "bin/llvm-lit"
+        if not lit.is_file():
+            lit = lit.with_suffix(".py")
+        if not lit.is_file():
+            raise FileNotFoundError(f"No llvm-lit launcher in {build_dir / 'bin'}")
         command = [
             sys.executable,
-            str(build_dir / "bin/llvm-lit"),
+            str(lit),
             *lit_args,
             str(build_dir / "projects/SPIRV-LLVM-Translator/test"),
         ]

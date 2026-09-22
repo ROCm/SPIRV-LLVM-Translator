@@ -341,7 +341,7 @@ jobs:
           tar -xmf windows-build-tree.tar
 
       - name: Test - LLVM SPIRV backend (check-llvm-codegen-spirv)
-        run: python build/bin/llvm-lit -sv --no-progress-bar llvm-project/llvm/test/CodeGen/SPIRV
+        run: python build/bin/llvm-lit.py -sv --no-progress-bar llvm-project/llvm/test/CodeGen/SPIRV
 
   # =====================================================================
   # Test - Comgr (lit + gtest + ctest)
