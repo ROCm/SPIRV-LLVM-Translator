@@ -380,10 +380,9 @@ Type *SPIRVToLLVM::transType(SPIRVType *T, bool UseTPT) {
         UseLegacyAMDGCNMap
             ? mapSPIRVAddrSpaceToAMDGPU(T->getPointerStorageClass())
             : SPIRSPIRVAddrSpaceMap::rmap(T->getPointerStorageClass());
-    // AMDGPU function pointers use the code address space, not private memory.
-    if (AS == SPIRAS_CodeSectionINTEL &&
-        !BM->shouldEmitFunctionPtrAddrSpace() && !IsAMDGCN)
-      AS = SPIRAS_Private;
+    if (AS == SPIRAS_CodeSectionINTEL && !BM->shouldEmitFunctionPtrAddrSpace())
+      AS = UseLegacyAMDGCNMap ? M->getDataLayout().getProgramAddressSpace()
+                              : SPIRAS_Private;
     if (BM->shouldEmitFunctionPtrAddrSpace() &&
         T->getPointerElementType()->getOpCode() == OpTypeFunction)
       AS = UseLegacyAMDGCNMap ? M->getDataLayout().getProgramAddressSpace()
@@ -399,10 +398,9 @@ Type *SPIRVToLLVM::transType(SPIRVType *T, bool UseTPT) {
         UseLegacyAMDGCNMap
             ? mapSPIRVAddrSpaceToAMDGPU(T->getPointerStorageClass())
             : SPIRSPIRVAddrSpaceMap::rmap(T->getPointerStorageClass());
-    // AMDGPU function pointers use the code address space, not private memory.
-    if (AS == SPIRAS_CodeSectionINTEL &&
-        !BM->shouldEmitFunctionPtrAddrSpace() && !IsAMDGCN)
-      AS = SPIRAS_Private;
+    if (AS == SPIRAS_CodeSectionINTEL && !BM->shouldEmitFunctionPtrAddrSpace())
+      AS = UseLegacyAMDGCNMap ? M->getDataLayout().getProgramAddressSpace()
+                              : SPIRAS_Private;
     unsigned MappedAS = BM->getAddrSpaceMap() ? BM->mapAddrSpace(AS) : AS;
     return mapType(T, PointerType::get(*Context, MappedAS));
   }
