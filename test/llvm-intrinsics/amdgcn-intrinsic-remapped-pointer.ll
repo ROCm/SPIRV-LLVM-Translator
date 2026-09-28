@@ -1,9 +1,8 @@
 ; RUN: llvm-spirv %s -o %t.spv
+; RUN: spirv-val %t.spv
 ; RUN: llvm-spirv -r --spirv-target-triple=amdgcn-amd-amdhsa %t.spv -o %t.bc
-; RUN: opt -passes=verify %t.bc -disable-output
 ; RUN: llvm-dis %t.bc -o - | FileCheck %s
 ; RUN: llvm-spirv -r --spirv-target-triple=amdgpu9.42-amd-amdhsa %t.spv -o %t.subarch.bc
-; RUN: opt -passes=verify %t.subarch.bc -disable-output
 ; RUN: llvm-dis %t.subarch.bc -o - | FileCheck %s
 
 ; Model backend-emitted intrinsic wrappers whose pointer parameter uses SPIR
