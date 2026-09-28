@@ -380,9 +380,10 @@ Type *SPIRVToLLVM::transType(SPIRVType *T, bool UseTPT) {
         UseLegacyAMDGCNMap
             ? mapSPIRVAddrSpaceToAMDGPU(T->getPointerStorageClass())
             : SPIRSPIRVAddrSpaceMap::rmap(T->getPointerStorageClass());
-    if (AS == SPIRAS_CodeSectionINTEL && !BM->shouldEmitFunctionPtrAddrSpace())
-      AS = UseLegacyAMDGCNMap ? M->getDataLayout().getProgramAddressSpace()
-                              : SPIRAS_Private;
+    // AMDGPU function pointers use the code address space, not private memory.
+    if (AS == SPIRAS_CodeSectionINTEL &&
+        !BM->shouldEmitFunctionPtrAddrSpace() && !IsAMDGCN)
+      AS = SPIRAS_Private;
     if (BM->shouldEmitFunctionPtrAddrSpace() &&
         T->getPointerElementType()->getOpCode() == OpTypeFunction)
       AS = UseLegacyAMDGCNMap ? M->getDataLayout().getProgramAddressSpace()
@@ -398,9 +399,10 @@ Type *SPIRVToLLVM::transType(SPIRVType *T, bool UseTPT) {
         UseLegacyAMDGCNMap
             ? mapSPIRVAddrSpaceToAMDGPU(T->getPointerStorageClass())
             : SPIRSPIRVAddrSpaceMap::rmap(T->getPointerStorageClass());
-    if (AS == SPIRAS_CodeSectionINTEL && !BM->shouldEmitFunctionPtrAddrSpace())
-      AS = UseLegacyAMDGCNMap ? M->getDataLayout().getProgramAddressSpace()
-                              : SPIRAS_Private;
+    // AMDGPU function pointers use the code address space, not private memory.
+    if (AS == SPIRAS_CodeSectionINTEL &&
+        !BM->shouldEmitFunctionPtrAddrSpace() && !IsAMDGCN)
+      AS = SPIRAS_Private;
     unsigned MappedAS = BM->getAddrSpaceMap() ? BM->mapAddrSpace(AS) : AS;
     return mapType(T, PointerType::get(*Context, MappedAS));
   }
@@ -2992,7 +2994,10 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     std::vector<Value *> Args = transValue(BC->getArgumentValues(), F, BB);
     Function *Callee = transFunction(BC->getFunction(),
                                      BM->getFunctionProgramAddrSpace());
-    if (!BM->getAddrSpaceMap() && M->getTargetTriple().isAMDGCN()) {
+    if (M->getTargetTriple().isAMDGCN() &&
+        (!BM->getAddrSpaceMap() || Callee->isIntrinsic())) {
+      // Intrinsic pointer parameters retain their canonical address spaces,
+      // even when an explicit map remaps the SPIR-V argument types.
       // In HIPSTDPAR mode we sometimes get some host side calls that have not
       // yet been pruned (this happens later on reverse translated AMDGPU LLVM
       // IR); whilst these are essentially dead, we should generate valid IR
@@ -3432,7 +3437,19 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     if (isCvtOpCode(OC) && OC != OpGenericCastToPtrExplicit) {
       auto *BI = static_cast<SPIRVInstruction *>(BV);
       Value *Inst = nullptr;
-      if (BI->hasFPRoundingMode() || BI->isSaturatedConversion()) {
+      auto IsMiniFloatOrInt4 = [](SPIRVType *Ty) {
+        return Ty->isTypeFloat(8, FPEncodingFloat8E4M3EXT) ||
+               Ty->isTypeFloat(8, FPEncodingFloat8E5M2EXT) ||
+               Ty->isTypeFloat(4, FPEncodingFloat4E2M1EXT) ||
+               Ty->isTypeFloat(4, internal::FPEncodingFloat4E2M1INTEL) ||
+               Ty->isTypeInt(4);
+      };
+      // Check both sides: the encoding may be on the source (e.g. an upcast
+      // out of Float4E2M1) rather than the result.
+      if ((BI->hasFPRoundingMode() || BI->isSaturatedConversion()) &&
+          !IsMiniFloatOrInt4(BI->getType()) &&
+          !IsMiniFloatOrInt4(
+              static_cast<SPIRVUnary *>(BI)->getOperand(0)->getType())) {
         Inst = transSPIRVBuiltinFromInst(BI, BB);
       } else if (BI->getType()->isTypeCooperativeMatrixKHR()) {
         // For cooperative matrix conversions generate __builtin_spirv
@@ -4708,6 +4725,9 @@ bool SPIRVToLLVM::translate() {
   transGeneratorMD();
   if (!lowerBuiltins(BM, M))
     return false;
+  // Only AMD targets emit these helpers, so only AMD targets reconstruct them.
+  if (M->getTargetTriple().getVendor() == Triple::AMD)
+    lowerAtomicWrapCalls(M);
   if (BM->getDesiredBIsRepresentation() == BIsRepresentation::SPIRVFriendlyIR) {
     SPIRVWord SrcLangVer = 0;
     BM->getSourceLanguage(&SrcLangVer);
@@ -4765,18 +4785,6 @@ bool SPIRVToLLVM::translate() {
 }
 
 bool SPIRVToLLVM::transAddressingModel() {
-  // AMD-specific: preserve target triple for AMDGCN generator version
-  if (!BM->getAddrSpaceMap() && BM->getGeneratorVer() == UINT16_MAX) {
-    // TODO: we should use the Target registry here instead of hardcoding
-    M->setTargetTriple(Triple("amdgcn-amd-amdhsa"));
-    M->setDataLayout(
-        "e-p:64:64-p1:64:64-p2:32:32-p3:32:32-p4:64:64-p5:32:32-p6:32:32-"
-        "p7:160:256:256:32-p8:128:128-p9:192:256:256:32-i64:64-v16:16-v24:32-"
-        "v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-"
-        "v2048:2048-n32:64-S32-A5-G1-ni:7:8:9");
-    return true;
-  }
-
   // The datalayout depends on the triple, so resolve triple first.
   Triple OverrideTT;
   StringRef Override = BM->getTargetTripleOverride();
