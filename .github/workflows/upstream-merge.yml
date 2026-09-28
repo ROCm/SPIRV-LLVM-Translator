@@ -13,8 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write       # Push branches
-  pull-requests: write  # Create PRs
+  contents: read
 
 jobs:
   merge-upstream:
@@ -23,17 +22,20 @@ jobs:
     steps:
       - name: Generate GitHub App token
         id: app-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
         with:
           app-id: ${{ secrets.MERGE_APP_ID }}
           private-key: ${{ secrets.MERGE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-workflows: write # Upstream merges can change workflow files.
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: amd-staging
           fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
 
       - name: Configure git
         run: |
@@ -65,9 +67,11 @@ jobs:
       - name: Create merge branch
         id: merge
         if: steps.check-commits.outputs.has_changes == 'true'
+        env:
+          MERGE_DATETIME: ${{ steps.timestamp.outputs.datetime }}
         run: |
           BRANCH_NAME="upstream-merge-$(date +%Y%m%d%H%M%S)"
-          PR_TITLE="Upstream merge ${{ steps.timestamp.outputs.datetime }}"
+          PR_TITLE="Upstream merge $MERGE_DATETIME"
           git checkout -b $BRANCH_NAME
           echo "pr_title=$PR_TITLE" >> $GITHUB_OUTPUT
 
@@ -91,20 +95,27 @@ jobs:
 
       - name: Push branch
         if: steps.merge.outputs.conflict == 'false'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BRANCH_NAME: ${{ steps.merge.outputs.branch }}
         run: |
-          git push origin ${{ steps.merge.outputs.branch }}
+          git -c credential.helper= \
+            -c 'credential.helper=!gh auth git-credential' \
+            push origin "$BRANCH_NAME"
 
       - name: Create Pull Request
         id: create-pr
         if: steps.merge.outputs.conflict == 'false'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BRANCH_NAME: ${{ steps.merge.outputs.branch }}
+          PR_TITLE: ${{ steps.merge.outputs.pr_title }}
         run: |
           PR_URL=$(gh pr create \
-            --repo ${{ github.repository }} \
+            --repo "$GITHUB_REPOSITORY" \
             --base amd-staging \
-            --head ${{ steps.merge.outputs.branch }} \
-            --title "${{ steps.merge.outputs.pr_title }}" \
+            --head "$BRANCH_NAME" \
+            --title "$PR_TITLE" \
             --reviewer maarquitos14,MrSidims,AlexVlx,lamb-j,steffenlarsen,mgcarrasco \
             --body "$(cat <<'EOF'
           Automated merge of upstream KhronosGroup/SPIRV-LLVM-Translator main branch.
@@ -121,74 +132,64 @@ jobs:
         if: steps.merge.outputs.conflict == 'false'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_URL: ${{ steps.create-pr.outputs.pr_url }}
         run: |
           # Lock merge method to "Create a merge commit" to preserve upstream ancestry.
-          gh pr merge "${{ steps.create-pr.outputs.pr_url }}" --auto --merge \
+          gh pr merge "$PR_URL" --auto --merge \
             || echo "::warning::Could not enable auto-merge; reviewers must pick 'Create a merge commit' manually."
 
-      - name: Notify Teams - PR Created
-        if: steps.merge.outputs.conflict == 'false'
-        run: |
-          curl -sf -o /dev/null -H "Content-Type: application/json" -d '{
-            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-            "type": "AdaptiveCard",
-            "version": "1.4",
-            "body": [{
-              "type": "TextBlock",
-              "text": "✅ Upstream Merge PR Created",
-              "weight": "Bolder",
-              "size": "Large",
-              "wrap": true
-            }, {
-              "type": "FactSet",
-              "facts": [{
-                "title": "Time",
-                "value": "${{ steps.timestamp.outputs.datetime }}"
-              }, {
-                "title": "Branch",
-                "value": "${{ steps.merge.outputs.branch }}"
-              }, {
-                "title": "PR",
-                "value": "${{ steps.create-pr.outputs.pr_url }}"
-              }]
-            }]
-          }' "${{ secrets.TEAMS_WEBHOOK_URL }}"
-
-      - name: Notify Teams - No Changes
-        if: steps.check-commits.outputs.has_changes == 'false'
-        run: |
-          curl -sf -o /dev/null -H "Content-Type: application/json" -d '{
-            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-            "type": "AdaptiveCard",
-            "version": "1.4",
-            "body": [{
-              "type": "TextBlock",
-              "text": "ℹ️ No New Upstream Commits",
-              "weight": "Bolder",
-              "size": "Large",
-              "wrap": true
-            }, {
-              "type": "FactSet",
-              "facts": [{
-                "title": "Time",
-                "value": "${{ steps.timestamp.outputs.datetime }}"
-              }]
-            }, {
-              "type": "TextBlock",
-              "text": "amd-staging is already up to date with upstream main.",
-              "wrap": true
-            }]
-          }' "${{ secrets.TEAMS_WEBHOOK_URL }}"
-
-      - name: Notify Teams - Merge Conflict
-        if: steps.merge.outputs.conflict == 'true'
+      - name: Notify Teams
         env:
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          MERGE_DATETIME: ${{ steps.timestamp.outputs.datetime }}
+          HAS_CHANGES: ${{ steps.check-commits.outputs.has_changes }}
+          MERGE_CONFLICT: ${{ steps.merge.outputs.conflict }}
+          BRANCH_NAME: ${{ steps.merge.outputs.branch }}
+          PR_URL: ${{ steps.create-pr.outputs.pr_url }}
           CONFLICT_FILES: ${{ steps.merge.outputs.conflict_files }}
           CONFLICT_COUNT: ${{ steps.merge.outputs.conflict_count }}
         run: |
-          python3 -c "import json, sys, urllib.request; dt, files, count, run_url, url = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]; payload = {'\$schema': 'http://adaptivecards.io/schemas/adaptive-card.json', 'type': 'AdaptiveCard', 'version': '1.4', 'body': [{'type': 'TextBlock', 'text': '⚠️ Merge Conflicts Detected', 'weight': 'Bolder', 'size': 'Large', 'wrap': True}, {'type': 'FactSet', 'facts': [{'title': 'Time', 'value': dt}, {'title': 'Conflicting Files', 'value': f'{count} file(s)'}]}, {'type': 'TextBlock', 'text': f'Conflicting files:\n{files}', 'wrap': True}, {'type': 'TextBlock', 'text': f'[View workflow run]({run_url})', 'wrap': True}]}; req = urllib.request.Request(url, json.dumps(payload).encode(), {'Content-Type': 'application/json'}, method='POST'); r = urllib.request.urlopen(req, timeout=30); print(f'Teams HTTP {r.status}')" \
-            "${{ steps.timestamp.outputs.datetime }}" \
-            "$CONFLICT_FILES" \
-            "${{ steps.merge.outputs.conflict_count }}" \
-            "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-            "${{ secrets.TEAMS_WEBHOOK_URL }}"
+          python3 - <<'PYTHON'
+          import json
+          import os
+          import urllib.request
+
+          env = os.environ
+          facts = [{"title": "Time", "value": env["MERGE_DATETIME"]}]
+          details = []
+          if env["HAS_CHANGES"] == "false":
+              title = "ℹ️ No New Upstream Commits"
+              details.append("amd-staging is already up to date with upstream main.")
+          elif env["MERGE_CONFLICT"] == "true":
+              title = "⚠️ Merge Conflicts Detected"
+              facts.append({"title": "Conflicting Files",
+                            "value": f"{env['CONFLICT_COUNT']} file(s)"})
+              details.append(f"Conflicting files:\n{env['CONFLICT_FILES']}")
+              run_url = (f"{env['GITHUB_SERVER_URL']}/{env['GITHUB_REPOSITORY']}"
+                         f"/actions/runs/{env['GITHUB_RUN_ID']}")
+              details.append(f"[View workflow run]({run_url})")
+          elif env["MERGE_CONFLICT"] == "false":
+              title = "✅ Upstream Merge PR Created"
+              facts.extend([{"title": "Branch", "value": env["BRANCH_NAME"]},
+                            {"title": "PR", "value": env["PR_URL"]}])
+          else:
+              raise ValueError("Unexpected merge outcome")
+
+          payload = {
+              "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+              "type": "AdaptiveCard",
+              "version": "1.4",
+              "body": [
+                  {"type": "TextBlock", "text": title, "weight": "Bolder",
+                   "size": "Large", "wrap": True},
+                  {"type": "FactSet", "facts": facts},
+                  *({"type": "TextBlock", "text": text, "wrap": True}
+                    for text in details),
+              ],
+          }
+          request = urllib.request.Request(
+              env["TEAMS_WEBHOOK_URL"], json.dumps(payload).encode(),
+              {"Content-Type": "application/json"}, method="POST")
+          with urllib.request.urlopen(request, timeout=30) as response:
+              print(f"Teams HTTP {response.status}")
+          PYTHON
