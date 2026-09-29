@@ -5,6 +5,7 @@
 # include/, etc.); CI must check those out too or builds fail. This resolves that
 # set transitively at HECBENCH_REF so CI does one sparse checkout, not two passes.
 # Re-run after editing ci_benchmarks.txt or HECBENCH_REF, then commit the result.
+# update-hecbench.yml runs this on pin bumps.
 # HECBENCH_REF defaults to the pin in the workflow; HECBENCH_REPO overrides the URL.
 set -euo pipefail
 
