@@ -5916,6 +5916,13 @@ SPIRVValue *LLVMToSPIRVBase::transFenceInst(FenceInst *FI,
     break;
   }
 
+  // A fence is not associated with a particular memory object, so make its
+  // memory semantics cover every storage class reachable in the OpenCL
+  // environment.
+  MemorySemantics |= MemorySemanticsWorkgroupMemoryMask |
+                     MemorySemanticsCrossWorkgroupMemoryMask |
+                     MemorySemanticsImageMemoryMask;
+
   Module *M = FI->getParent()->getModule();
   spv::Scope S = toSPIRVScope(FI->getContext(), FI->getSyncScopeID());
 
@@ -6104,6 +6111,12 @@ SPIRVValue *LLVMToSPIRVBase::transDirectCallInst(CallInst *CI,
       if (FPDesc.Saturate)
         Conv->addDecorate(new SPIRVDecorate(
             DecorationSaturatedToLargestFloat8NormalConversionEXT, Conv));
+
+      // Target the conversion itself, not the bitcast possibly added below.
+      if (auto *IDecoMD = CI->getMetadata(SPIRV_MD_DECORATIONS)) {
+        transMetadataDecorations(IDecoMD, Conv);
+        CI->setMetadata(SPIRV_MD_DECORATIONS, nullptr);
+      }
 
       // Representable in LLVM FP types: bitcast is not needed.
       if (FPDesc.DstEncoding == FPEncodingWrap::IEEE754 ||
