@@ -766,6 +766,13 @@ jobs:
               rc=1
             fi
           done
+          # bench.sh silently skips benchmarks it can't find or enter.
+          notrun=$(grep -vE '^[[:space:]]*(#|$)' "$SCRIPTS/ci_benchmarks.txt" | sort -u \
+            | comm -23 - <(cat "$HECBENCH_LOG_DIR"/{success,suspect,failed,timeout}.log | sort -u))
+          if [[ -n "$notrun" ]]; then
+            echo "::error::HeCBench not run: ${notrun//$'\n'/ }"
+            rc=1
+          fi
           if [[ ! -s "$HECBENCH_LOG_DIR/success.log" ]]; then
             echo "::error::No HeCBench benchmark succeeded — toolchain/setup problem."
             rc=1

@@ -49,6 +49,11 @@ apply_sparse() {
 }
 
 apply_sparse
+# Fail on listed benchmarks gone upstream; CI would skip them silently.
+missing=()
+for b in "${benches[@]}"; do [[ -d "src/$b" ]] || missing+=("$b"); done
+(( ${#missing[@]} == 0 )) || { echo "missing at $HECBENCH_REF: ${missing[*]}" >&2; exit 1; }
+
 changed=1
 while (( changed )); do
     changed=0
