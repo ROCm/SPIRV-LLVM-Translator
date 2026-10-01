@@ -14,8 +14,8 @@ env:
   # SHA (gated by .github/workflows/automerge-rocm-examples.yml). Keep this on
   # its own line: the bumper rewrites exactly this line via sed.
   ROCM_EXAMPLES_REF: f51a8b3c4d01d65af4e57228d941199fc5a50d47
-  # Pinned ORNL/HeCBench revision for the test_hecbench job (not a moving branch,
-  # so upstream churn can't fail unrelated PRs). Bump after re-validating the subset.
+  # Pinned ORNL/HeCBench revision; bumped daily by update-hecbench.yml (sed
+  # rewrites this line; keep it standalone).
   HECBENCH_REF: f2bb6769225d89e6982e60d8f628cc1ae961d9c3
   LLVM_BUILD: build
   DEVLIBS_BUILD: build-device-libs
@@ -557,7 +557,7 @@ jobs:
           sys.path.insert(0, "build_tools/github_actions")
           with redirect_stdout(sys.stderr):
               from amdgpu_family_matrix import (
-                  amdgpu_family_info_matrix_presubmit as M,
+                  amdgpu_family_info_matrix as M,
                   select_weighted_label,
               )
               info = M["gfx94x"]["linux"]
@@ -766,6 +766,13 @@ jobs:
               rc=1
             fi
           done
+          # bench.sh silently skips benchmarks it can't find or enter.
+          notrun=$(grep -vE '^[[:space:]]*(#|$)' "$SCRIPTS/ci_benchmarks.txt" | sort -u \
+            | comm -23 - <(cat "$HECBENCH_LOG_DIR"/{success,suspect,failed,timeout}.log | sort -u))
+          if [[ -n "$notrun" ]]; then
+            echo "::error::HeCBench not run: ${notrun//$'\n'/ }"
+            rc=1
+          fi
           if [[ ! -s "$HECBENCH_LOG_DIR/success.log" ]]; then
             echo "::error::No HeCBench benchmark succeeded — toolchain/setup problem."
             rc=1
