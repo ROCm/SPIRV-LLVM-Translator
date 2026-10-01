@@ -557,7 +557,7 @@ jobs:
           sys.path.insert(0, "build_tools/github_actions")
           with redirect_stdout(sys.stderr):
               from amdgpu_family_matrix import (
-                  amdgpu_family_info_matrix_presubmit as M,
+                  amdgpu_family_info_matrix as M,
                   select_weighted_label,
               )
               info = M["gfx94x"]["linux"]
