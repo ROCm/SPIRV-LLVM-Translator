@@ -32,8 +32,8 @@ extrema-cuda
 fft-cuda
 fpdc-cuda
 fwt-cuda
-gabor-cuda
 ga-cuda
+gabor-cuda
 groupnorm-cuda
 hellinger-cuda
 idivide-cuda
@@ -48,8 +48,8 @@ marchingCubes-cuda
 medianfilter-cuda
 medianfilter-sycl
 mis-cuda
-mrc-cuda
 mr-cuda
+mrc-cuda
 multinomial-cuda
 nlll-cuda
 nms-cuda
@@ -59,6 +59,7 @@ p4-cuda
 pad-cuda
 particlefilter-cuda
 particles-cuda
+pathfinder-cuda
 perplexity-cuda
 phmm-cuda
 projectile-cuda
