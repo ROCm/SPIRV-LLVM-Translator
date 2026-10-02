@@ -29,7 +29,7 @@ jobs:
         run: echo "date=$(date -u +%Y-%m-%d)" >> $GITHUB_OUTPUT
       - name: Check for existing cache entry
         id: spirv-tools-cache
-        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.SPIRV_TOOLS_INSTALL }}
           key: spirv-tools-main-${{ steps.date.outputs.date }}
@@ -47,7 +47,7 @@ jobs:
           make -C SPIRV-Tools/build install -j$(nproc)
       - name: Save SPIRV-Tools cache
         if: steps.spirv-tools-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.SPIRV_TOOLS_INSTALL }}
           key: spirv-tools-main-${{ steps.date.outputs.date }}

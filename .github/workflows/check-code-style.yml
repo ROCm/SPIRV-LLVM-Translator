@@ -50,7 +50,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
     - name: Checkout sources
-      uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         # In order to gather diff from PR we need to fetch not only the latest
         # commit. Depth of 2 is enough, because GitHub Actions supply us with
@@ -114,7 +114,7 @@ jobs:
             -p1 -clang-tidy-binary clang-tidy-"${LLVM_VERSION}" -quiet \
             -path "${GITHUB_WORKSPACE}"/build
     - name: Upload patch with clang-format fixes
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       if: ${{ failure() && steps.run-clang-format.outcome == 'failure' }}
       with:
         name: clang-format.patch
@@ -122,7 +122,7 @@ jobs:
         if-no-files-found: ignore
 
     - name: Upload clang-tidy log
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       if: ${{ failure() && steps.run-clang-tidy.outcome == 'failure' }}
       with:
         name: clang-tidy.log
