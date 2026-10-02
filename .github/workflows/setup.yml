@@ -13,7 +13,7 @@ on:
     outputs:
       enable_build_jobs:
         description: Whether to enable build jobs.
-        value: true
+        value: 'true'
       linux_variants:
         description: Matrix variants to run on Linux
         value:  ${{ jobs.setup.outputs.linux_variants }}
@@ -42,7 +42,7 @@ jobs:
     env:
       BASE_REF: '0efc7532e43c16b532fdd2887e00aec8eb69e10f'
     outputs:
-      enable_build_jobs: true
+      enable_build_jobs: 'true'
       linux_variants: >
         [ {"test-runs-on": "", "family": "gfx110X-all", "bypass_tests_for_releases": true, "sanity_check_only_for_family": true, "build_variant_label": "release", "build_variant_suffix": "", "build_variant_cmake_preset": "", "artifact_group": "gfx110X-all"}, {"test-runs-on": "", "family": "gfx94X-dcgpu", "bypass_tests_for_releases": true, "sanity_check_only_for_family": true, "build_variant_label": "release", "build_variant_suffix": "", "build_variant_cmake_preset": "", "artifact_group": "gfx94X-dcgpu"}]
       linux_test_labels: ${{ steps.configure.outputs.linux_test_labels }}
@@ -55,6 +55,7 @@ jobs:
       - name: Checkout TheRock repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
+          persist-credentials: false
           repository: "ROCm/TheRock"
           ref: 'compiler/amd-staging'
           fetch-depth: 0

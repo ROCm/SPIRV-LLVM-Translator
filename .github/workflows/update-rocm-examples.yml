@@ -33,8 +33,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write       # Push the rolling branch
-  pull-requests: write  # Create / update the PR
+  contents: read
 
 env:
   CI_FILE: .github/workflows/spirv-ci-linux.yml
@@ -46,21 +45,25 @@ env:
 
 jobs:
   update-pin:
+    if: github.repository == 'ROCm/SPIRV-LLVM-Translator'
     runs-on: ubuntu-latest
     steps:
       - name: Generate GitHub App token
         id: app-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
         with:
           app-id: ${{ secrets.MERGE_APP_ID }}
           private-key: ${{ secrets.MERGE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-workflows: write # The pin lives in a workflow file.
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          persist-credentials: false
           ref: ${{ env.BASE_BRANCH }}
           fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
 
       - name: Configure git
         run: |
@@ -128,6 +131,7 @@ jobs:
         if: steps.decide.outputs.changed == 'true'
         env:
           LATEST: ${{ steps.resolve.outputs.latest }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
           SHORT="${LATEST:0:12}"
@@ -136,7 +140,9 @@ jobs:
           git commit -m "Bump rocm-examples pin to ${SHORT}"
           # Force-push: the rolling branch always carries a single bump commit
           # on top of the current base tip.
-          git push --force origin "${ROLLING_BRANCH}"
+          git -c credential.helper= \
+            -c 'credential.helper=!gh auth git-credential' \
+            push --force origin "${ROLLING_BRANCH}"
 
       - name: Create or refresh PR
         id: pr
@@ -147,7 +153,7 @@ jobs:
           CURRENT: ${{ steps.current.outputs.current }}
         run: |
           set -euo pipefail
-          PR=$(gh pr list --repo "${{ github.repository }}" \
+          PR=$(gh pr list --repo "${GITHUB_REPOSITORY}" \
             --head "${ROLLING_BRANCH}" --base "${BASE_BRANCH}" --state open \
             --json number -q '.[0].number // empty')
 
@@ -167,29 +173,29 @@ jobs:
 
           if [ -z "${PR}" ]; then
             gh pr create \
-              --repo "${{ github.repository }}" \
+              --repo "${GITHUB_REPOSITORY}" \
               --base "${BASE_BRANCH}" \
               --head "${ROLLING_BRANCH}" \
               --title "${PR_TITLE}" \
               --body "${BODY}"
-            PR=$(gh pr list --repo "${{ github.repository }}" \
+            PR=$(gh pr list --repo "${GITHUB_REPOSITORY}" \
               --head "${ROLLING_BRANCH}" --base "${BASE_BRANCH}" --state open \
               --json number -q '.[0].number // empty')
           else
             # Force-push already refreshed the branch; keep title/body current.
-            gh pr edit "${PR}" --repo "${{ github.repository }}" \
+            gh pr edit "${PR}" --repo "${GITHUB_REPOSITORY}" \
               --title "${PR_TITLE}" --body "${BODY}"
           fi
           echo "number=${PR}" >> "$GITHUB_OUTPUT"
-
       - name: Enable auto-merge (merge commit)
         if: steps.decide.outputs.changed == 'true' && steps.pr.outputs.number != ''
         env:
+          STEPS_PR_OUTPUTS_NUMBER: ${{ steps.pr.outputs.number }}
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           # Best-effort: the real gate is automerge-rocm-examples.yml, which
           # merges once Build + Test rocm-examples are green. A force-push
           # clears auto-merge, so re-assert it each run.
-          gh pr merge "${{ steps.pr.outputs.number }}" \
-            --repo "${{ github.repository }}" --auto --merge \
+          gh pr merge "${STEPS_PR_OUTPUTS_NUMBER}" \
+            --repo "${GITHUB_REPOSITORY}" --auto --merge \
             || echo "::warning::Could not enable auto-merge; watcher will merge on green gate."

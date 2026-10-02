@@ -30,21 +30,25 @@ env:
 
 jobs:
   update-pin:
+    if: github.repository == 'ROCm/SPIRV-LLVM-Translator'
     runs-on: ubuntu-latest
     steps:
       # App token: GITHUB_TOKEN pushes skip CI and can't edit workflows.
       - name: Generate GitHub App token
         id: app-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
         with:
           app-id: ${{ secrets.MERGE_APP_ID }}
           private-key: ${{ secrets.MERGE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-workflows: write # The pin lives in a workflow file.
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          persist-credentials: false
           ref: ${{ env.BASE_BRANCH }}
-          token: ${{ steps.app-token.outputs.token }}
 
       - name: Configure git
         run: |
@@ -120,13 +124,16 @@ jobs:
         if: steps.decide.outputs.changed == 'true'
         env:
           LATEST: ${{ steps.resolve.outputs.latest }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
           SHORT="${LATEST:0:12}"
           git checkout -B "${ROLLING_BRANCH}"
           git add "${CI_FILE}" "${DEPS_FILE}"
           git commit -m "Bump HeCBench pin to ${SHORT}"
-          git push --force origin "${ROLLING_BRANCH}"
+          git -c credential.helper= \
+            -c 'credential.helper=!gh auth git-credential' \
+            push --force origin "${ROLLING_BRANCH}"
 
       - name: Create or refresh PR
         if: steps.decide.outputs.changed == 'true'

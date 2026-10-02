@@ -82,15 +82,18 @@ jobs:
       - name: Checkout TheRock repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
+          persist-credentials: false
           repository: "ROCm/TheRock"
           ref: 'compiler/amd-staging'
 
       - name: Update Submodule Pointer to the PR
         if: ${{ github.event_name == 'pull_request' }}
+        env:
+          GITHUB_EVENT_PULL_REQUEST_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           git config --global --add safe.directory $PWD
-          # Fetch the latest commit SHA from the PR branch          
-          PR_SHA=${{ github.event.pull_request.head.sha }}
+          # Fetch the latest commit SHA from the PR branch
+          PR_SHA="${GITHUB_EVENT_PULL_REQUEST_HEAD_SHA}"
           # Update the submodule pointer using cacheinfo
           git update-index --cacheinfo 160000,$PR_SHA,compiler/spirv-llvm-translator
           git config --global user.email "z1-cciauto@amd.com"
@@ -99,7 +102,6 @@ jobs:
           # Verify the pointer update
           git submodule status
           git submodule
-
       - name: Install python deps
         run: |
           pip install -r requirements.txt
@@ -138,7 +140,7 @@ jobs:
              git config --global --add safe.directory $PWD
              git log --oneline -1
              ls -l compiler/amd-llvm
-             cd compiler/amd-llvm/llvm  
+             cd compiler/amd-llvm/llvm
              ls -l
              git log --oneline -3
              cd -
@@ -213,9 +215,11 @@ jobs:
 
       - name: Post Build Upload
         if: always()
+        env:
+          INPUTS_ARTIFACT_GROUP: ${{ inputs.artifact_group }}
         run: |
           python3 build_tools/github_actions/post_build_upload.py \
-            --run-id ${{ github.run_id }} \
-            --artifact-group "${{ inputs.artifact_group }}" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --artifact-group "${INPUTS_ARTIFACT_GROUP}" \
             --build-dir build \
             --upload

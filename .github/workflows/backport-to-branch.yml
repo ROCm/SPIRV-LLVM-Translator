@@ -18,18 +18,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
+      - name: Require write access for backport commands
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
+          script: |
+            const {data} = await github.rest.repos.getCollaboratorPermissionLevel({
+              ...context.repo,
+              username: context.payload.comment.user.login,
+            });
+            if (!["admin", "write"].includes(data.permission)) {
+              core.setFailed("Backport commands require repository write access.");
+            }
+
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Configure Git
         run: |
-          git config user.name "${{ github.actor }}"
-          git config user.email "${{ github.actor }}@users.noreply.github.com"
-
+          git config user.name "${GITHUB_ACTOR}"
+          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
       - name: Ensure PR is merged
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const pr = await github.rest.pulls.get({
@@ -42,7 +54,7 @@ jobs:
             }
 
       - name: Parse backport command
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           result-encoding: string
@@ -61,7 +73,7 @@ jobs:
             core.exportVariable('TARGET', msg[1]);
 
       - name: Notify attempt
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const target = process.env.TARGET;
@@ -73,13 +85,14 @@ jobs:
             });
 
       - name: Create backport branch
+        env:
+          GITHUB_EVENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
-          git fetch origin ${{ env.TARGET }}:${{ env.TARGET }}
-          git checkout -b backport/pr-${{ github.event.issue.number }}-to-${{ env.TARGET }} origin/${{ env.TARGET }}
-
+          git fetch origin "${TARGET}":"${TARGET}"
+          git checkout -b backport/pr-"${GITHUB_EVENT_ISSUE_NUMBER}"-to-"${TARGET}" origin/"${TARGET}"
       - name: Get commit sha
         id: merge_sha
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           result-encoding: string
@@ -98,9 +111,11 @@ jobs:
 
       - name: Cherry-pick commit
         id: cherry
+        env:
+          STEPS_MERGE_SHA_OUTPUTS_RESULT: ${{ steps.merge_sha.outputs.result }}
         run: |
           conflict=false
-          SHA="${{ steps.merge_sha.outputs.result }}"
+          SHA="${STEPS_MERGE_SHA_OUTPUTS_RESULT}"
           echo "Cherry-picking squash-merge commit $SHA"
           if git cherry-pick "$SHA"; then
             echo "Cherry-picked $SHA"
@@ -110,10 +125,9 @@ jobs:
             echo "CONFLICT_SHA=$SHA" >> $GITHUB_ENV
           fi
           echo "CONFLICT=$conflict" >> $GITHUB_ENV
-
       - name: Notify conflict
         if: env.CONFLICT == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -132,23 +146,29 @@ jobs:
 
       - name: Push backport branch
         if: env.CONFLICT == 'false'
-        run: git push --set-upstream origin HEAD
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git -c credential.helper= \
+            -c 'credential.helper=!gh auth git-credential' \
+            push --set-upstream origin HEAD
 
       - name: Prepare PR
         if: env.CONFLICT == 'false'
         id: prinfo
+        env:
+          GITHUB_EVENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           echo "BODY<<EOF" >> $GITHUB_ENV
-          echo "Backport of PR #${{ github.event.issue.number }} into \`${{ env.TARGET }}\`." >> $GITHUB_ENV
+          echo "Backport of PR #${GITHUB_EVENT_ISSUE_NUMBER} into \`${TARGET}\`." >> $GITHUB_ENV
           echo "" >> $GITHUB_ENV
           echo "All commits applied cleanly." >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
           echo "LABELS=backport" >> $GITHUB_ENV
-
       - name: Create Pull Request
         if: env.CONFLICT == 'false'
         id: create_pr
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           result-encoding: string
@@ -165,7 +185,7 @@ jobs:
 
       - name: Notify success
         if: env.CONFLICT == 'false'
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           PR_URL: ${{ steps.create_pr.outputs.result }}
         with:
@@ -180,7 +200,7 @@ jobs:
 
       - name: Notify workflows
         if: env.CONFLICT == 'false'
-        uses: peter-evans/repository-dispatch@v3
+        uses: peter-evans/repository-dispatch@ff45666b9427631e3450c54a1bcbee4d9ff4d7c0 # v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           event-type: backport-complete

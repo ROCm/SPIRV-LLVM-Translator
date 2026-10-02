@@ -64,6 +64,7 @@ jobs:
       - name: "Checking out repository"
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           repository: ${{ inputs.repository || github.repository }}
           ref: ${{ inputs.ref || '' }}
 
@@ -87,18 +88,23 @@ jobs:
 
       - name: Determine S3 bucket and prefix
         id: s3_config
+        env:
+          IS_FORK: ${{ github.event.pull_request.head.repo.fork || 'false' }}
+          INPUTS_NATIVE_PACKAGE_TYPE: ${{ inputs.native_package_type }}
+          INPUTS_ROCM_VERSION: ${{ inputs.rocm_version }}
         run: |
           python ./build_tools/packaging/linux/get_s3_config.py \
-            --release-type "${{ env.RELEASE_TYPE }}" \
-            --repository "${{ github.repository }}" \
-            --is-fork "${{ github.event.pull_request.head.repo.fork || 'false' }}" \
-            --pkg-type "${{ inputs.native_package_type }}" \
-            --artifact-id "${{ env.ARTIFACT_RUN_ID }}" \
-            --rocm-version "${{ inputs.rocm_version }}" \
+            --release-type "${RELEASE_TYPE}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --is-fork "${IS_FORK}" \
+            --pkg-type "${INPUTS_NATIVE_PACKAGE_TYPE}" \
+            --artifact-id "${ARTIFACT_RUN_ID}" \
+            --rocm-version "${INPUTS_ROCM_VERSION}" \
             --output-format github >> $GITHUB_OUTPUT
-
       - name: Determine IAM role
         id: iam_role
+        env:
+          STEPS_S3_CONFIG_OUTPUTS_JOB_TYPE: ${{ steps.s3_config.outputs.job_type }}
         run: |
           # ================================================================
           # IAM Role Selection Logic
@@ -116,7 +122,7 @@ jobs:
           #
           # ================================================================
 
-          JOB_TYPE="${{ steps.s3_config.outputs.job_type }}"
+          JOB_TYPE="${STEPS_S3_CONFIG_OUTPUTS_JOB_TYPE}"
 
           if [[ "${JOB_TYPE}" == "ci" ]]; then
             # CI builds use the shared CI role (for all artifact buckets)
@@ -129,43 +135,45 @@ jobs:
           fi
 
           echo "iam_role=${IAM_ROLE}" >> $GITHUB_OUTPUT
-
       - name: Fetch Artifacts for all GPU families
+        env:
+          INPUTS_ARTIFACT_GROUP: ${{ inputs.artifact_group }}
         run: |
-          echo "Fetching artifacts for build ${{ env.ARTIFACT_RUN_ID }}"
+          echo "Fetching artifacts for build ${ARTIFACT_RUN_ID}"
 
           # Convert semicolon-separated to comma-separated
           FAMILIES_CSV="${DIST_AMDGPU_FAMILIES//;/,}"
           echo "Fetching artifacts for GPU families: ${FAMILIES_CSV}"
 
           # Create artifacts directory
-          mkdir -p "${{ env.ARTIFACTS_DIR }}"
+          mkdir -p "${ARTIFACTS_DIR}"
 
           python ./build_tools/fetch_artifacts.py \
-            --run-id="${{ env.ARTIFACT_RUN_ID }}" \
-            --run-github-repo="${{ github.repository }}" \
-            --artifact-group="${{ inputs.artifact_group }}" \
+            --run-id="${ARTIFACT_RUN_ID}" \
+            --run-github-repo="${GITHUB_REPOSITORY}" \
+            --artifact-group="${INPUTS_ARTIFACT_GROUP}" \
             --platform="linux" \
             --amdgpu-targets="${FAMILIES_CSV}" \
-            --output-dir="${{ env.ARTIFACTS_DIR }}"
-
+            --output-dir="${ARTIFACTS_DIR}"
       - name: Build Packages
         id: build-packages
+        env:
+          INPUTS_NATIVE_PACKAGE_TYPE: ${{ inputs.native_package_type }}
+          INPUTS_ROCM_VERSION: ${{ inputs.rocm_version }}
         run: |
-          echo "Building ${{ inputs.native_package_type }} packages for all GPU families"
-          echo "Families: ${{ env.DIST_AMDGPU_FAMILIES }}"
+          echo "Building ${INPUTS_NATIVE_PACKAGE_TYPE} packages for all GPU families"
+          echo "Families: ${DIST_AMDGPU_FAMILIES}"
 
           # Pass the target families as-is (semicolon-separated)
           # build_package.py's normalize_target_list() handles all separators
           python ./build_tools/packaging/linux/build_package.py \
-            --dest-dir ${{ env.PACKAGE_DIST_DIR }} \
-            --rocm-version  ${{ inputs.rocm_version }} \
-            --target "${{ env.DIST_AMDGPU_FAMILIES }}" \
-            --artifacts-dir ${{ env.ARTIFACTS_DIR }} \
-            --pkg-type ${{ inputs.native_package_type }} \
-            --version-suffix ${{ env.ARTIFACT_RUN_ID }} \
+            --dest-dir "${PACKAGE_DIST_DIR}" \
+            --rocm-version  "${INPUTS_ROCM_VERSION}" \
+            --target "${DIST_AMDGPU_FAMILIES}" \
+            --artifacts-dir "${ARTIFACTS_DIR}" \
+            --pkg-type "${INPUTS_NATIVE_PACKAGE_TYPE}" \
+            --version-suffix "${ARTIFACT_RUN_ID}" \
             --enable_kpack=false
-
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 # v6.1.0
         with:
@@ -174,14 +182,19 @@ jobs:
 
       - name: Upload Package repo to S3
         id: upload-packages
+        env:
+          STEPS_S3_CONFIG_OUTPUTS_S3_BUCKET: ${{ steps.s3_config.outputs.s3_bucket }}
+          STEPS_S3_CONFIG_OUTPUTS_S3_PREFIX: ${{ steps.s3_config.outputs.s3_prefix }}
+          STEPS_S3_CONFIG_OUTPUTS_JOB_TYPE: ${{ steps.s3_config.outputs.job_type }}
+          INPUTS_NATIVE_PACKAGE_TYPE: ${{ inputs.native_package_type }}
         run: |
-          echo "Uploading to S3 bucket: ${{ steps.s3_config.outputs.s3_bucket }}"
-          echo "Using prefix: ${{ steps.s3_config.outputs.s3_prefix }}"
-          echo "Job type: ${{ steps.s3_config.outputs.job_type }}"
+          echo "Uploading to S3 bucket: ${STEPS_S3_CONFIG_OUTPUTS_S3_BUCKET}"
+          echo "Using prefix: ${STEPS_S3_CONFIG_OUTPUTS_S3_PREFIX}"
+          echo "Job type: ${STEPS_S3_CONFIG_OUTPUTS_JOB_TYPE}"
 
           python ./build_tools/packaging/linux/upload_package_repo.py \
-            --pkg-type ${{ inputs.native_package_type }} \
-            --s3-bucket ${{ steps.s3_config.outputs.s3_bucket }} \
-            --artifact-id ${{ env.ARTIFACT_RUN_ID }} \
-            --job ${{ steps.s3_config.outputs.job_type }} \
-            --s3-prefix "${{ steps.s3_config.outputs.s3_prefix }}"
+            --pkg-type "${INPUTS_NATIVE_PACKAGE_TYPE}" \
+            --s3-bucket "${STEPS_S3_CONFIG_OUTPUTS_S3_BUCKET}" \
+            --artifact-id "${ARTIFACT_RUN_ID}" \
+            --job "${STEPS_S3_CONFIG_OUTPUTS_JOB_TYPE}" \
+            --s3-prefix "${STEPS_S3_CONFIG_OUTPUTS_S3_PREFIX}"

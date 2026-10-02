@@ -5,6 +5,11 @@ name: Test component
 
 on:
   workflow_call:
+    secrets:
+      BENCHMARK_DB_FALLBACK_URL:
+        required: false
+      BENCHMARK_DB_URL:
+        required: false
     inputs:
       artifact_run_id:
         type: string
@@ -17,7 +22,7 @@ on:
         type: string
         default: ""
       test_retry_count:
-        type: number          
+        type: number
       test_runs_on:
         type: string
       platform:
@@ -36,7 +41,38 @@ permissions:
   contents: read
 
 jobs:
+  validate_container:
+    name: Validate test container
+    runs-on: ubuntu-24.04
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+    steps:
+      - name: Require a digest for Linux test images
+        id: image
+        env:
+          PLATFORM: ${{ inputs.platform }}
+          COMPONENT: ${{ inputs.component }}
+          DEFAULT_IMAGE: ${{ inputs.default_container_image }}
+        shell: python3 {0}
+        run: |
+          import json
+          import os
+          import re
+
+          platform = os.environ["PLATFORM"]
+          if platform not in {"linux", "windows"}:
+              raise ValueError(f"Unsupported platform: {platform}")
+          image = ""
+          if platform == "linux":
+              component = json.loads(os.environ["COMPONENT"])
+              image = component.get("container_image") or os.environ["DEFAULT_IMAGE"]
+              if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._/:\-]*@sha256:[0-9a-f]{64}", image):
+                  raise ValueError("Test container must be pinned to a SHA256 digest")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              print(f"image={image}", file=output)
+
   test_component:
+    needs: validate_container
     name: >-
       Test ${{ fromJSON(inputs.component).job_name }}
       (shard ${{ matrix.shard }}/${{ fromJSON(inputs.component).total_shards }})
@@ -46,13 +82,8 @@ jobs:
     continue-on-error: ${{ fromJSON(inputs.component).expect_failure == true }}
     timeout-minutes: 210
     container:
-      # If the component has specified an alternate image, honor that option.
-      # Otherwise use the default image.
-      image: >-
-        ${{ inputs.platform == 'linux' &&
-            (fromJSON(inputs.component).container_image || inputs.default_container_image)
-            || null
-        }}
+      # Validated before this job starts; Windows deliberately has no container.
+      image: ${{ needs.validate_container.outputs.image }} # zizmor: ignore[unpinned-images]
       # --ulimit memlock=-1:-1 - Prevents memory allocation issues with ROCm inside container
       # --security-opt seccomp=unconfined - enables memory mapping, and is recommended for containers running in HPC environments
       # --env-file /etc/podinfo/gha-gpu-isolation-settings - Required for GPU isolation on OSSCI MIXXX runners
@@ -95,8 +126,9 @@ jobs:
       - name: "Fetch 'build_tools' from repository"
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           repository: "ROCm/TheRock"
-          ref: 'compiler/amd-staging'          
+          ref: 'compiler/amd-staging'
           sparse-checkout: build_tools
           path: "prejob"
 
@@ -104,11 +136,14 @@ jobs:
         if: ${{ runner.os == 'Windows' }}
         timeout-minutes: 5
         shell: powershell
-        run: . '${{ github.workspace }}\prejob\build_tools\github_actions\cleanup_processes.ps1'
+        run: |
+          . "$env:GITHUB_WORKSPACE\prejob\build_tools\github_actions\cleanup_processes.ps1"
+
 
       - name: Checkout Repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           repository: "ROCm/TheRock"
           ref: 'compiler/amd-staging'
 
@@ -117,7 +152,7 @@ jobs:
         env:
           RETRY_THIS_STEP: "true"
           STEP_TIMEOUT_MINUTES: "15" # should match timeout-minutes specified above at this step
-        uses: './.github/actions/setup_test_environment'
+        uses: ROCm/TheRock/.github/actions/setup_test_environment@590409d89b1adb01695e0f2a075ebdc89e73baec # compiler/amd-staging
         with:
           ARTIFACT_RUN_ID: ${{ env.ARTIFACT_RUN_ID }}
           # TODO(#3381): revert back to `inputs.artifact_group` once issue is resolved
@@ -145,22 +180,24 @@ jobs:
 
       - name: Setup Additional Requirements
         if: ${{ fromJSON(inputs.component).additional_requirements_files != '' }}
+        env:
+          REQUIREMENTS_FILES: ${{ join(fromJSON(inputs.component).additional_requirements_files, ',') }}
         run: |
           python ./build_tools/install_additional_requirements.py \
-            --requirements-files ${{ join(fromJSON(inputs.component).additional_requirements_files, ',') }}
-
+            --requirements-files "${REQUIREMENTS_FILES}"
         # TODO(#3755): Clean this up after final sanitizer environment variable flags are determined
       - name: Enable sanitizer-specific test flags
         if: ${{ contains(inputs.artifact_group, 'asan') }}
         run: |
           echo "ASAN_OPTIONS=detect_odr_violation=0:quarantine_size_mb=600" >> $GITHUB_ENV
           echo "HSA_XNACK=1" >> $GITHUB_ENV
-          echo "ASAN_SYMBOLIZER_PATH=${{ env.OUTPUT_ARTIFACTS_DIR }}/llvm/bin/llvm-symbolizer" >> $GITHUB_ENV
-
+          echo "ASAN_SYMBOLIZER_PATH=${OUTPUT_ARTIFACTS_DIR}/llvm/bin/llvm-symbolizer" >> $GITHUB_ENV
       - name: Test
         id: test
         timeout-minutes: ${{ fromJSON(inputs.component).timeout_minutes }}
         env:
+          COMPONENT_TEST_SCRIPT: ${{ fromJSON(inputs.component).test_script }}
+          COMPONENT_JOB_NAME: ${{ fromJSON(inputs.component).job_name }}
           SHARD_INDEX: ${{ matrix.shard }}
           TOTAL_SHARDS: ${{ fromJSON(inputs.component).total_shards }}
           TEST_TYPE: ${{ fromJSON(inputs.component).test_type }}
@@ -179,28 +216,33 @@ jobs:
             (${{ inputs.amdgpu_families }})
             ${{ fromJSON(inputs.component).expect_failure == true && '(xfail)' || '' }}
         run: |
-          python ./build_tools/memory_monitor.py --phase "Test ${{ fromJSON(inputs.component).job_name }}" -- \
-          bash -c '${{ fromJSON(inputs.component).test_script }}'
-
-
+          python ./build_tools/memory_monitor.py --phase "Test ${COMPONENT_JOB_NAME}" -- \
+          bash -c "${COMPONENT_TEST_SCRIPT}"
       - name: Print test reproduction command
         if: ${{ failure() && steps.test.outcome == 'failure' }}
+        env:
+          FETCH_ARTIFACT_ARGS: ${{ fromJSON(inputs.component).fetch_artifact_args }}
+          INPUTS_AMDGPU_FAMILIES: ${{ inputs.amdgpu_families }}
+          COMPONENT_TEST_SCRIPT: ${{ fromJSON(inputs.component).test_script }}
+          MATRIX_SHARD: ${{ matrix.shard }}
+          COMPONENT_TOTAL_SHARDS: ${{ fromJSON(inputs.component).total_shards }}
+          COMPONENT_TEST_TYPE: ${{ fromJSON(inputs.component).test_type }}
         run: |
           python ./build_tools/github_actions/reproduce_test_failure.py \
-            --run-id "${{ env.ARTIFACT_RUN_ID }}" \
-            --repository "${{ github.repository }}" \
-            --amdgpu-family "${{ inputs.amdgpu_families }}" \
-            --test-script "${{ fromJSON(inputs.component).test_script }}" \
-            --shard-index "${{ matrix.shard }}" \
-            --total-shards "${{ fromJSON(inputs.component).total_shards }}" \
-            --test-type "${{ fromJSON(inputs.component).test_type }}" \
+            --run-id "${ARTIFACT_RUN_ID}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --amdgpu-family "${INPUTS_AMDGPU_FAMILIES}" \
+            --test-script "${COMPONENT_TEST_SCRIPT}" \
+            --shard-index "${MATRIX_SHARD}" \
+            --total-shards "${COMPONENT_TOTAL_SHARDS}" \
+            --test-type "${COMPONENT_TEST_TYPE}" \
             --print-cmd \
-            ${{ fromJSON(inputs.component).fetch_artifact_args && format('--fetch-artifact-args="{0}"', fromJSON(inputs.component).fetch_artifact_args) || '' }}
-
+            --fetch-artifact-args="$FETCH_ARTIFACT_ARGS"
       # GitHub's 'Complete job' step is unaware of launched executables
       # and will fail to clean up orphan processes.
       - name: Post-job cleanup processes on Windows
         if: ${{ always() && runner.os == 'Windows' }}
         timeout-minutes: 5
         shell: powershell
-        run: . '${{ github.workspace }}\build_tools\github_actions\cleanup_processes.ps1'
+        run: |
+          . "$env:GITHUB_WORKSPACE\build_tools\github_actions\cleanup_processes.ps1"

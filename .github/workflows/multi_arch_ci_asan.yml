@@ -40,7 +40,7 @@ concurrency:
 jobs:
   setup:
     if: ${{ github.repository == 'ROCm/SPIRV-LLVM-Translator' }}
-    uses: ./.github/workflows/setup_multi_arch.yml
+    uses: $/.github/workflows/setup_multi_arch.yml
     with:
       build_variant: "asan"
 
@@ -52,8 +52,7 @@ jobs:
         needs.setup.outputs.linux_build_config != '' &&
         needs.setup.outputs.enable_build_jobs == 'true'
       }}
-    uses: ./.github/workflows/multi_arch_ci_linux.yml
-    secrets: inherit
+    uses: $/.github/workflows/multi_arch_ci_linux.yml
     with:
       build_config: ${{ needs.setup.outputs.linux_build_config }}
       test_labels: ${{ needs.setup.outputs.linux_test_labels }}
@@ -72,11 +71,13 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - name: Evaluate workflow results
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           python build_tools/github_actions/workflow_summary.py \
-            --workflow-name="${{ github.workflow }}" \
-            --run-id="${{ github.run_id }}" \
-            --run-attempt="${{ github.run_attempt }}"
+            --workflow-name="${GITHUB_WORKFLOW}" \
+            --run-id="${GITHUB_RUN_ID}" \
+            --run-attempt="${GITHUB_RUN_ATTEMPT}"
