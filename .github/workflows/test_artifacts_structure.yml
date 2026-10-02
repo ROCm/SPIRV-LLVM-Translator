@@ -63,6 +63,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           repository: "ROCm/TheRock"
           #ref: 'compiler/amd-staging'
 
@@ -77,20 +78,21 @@ jobs:
 
       - name: Fetch artifact archives (no extract)
         env:
+          INPUTS_ARTIFACT_GITHUB_REPO: ${{ inputs.artifact_github_repo }}
+          INPUTS_AMDGPU_FAMILIES: ${{ inputs.amdgpu_families }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           python ./build_tools/artifact_manager.py fetch \
-            --run-id="${{ env.ARTIFACT_RUN_ID }}" \
-            --run-github-repo="${{ inputs.artifact_github_repo }}" \
+            --run-id="${ARTIFACT_RUN_ID}" \
+            --run-github-repo="${INPUTS_ARTIFACT_GITHUB_REPO}" \
             --stage=all \
-            --amdgpu-families="${{ inputs.amdgpu_families }}" \
-            --platform="${{ env.PLATFORM }}" \
-            --output-dir="${{ github.workspace }}" \
+            --amdgpu-families="${INPUTS_AMDGPU_FAMILIES}" \
+            --platform="${PLATFORM}" \
+            --output-dir="${GITHUB_WORKSPACE}" \
             --no-extract
           # NOTE: artifact_manager.py appends /.download_cache to --output-dir
           # in --no-extract mode, so pass workspace root here so that
           # artifacts land in THEROCK_ARTIFACTS_DIR ($workspace/.download_cache).
-
       - name: Validate artifact structure
         run: |
           python -m pytest tests/test_artifact_structure.py \

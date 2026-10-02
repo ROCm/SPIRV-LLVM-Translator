@@ -31,7 +31,7 @@ concurrency:
 jobs:
   setup:
     if: ${{ github.repository == 'ROCm/SPIRV-LLVM-Translator' }}
-    uses: ./.github/workflows/setup.yml
+    uses: $/.github/workflows/setup.yml
     with:
       build_variant: "asan"
 
@@ -47,8 +47,7 @@ jobs:
       fail-fast: false
       matrix:
         variant: ${{ fromJSON(needs.setup.outputs.linux_variants) }}
-    uses: ./.github/workflows/ci_linux.yml
-    secrets: inherit
+    uses: $/.github/workflows/ci_linux.yml
     with:
       amdgpu_families: ${{ matrix.variant.family }}
       artifact_group: ${{ matrix.variant.artifact_group }}

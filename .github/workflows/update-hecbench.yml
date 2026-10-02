@@ -1,0 +1,191 @@
+# Daily HeCBench pin bump: HECBENCH_REF + regenerated deps file. Rolling
+# branch, single PR, merged by hand. Needs MERGE_APP_* secrets.
+
+name: Update HeCBench pin
+
+on:
+  schedule:
+    # Staggered from rocm-examples bumper.
+    - cron: '17 9 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: update-hecbench
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CI_FILE: .github/workflows/spirv-ci-linux.yml
+  DEPS_FILE: .github/hecbench/ci_benchmarks.deps.txt
+  UPDATE_DEPS: .github/hecbench/update_deps.sh
+  ROLLING_BRANCH: deps/hecbench
+  BASE_BRANCH: amd-staging
+  # Not HECBENCH_REPO: update_deps.sh reads it as clone URL.
+  HECBENCH_GH_REPO: ORNL/HeCBench
+  HECBENCH_BRANCH: master
+  PR_TITLE: Bump HeCBench pin
+  REPO: ${{ github.repository }}
+
+jobs:
+  update-pin:
+    if: github.repository == 'ROCm/SPIRV-LLVM-Translator'
+    runs-on: ubuntu-latest
+    steps:
+      # App token: GITHUB_TOKEN pushes skip CI and can't edit workflows.
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ secrets.MERGE_APP_ID }}
+          private-key: ${{ secrets.MERGE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-workflows: write # The pin lives in a workflow file.
+
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: ${{ env.BASE_BRANCH }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Resolve latest HeCBench tip
+        id: resolve
+        run: |
+          set -euo pipefail
+          LATEST=$(git ls-remote "https://github.com/${HECBENCH_GH_REPO}" \
+            "refs/heads/${HECBENCH_BRANCH}" | cut -f1)
+          if [ -z "${LATEST}" ]; then
+            echo "::error::Could not resolve ${HECBENCH_GH_REPO}@${HECBENCH_BRANCH}"
+            exit 1
+          fi
+          echo "latest=${LATEST}" >> "$GITHUB_OUTPUT"
+          echo "Latest ${HECBENCH_GH_REPO}@${HECBENCH_BRANCH}: ${LATEST}"
+
+      - name: Read current pin
+        id: current
+        run: |
+          set -euo pipefail
+          CURRENT=$(grep -oE 'HECBENCH_REF:[[:space:]]*[0-9a-fA-F]+' "${CI_FILE}" \
+            | awk '{print $2}')
+          if [ -z "${CURRENT}" ]; then
+            echo "::error::Could not find HECBENCH_REF in ${CI_FILE}"
+            exit 1
+          fi
+          echo "current=${CURRENT}" >> "$GITHUB_OUTPUT"
+          echo "Current pin: ${CURRENT}"
+
+      - name: Decide whether a bump is needed
+        id: decide
+        env:
+          LATEST: ${{ steps.resolve.outputs.latest }}
+          CURRENT: ${{ steps.current.outputs.current }}
+        run: |
+          set -euo pipefail
+          if [ "${LATEST}" = "${CURRENT}" ]; then
+            echo "Pin already at latest tip; nothing to do."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Bump needed: ${CURRENT} -> ${LATEST}"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Rewrite pin line
+        if: steps.decide.outputs.changed == 'true'
+        env:
+          LATEST: ${{ steps.resolve.outputs.latest }}
+          CURRENT: ${{ steps.current.outputs.current }}
+        run: |
+          set -euo pipefail
+          sed -i "s/HECBENCH_REF:[[:space:]]*${CURRENT}/HECBENCH_REF: ${LATEST}/" "${CI_FILE}"
+          if ! grep -q "HECBENCH_REF: ${LATEST}" "${CI_FILE}"; then
+            echo "::error::sed did not update the pin as expected"
+            git --no-pager diff -- "${CI_FILE}"
+            exit 1
+          fi
+          git --no-pager diff -- "${CI_FILE}"
+
+      - name: Regenerate benchmark deps
+        if: steps.decide.outputs.changed == 'true'
+        env:
+          HECBENCH_REF: ${{ steps.resolve.outputs.latest }}
+        run: |
+          set -euo pipefail
+          "${UPDATE_DEPS}"
+          git --no-pager diff -- "${DEPS_FILE}"
+
+      - name: Push rolling branch
+        if: steps.decide.outputs.changed == 'true'
+        env:
+          LATEST: ${{ steps.resolve.outputs.latest }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          SHORT="${LATEST:0:12}"
+          git checkout -B "${ROLLING_BRANCH}"
+          git add "${CI_FILE}" "${DEPS_FILE}"
+          git commit -m "Bump HeCBench pin to ${SHORT}"
+          git -c credential.helper= \
+            -c 'credential.helper=!gh auth git-credential' \
+            push --force origin "${ROLLING_BRANCH}"
+
+      - name: Create or refresh PR
+        if: steps.decide.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          LATEST: ${{ steps.resolve.outputs.latest }}
+          CURRENT: ${{ steps.current.outputs.current }}
+        run: |
+          set -euo pipefail
+          PR=$(gh pr list --repo "${REPO}" \
+            --head "${ROLLING_BRANCH}" --base "${BASE_BRANCH}" --state open \
+            --json number -q '.[0].number // empty')
+
+          BODY=$(cat <<EOF
+          Automated bump of the pinned \`ORNL/HeCBench\` revision consumed by
+          the \`test_hecbench\` job.
+
+          - From: \`${CURRENT}\`
+          - To:   \`${LATEST}\`
+
+          \`ci_benchmarks.deps.txt\` is regenerated at the new revision by
+          \`update_deps.sh\`, so the sparse checkout picks up any sibling
+          directories the subset now references.
+
+          This PR is force-updated daily by the \`Update HeCBench pin\`
+          workflow. Merge once the **Build** and **Test HeCBench** CI jobs
+          pass on this commit; other CI jobs do not gate this bump.
+          EOF
+          )
+
+          if [ -z "${PR}" ]; then
+            PR=$(gh pr create \
+              --repo "${REPO}" \
+              --base "${BASE_BRANCH}" \
+              --head "${ROLLING_BRANCH}" \
+              --title "${PR_TITLE}" \
+              --body "${BODY}")
+          else
+            # Approvals survive force-push; dismiss so the new SHA needs one.
+            IDS=$(gh api "repos/${REPO}/pulls/${PR}/reviews" --paginate \
+              -q '.[] | select(.state == "APPROVED") | .id') \
+              || { echo "::warning::Could not list reviews on #${PR}."; IDS=""; }
+            for ID in ${IDS}; do
+              gh api -X PUT "repos/${REPO}/pulls/${PR}/reviews/${ID}/dismissals" \
+                -f message="Superseded by bump to ${LATEST:0:12}." \
+                -f event=DISMISS >/dev/null \
+                || echo "::warning::Could not dismiss review ${ID} on #${PR}."
+            done
+            gh pr edit "${PR}" --repo "${REPO}" \
+              --title "${PR_TITLE}" --body "${BODY}"
+          fi
+          # Separate call: a bad reviewer mustn't fail the run.
+          gh pr edit "${PR}" --repo "${REPO}" \
+            --add-reviewer maarquitos14,lamb-j,idubinov \
+            || echo "::warning::Could not request reviewers on ${PR}."

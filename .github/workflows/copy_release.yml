@@ -62,6 +62,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
 
       - name: Install the AWS tool
         run: ./dockerfiles/install_awscli.sh
@@ -73,25 +75,38 @@ jobs:
           role-to-assume: arn:aws:iam::692859939525:role/therock-${{ inputs.destbucket }}-releases
 
       - name: Select Python version
+        env:
+          INPUTS_PYTHON_VERSION: ${{ inputs.python_version }}
         run: |
           python build_tools/github_actions/python_to_cp_version.py \
-            --python-version ${{ inputs.python_version }}
-
+            --python-version "${INPUTS_PYTHON_VERSION}"
       - name: Copy ROCm packages between S3 buckets
+        env:
+          INPUTS_SOURCEBUCKET: ${{ inputs.sourcebucket }}
+          INPUTS_SOURCESUBDIR: ${{ inputs.sourcesubdir }}
+          INPUTS_AMDGPU_FAMILY: ${{ inputs.amdgpu_family }}
+          INPUTS_DESTBUCKET: ${{ inputs.destbucket }}
+          INPUTS_DESTSUBDIR: ${{ inputs.destsubdir }}
+          INPUTS_ROCM_VERSION: ${{ inputs.rocm_version }}
         run: |
           aws s3 cp \
-            s3://therock-${{ inputs.sourcebucket }}-python/${{ inputs.sourcesubdir }}/${{ inputs.amdgpu_family }}/ \
-            s3://therock-${{ inputs.destbucket }}-python/${{ inputs.destsubdir }}/${{ inputs.amdgpu_family }}/ \
-            --recursive --exclude "*"  --include "rocm*${{ inputs.rocm_version }}*"
-
+            "s3://therock-${INPUTS_SOURCEBUCKET}-python/${INPUTS_SOURCESUBDIR}/${INPUTS_AMDGPU_FAMILY}/" \
+            "s3://therock-${INPUTS_DESTBUCKET}-python/${INPUTS_DESTSUBDIR}/${INPUTS_AMDGPU_FAMILY}/" \
+            --recursive --exclude "*"  --include "rocm*${INPUTS_ROCM_VERSION}*"
       - name: Copy torch wheels between S3 buckets
         if: ${{ inputs.include_torch }}
+        env:
+          INPUTS_SOURCEBUCKET: ${{ inputs.sourcebucket }}
+          INPUTS_SOURCESUBDIR: ${{ inputs.sourcesubdir }}
+          INPUTS_AMDGPU_FAMILY: ${{ inputs.amdgpu_family }}
+          INPUTS_DESTBUCKET: ${{ inputs.destbucket }}
+          INPUTS_DESTSUBDIR: ${{ inputs.destsubdir }}
+          INPUTS_ROCM_VERSION: ${{ inputs.rocm_version }}
         run: |
           aws s3 cp \
-            s3://therock-${{ inputs.sourcebucket }}-python/${{ inputs.sourcesubdir }}/${{ inputs.amdgpu_family }}/ \
-            s3://therock-${{ inputs.destbucket }}-python/${{ inputs.destsubdir }}/${{ inputs.amdgpu_family }}/ \
-            --recursive --exclude "*"  --include "*torch*${{ inputs.rocm_version }}*${{ env.cp_version }}*"
-
+            "s3://therock-${INPUTS_SOURCEBUCKET}-python/${INPUTS_SOURCESUBDIR}/${INPUTS_AMDGPU_FAMILY}/" \
+            "s3://therock-${INPUTS_DESTBUCKET}-python/${INPUTS_DESTSUBDIR}/${INPUTS_AMDGPU_FAMILY}/" \
+            --recursive --exclude "*"  --include "*torch*${INPUTS_ROCM_VERSION}*${cp_version}*"
       - name: (Re-)Generate Python package release index
         env:
           S3_BUCKET_PY: "therock-${{ inputs.destbucket }}-python"

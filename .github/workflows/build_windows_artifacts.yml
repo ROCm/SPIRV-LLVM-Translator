@@ -79,16 +79,19 @@ jobs:
       - name: Checkout TheRock repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
+          persist-credentials: false
           repository: "ROCm/TheRock"
           ref: 'compiler/amd-staging'
 
 
       - name: Update Submodule Pointer to the PR
         if: ${{ github.event_name == 'pull_request' }}
+        env:
+          GITHUB_EVENT_PULL_REQUEST_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           git config --global --add safe.directory $PWD
           # Fetch the latest commit SHA from the PR branch
-          PR_SHA=${{ github.event.pull_request.head.sha }}
+          PR_SHA="${GITHUB_EVENT_PULL_REQUEST_HEAD_SHA}"
           # Update the submodule pointer using cacheinfo
           git update-index --cacheinfo 160000,$PR_SHA,compiler/spirv-llvm-translator
           git config --global user.email "z1-cciauto@amd.com"
@@ -97,36 +100,17 @@ jobs:
           # Verify the pointer update
           git submodule status
           git submodule
-
       - name: "Map Current Directory to a Drive"
         id: subst
-        shell: cmd
+        shell: pwsh
         run: |
-          setlocal EnableDelayedExpansion
-          set "currentDir=%cd%"
-          set "driveLetter="
-          REM Default: try L: first  #L: is default to check
-          if not exist L:\ (
-            set "driveLetter=L:"
-            goto :found
-          )
-          REM L: in use — find another available drive letter
-          for %%L in (Z Y X W V U T S R Q P O N M K) do (
-            if not exist %%L:\ (
-              set "driveLetter=%%L:"
-              goto :found
-            )
-          )
-          echo "No available drive letter found. So exiting" >&2
-          exit /b 1
-          :found
-          subst !driveLetter! "!currentDir!"
-          cd /d !driveLetter!
-          dir !driveLetter!
-          wmic logicaldisk get name
-          echo drive=!driveLetter!>>"%GITHUB_OUTPUT%"
-          endlocal
-         
+          $drive = @('L', 'Z', 'Y', 'X', 'W', 'V', 'U', 'T', 'S', 'R', 'Q', 'P', 'O', 'N', 'M', 'K') |
+            Where-Object { -not (Test-Path "${_}:\") } | Select-Object -First 1
+          if (-not $drive) { throw 'No available drive letter' }
+          subst "${drive}:" $PWD.Path
+          if ($LASTEXITCODE -ne 0) { throw 'Drive substitution failed' }
+          "drive=${drive}:" >> $env:GITHUB_OUTPUT
+
       - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
           python-version: 3.12
@@ -171,13 +155,14 @@ jobs:
 
       - name: Fetch sources
         timeout-minutes: 30
+        env:
+          STEPS_SUBST_OUTPUTS_DRIVE: ${{ steps.subst.outputs.drive }}
         run: |
-          cd "${{ steps.subst.outputs.drive }}/"
+          cd "${STEPS_SUBST_OUTPUTS_DRIVE}/"
           git config fetch.parallel 10
           git config --global core.symlinks true
           git config --global core.longpaths true
           python ./build_tools/fetch_sources.py --jobs 12
-
       - name: TheRock and llvm SHA
         if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
         run: |
@@ -192,58 +177,58 @@ jobs:
       - name: Configure PR Projects
         if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.test_type != 'full') }}
         env:
+          STEPS_SUBST_OUTPUTS_DRIVE: ${{ steps.subst.outputs.drive }}
           cmake_preset: ${{ inputs.build_variant_cmake_preset }}
           amdgpu_families: ${{ inputs.amdgpu_families }}
           package_version: ${{ inputs.package_version }}
           #extra_cmake_options: ${{ inputs.extra_cmake_options }}
           extra_cmake_options: "-DTHEROCK_ENABLE_ALL=OFF -DTHEROCK_ENABLE_COMPILER=ON -DTHEROCK_ENABLE_HIP_RUNTIME=ON -DTHEROCK_ENABLE_PRIM=ON -DTHEROCK_ENABLE_BLAS=ON -DTHEROCK_ENABLE_RAND=ON -DTHEROCK_ENABLE_SOLVER=ON -DTHEROCK_ENABLE_SPARSE=ON -DTHEROCK_ENABLE_SYSDEPS=OFF  -DTHEROCK_ENABLE_COMPOSABLE_KERNEL=OFF -DTHEROCK_ENABLE_OCL_RUNTIME=ON  -DTHEROCK_ENABLE_MATH_LIBS=ON -DLLVM_SMREV_REPO='' -DLLVM_SMREV_REVISION=''"
         run: |
-          cd "${{ steps.subst.outputs.drive }}/"
+          cd "${STEPS_SUBST_OUTPUTS_DRIVE}/"
           # clear cache before build and after download
           ccache -z
           python3 build_tools/github_actions/build_configure.py
-
       - name: Configure All Projects
         if: ${{ github.event_name != 'pull_request' && inputs.test_type == 'full' }}
         env:
+          STEPS_SUBST_OUTPUTS_DRIVE: ${{ steps.subst.outputs.drive }}
           cmake_preset: ${{ inputs.build_variant_cmake_preset }}
           amdgpu_families: ${{ inputs.amdgpu_families }}
           package_version: ${{ inputs.package_version }}
           extra_cmake_options: ${{ inputs.extra_cmake_options }}
         run: |
           # clear cache before build and after download
-          cd "${{ steps.subst.outputs.drive }}/"
+          cd "${STEPS_SUBST_OUTPUTS_DRIVE}/"
           ccache -z
-          cmake -B "B:\build" -GNinja -S "${{ steps.subst.outputs.drive }}/" --preset windows-release -DTHEROCK_AMDGPU_FAMILIES=gfx1151 "-DCMAKE_C_COMPILER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207/bin/Hostx64/x64/cl.exe" "-DCMAKE_CXX_COMPILER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207/bin/Hostx64/x64/cl.exe" "-DCMAKE_LINKER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207/bin/Hostx64/x64/link.exe" -DTHEROCK_BACKGROUND_BUILD_JOBS=4          
-
+          cmake -B "B:\build" -GNinja -S "${STEPS_SUBST_OUTPUTS_DRIVE}/" --preset windows-release -DTHEROCK_AMDGPU_FAMILIES=gfx1151 "-DCMAKE_C_COMPILER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207/bin/Hostx64/x64/cl.exe" "-DCMAKE_CXX_COMPILER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207/bin/Hostx64/x64/cl.exe" "-DCMAKE_LINKER=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207/bin/Hostx64/x64/link.exe" -DTHEROCK_BACKGROUND_BUILD_JOBS=4
       - name: Build therock-archives and therock-dist
+        env:
+          STEPS_SUBST_OUTPUTS_DRIVE: ${{ steps.subst.outputs.drive }}
         run: |
-          cd "${{ steps.subst.outputs.drive }}/"
-          cmake --build "${{ env.BUILD_DIR }}" --target therock-archives therock-dist -- -j32
-
+          cd "${STEPS_SUBST_OUTPUTS_DRIVE}/"
+          cmake --build "${BUILD_DIR}" --target therock-archives therock-dist -- -j32
       - name: Report
         if: ${{ !cancelled() }}
         shell: bash
         run: |
-          if [ -d "${{ env.BUILD_DIR }}" ]; then
+          if [ -d "${BUILD_DIR}" ]; then
             echo "Build dir:"
             echo "------------"
-            ls -lh "${{ env.BUILD_DIR }}"
+            ls -lh "${BUILD_DIR}"
             echo "Artifact Archives:"
             echo "------------------"
-            ls -lh "${{ env.BUILD_DIR }}"/artifacts/*.tar.xz
+            ls -lh "${BUILD_DIR}"/artifacts/*.tar.xz
             echo "Artifacts:"
             echo "----------"
-            du -h -d 1 "${{ env.BUILD_DIR }}"/artifacts
+            du -h -d 1 "${BUILD_DIR}"/artifacts
             echo "CCache Stats:"
             echo "-------------"
             ccache -s
           else
-            echo "[ERROR] Build directory ${{ env.BUILD_DIR }} does not exist. Skipping report!"
+            echo "[ERROR] Build directory ${BUILD_DIR} does not exist. Skipping report!"
             echo "        This should only happen if the CI is cancelled before the build step."
             exit 1
           fi
-
       - name: "Build size report"
         if: always()
         shell: powershell
@@ -263,16 +248,19 @@ jobs:
 
       - name: Post Build Upload
         if: always()
+        env:
+          INPUTS_ARTIFACT_GROUP: ${{ inputs.artifact_group }}
         run: |
           python3 build_tools/github_actions/post_build_upload.py \
-            --run-id ${{ github.run_id }} \
-            --artifact-group ${{ inputs.artifact_group }} \
-            --build-dir ${{ env.BUILD_DIR }} \
+            --run-id "${GITHUB_RUN_ID}" \
+            --artifact-group "${INPUTS_ARTIFACT_GROUP}" \
+            --build-dir "${BUILD_DIR}" \
             --upload
-
       - name: Remove Drive Substitution
         if: always() && steps.subst.outcome == 'success'
-        shell: cmd
+        shell: pwsh
+        env:
+          SUBST_DRIVE: ${{ steps.subst.outputs.drive }}
         run: |
-          REM Remove the drive mapping
-          subst ${{ steps.subst.outputs.drive }} /D
+          subst $env:SUBST_DRIVE /D
+          if ($LASTEXITCODE -ne 0) { throw 'Drive removal failed' }

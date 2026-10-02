@@ -12,7 +12,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write   # caller cap; the translator-lit test job is the only consumer
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.sha }}
@@ -21,8 +20,8 @@ concurrency:
 jobs:
   linux_release:
     name: Linux::release
-    uses: ./.github/workflows/spirv-ci-linux.yml
+    uses: $/.github/workflows/spirv-ci-linux.yml
 
   windows_release:
     name: Windows::release
-    uses: ./.github/workflows/spirv-ci-windows.yml
+    uses: $/.github/workflows/spirv-ci-windows.yml

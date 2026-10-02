@@ -13,6 +13,11 @@ on:
       test_runs_on:
         type: string
   workflow_call:
+    secrets:
+      BENCHMARK_DB_FALLBACK_URL:
+        required: false
+      BENCHMARK_DB_URL:
+        required: false
     inputs:
       artifact_group:
         type: string
@@ -41,6 +46,7 @@ jobs:
         if: ${{ runner.os == 'Windows' }}
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           sparse-checkout: build_tools
           path: "prejob"
 
@@ -49,10 +55,14 @@ jobs:
       - name: Pre-job cleanup processes on Windows
         if: ${{ runner.os == 'Windows' }}
         shell: powershell
-        run: . '${{ github.workspace }}\prejob\build_tools\github_actions\cleanup_processes.ps1'
+        run: |
+          . "$env:GITHUB_WORKSPACE\prejob\build_tools\github_actions\cleanup_processes.ps1"
+
 
       - name: "Checking out repository"
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Setting up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
@@ -76,8 +86,10 @@ jobs:
       fail-fast: false
       matrix:
         components: ${{ fromJSON(needs.configure_benchmark_matrix.outputs.components) }}
-    uses: './.github/workflows/test_component.yml'
-    secrets: inherit
+    uses: '$/.github/workflows/test_component.yml'
+    secrets:
+      BENCHMARK_DB_FALLBACK_URL: ${{ secrets.BENCHMARK_DB_FALLBACK_URL }}
+      BENCHMARK_DB_URL: ${{ secrets.BENCHMARK_DB_URL }}
     with:
       artifact_run_id: ${{ inputs.artifact_run_id }}
       artifact_group: ${{ inputs.artifact_group }}

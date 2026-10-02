@@ -21,6 +21,7 @@ jobs:
       - name: Checkout Scripts
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
+          persist-credentials: false
           sparse-checkout: |
             llvm/utils/git/requirements.txt
             llvm/utils/git/github-automation.py
@@ -33,14 +34,14 @@ jobs:
       - name: Request Release Note
         env:
           # We need to use an llvmbot token here, because we are mentioning a user.
+          GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           python3 llvm/utils/git/github-automation.py \
             --repo "$GITHUB_REPOSITORY" \
             --token "$GITHUB_TOKEN" \
             request-release-note \
-            --pr-number ${{ github.event.pull_request.number}}
-
+            --pr-number "${GITHUB_EVENT_PULL_REQUEST_NUMBER}"
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         if: always()
         with:

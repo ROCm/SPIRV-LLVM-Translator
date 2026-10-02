@@ -61,7 +61,7 @@ concurrency:
 
 jobs:
   setup:
-    uses: ./.github/workflows/setup_multi_arch.yml
+    uses: $/.github/workflows/setup_multi_arch.yml
     with:
       build_variant: "release"
 
@@ -72,9 +72,8 @@ jobs:
       ${{
         needs.setup.outputs.linux_build_config != '' &&
         needs.setup.outputs.enable_build_jobs == 'true'
-      }}      
-    uses: ./.github/workflows/multi_arch_ci_linux.yml
-    secrets: inherit
+      }}
+    uses: $/.github/workflows/multi_arch_ci_linux.yml
     with:
       build_config: ${{ needs.setup.outputs.linux_build_config }}
       test_labels: ${{ needs.setup.outputs.linux_test_labels }}
@@ -92,8 +91,7 @@ jobs:
         needs.setup.outputs.windows_build_config != '' &&
         needs.setup.outputs.enable_build_jobs == 'true'
       }}
-    uses: ./.github/workflows/multi_arch_ci_windows.yml
-    secrets: inherit
+    uses: $/.github/workflows/multi_arch_ci_windows.yml
     with:
       build_config: ${{ needs.setup.outputs.windows_build_config }}
       test_labels: ${{ needs.setup.outputs.windows_test_labels }}
@@ -113,11 +111,13 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           repository: "ROCm/TheRock"
           ref: 'compiler/amd-staging'
       - name: Evaluate workflow results
         env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           python build_tools/github_actions/workflow_summary.py \
-            --needs-json '${{ toJSON(needs) }}'
+            --needs-json "${NEEDS_JSON}"
