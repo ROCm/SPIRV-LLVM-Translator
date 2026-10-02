@@ -22,7 +22,8 @@
 name: Auto-merge upstream-merge PRs after SPIRV Compiler CI
 
 on:
-  workflow_run:
+  # API-only: validate the bot PR and tested SHA; never check out PR code or artifacts.
+  workflow_run: # zizmor: ignore[dangerous-triggers]
     workflows: ["SPIRV Compiler CI"]
     types: [completed]
 
@@ -40,56 +41,48 @@ jobs:
     name: Enable auto-merge after successful SPIRV Compiler CI
     runs-on: ubuntu-latest
     if: >-
+      github.repository == 'ROCm/SPIRV-LLVM-Translator' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
+      startsWith(github.event.workflow_run.head_branch, 'upstream-merge-') &&
       startsWith(github.event.workflow_run.display_title, 'Upstream merge ')
     steps:
       - name: Generate App token
         id: app-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
         with:
           app-id: ${{ secrets.MERGE_APP_ID }}
           private-key: ${{ secrets.MERGE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
 
       - name: Resolve PR and enable auto-merge (merge commit)
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          EXPECTED_AUTHOR: ${{ steps.app-token.outputs.app-slug }}[bot]
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
           REPO: ${{ github.repository }}
-          PULL_REQUESTS_JSON: ${{ toJSON(github.event.workflow_run.pull_requests) }}
         run: |
           set -euo pipefail
-
-          # Prefer workflow_run.pull_requests when GitHub attaches it
-          # (same-repo PRs). Fall back to a head-branch lookup.
-          PR=""
-          if command -v jq >/dev/null 2>&1; then
-            PR=$(echo "${PULL_REQUESTS_JSON}" | jq -r '
-              if . == null or . == [] then empty
-              elif type == "array" then .[0].number | tostring
-              else empty end' 2>/dev/null || true)
+          PRS=$(gh pr list --repo "$REPO" --head "$HEAD_BRANCH" --base amd-staging \
+            --state open --json number)
+          if [ "$(jq 'length' <<< "$PRS")" != 1 ]; then
+            echo "Expected one open PR for the tested branch; skipping."
+            exit 0
           fi
-          if [ -z "${PR}" ] || [ "${PR}" = "null" ]; then
-            PR="$(gh pr list --repo "${REPO}" --head "${HEAD_BRANCH}" --base amd-staging --state open \
-              --json number -q '.[0].number // empty' 2>/dev/null || true)"
-          fi
-          if [ -z "${PR}" ] || [ "${PR}" = "null" ]; then
-            echo "No open PR found for head branch ${HEAD_BRANCH} -> amd-staging; skipping."
+          PR=$(jq -r '.[0].number' <<< "$PRS")
+          DETAILS=$(gh api "repos/$REPO/pulls/$PR")
+          if ! jq -e --arg repo "$REPO" --arg sha "$HEAD_SHA" \
+            --arg branch "$HEAD_BRANCH" --arg author "$EXPECTED_AUTHOR" '
+              .state == "open" and .draft == false and
+              .base.ref == "amd-staging" and .base.repo.full_name == $repo and
+              .head.repo.full_name == $repo and .head.ref == $branch and
+              .head.sha == $sha and .user.login == $author
+            ' <<< "$DETAILS" >/dev/null; then
+            echo "PR no longer matches the bot branch and tested commit; skipping."
             exit 0
           fi
 
-          BASE="$(gh pr view "${PR}" --repo "${REPO}" --json baseRefName -q .baseRefName)"
-          if [ "${BASE}" != "amd-staging" ]; then
-            echo "PR #${PR} base is ${BASE}, not amd-staging; skipping."
-            exit 0
-          fi
-
-          DRAFT="$(gh pr view "${PR}" --repo "${REPO}" --json isDraft -q .isDraft)"
-          if [ "${DRAFT}" = "true" ]; then
-            echo "PR #${PR} is draft; skipping."
-            exit 0
-          fi
-
-          echo "Enabling auto-merge (merge commit) for PR #${PR} (${REPO}) after successful SPIRV Compiler CI."
-          gh pr merge "${PR}" --repo "${REPO}" --merge --auto
+          gh pr merge "$PR" --repo "$REPO" --merge --auto --match-head-commit "$HEAD_SHA"

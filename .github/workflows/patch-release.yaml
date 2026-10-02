@@ -6,6 +6,9 @@ on:
     # First day of every month
     - cron: '0 0 1 * *'
 
+permissions:
+  contents: read
+
 jobs:
   setup:
     runs-on: ubuntu-latest
@@ -14,8 +17,9 @@ jobs:
       branches_json: ${{steps.release_branches.outputs.branches_json}}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
+            persist-credentials: false
             fetch-depth: 0
       - name: Get latest llvm_release branch
         id: latest_branch
@@ -37,14 +41,17 @@ jobs:
           | xargs -0 -d"\n" printf 'branches_json={"branch":[%s]}' \
           >> $GITHUB_OUTPUT
   release:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     needs: setup
     strategy:
       matrix: ${{fromJson(needs.setup.outputs.branches_json)}}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
+            persist-credentials: false
             ref: ${{ matrix.branch }}
             fetch-depth: 0
       - name: Get commits info
@@ -67,22 +74,20 @@ jobs:
             | xargs printf "commits_since_last_release=%d\n" >> $GITHUB_OUTPUT
             git rev-parse HEAD | xargs printf "last_commit=%s\n" >> $GITHUB_OUTPUT
       - name: Release
-        uses: softprops/action-gh-release@v2
         if: ${{ steps.versions.outputs.commits_since_last_release != 0 }}
-        with:
-            # Setting tag to have format:
-            # %latest llvm version%.%latest patch + 1%
-            tag_name: ${{ steps.versions.outputs.release_version }}
-            # We have to set this so tag is set on the branch we are releasing
-            target_commitish: ${{ steps.versions.outputs.last_commit }}
-            # We don't want to mark patch releases latest unless it is latest
-            # major version
-            make_latest: >-
-              ${{ needs.setup.outputs.latest_branch == matrix.branch }}
-            name: >
-              SPIR-V LLVM translator based on LLVM
-              ${{ steps.versions.outputs.llvm_version }}
-            body: "Full Changelog: ${{ github.server_url }}/\
-              ${{ github.repository }}/compare/\
-              ${{ steps.versions.outputs.latest_version }}...\
-              ${{ steps.versions.outputs.release_version }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.versions.outputs.release_version }}
+          TARGET_COMMIT: ${{ steps.versions.outputs.last_commit }}
+          MAKE_LATEST: ${{ needs.setup.outputs.latest_branch == matrix.branch }}
+          RELEASE_TITLE: SPIR-V LLVM translator based on LLVM ${{ steps.versions.outputs.llvm_version }}
+          RELEASE_BODY: >-
+            Full Changelog: ${{ github.server_url }}/${{ github.repository }}/compare/${{ steps.versions.outputs.latest_version }}...${{ steps.versions.outputs.release_version }}
+        run: |
+          operation=create
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            operation=edit
+          fi
+          gh release "$operation" "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --target "$TARGET_COMMIT" --latest="$MAKE_LATEST" \
+            --title "$RELEASE_TITLE" --notes "$RELEASE_BODY"

@@ -36,6 +36,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
+          persist-credentials: false
           repository: "ROCm/TheRock"
 
       - name: Setup Python
@@ -78,6 +79,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
+          persist-credentials: false
           repository: "ROCm/TheRock"
 
       - name: Setup Python
@@ -87,15 +89,16 @@ jobs:
 
       - name: Install TheRock
         env:
+          MATRIX_TARGET_BUNDLE_AMDGPU_FAMILY: ${{ matrix.target_bundle.amdgpu_family }}
           release_version: ${{ inputs.release_version }}
         run: |
           pip install -r requirements-test.txt
-          python3 build_tools/install_rocm_from_artifacts.py --tests --amdgpu-family ${{ matrix.target_bundle.amdgpu_family }} --release ${{ env.release_version }}
-
+          python3 build_tools/install_rocm_from_artifacts.py --tests --amdgpu-family "${MATRIX_TARGET_BUNDLE_AMDGPU_FAMILY}" --release "${release_version}"
       # TODO: add parallelism
       - name: Running test harness
         # TESTING
+        env:
+          INPUTS_TESTS_TO_RUN: ${{ inputs.tests_to_run }}
         run: |
-          python3 -m pytest -s -v --tb=short --therock-path=./therock-build tests/harness/tests*.py -k ${{ inputs.tests_to_run }}
-
+          python3 -m pytest -s -v --tb=short --therock-path=./therock-build tests/harness/tests*.py -k "${INPUTS_TESTS_TO_RUN}"
 # TODO: Add windows tests
