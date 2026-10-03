@@ -16,7 +16,7 @@ env:
   ROCM_EXAMPLES_REF: f51a8b3c4d01d65af4e57228d941199fc5a50d47
   # Pinned ORNL/HeCBench revision; bumped daily by update-hecbench.yml (sed
   # rewrites this line; keep it standalone).
-  HECBENCH_REF: 66f4951dba55d879d9d7ac0628c681fa55c6886c
+  HECBENCH_REF: d278f65622a2d42ca50b0a8327e6d1eb62febef8
   LLVM_BUILD: build
   DEVLIBS_BUILD: build-device-libs
   COMGR_BUILD: build-comgr
