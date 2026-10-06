@@ -884,6 +884,7 @@ void SPIRVModuleImpl::layoutEntry(SPIRVEntry *E) {
         AMDGCNFeaturePredicateIds = BV;
     }
   } break;
+  case OpExtInstWithForwardRefsKHR:
   case OpExtInst: {
     SPIRVExtInst *EI = static_cast<SPIRVExtInst *>(E);
     if ((EI->getExtSetKind() == SPIRVEIS_Debug ||
@@ -1715,6 +1716,12 @@ SPIRVEntry *SPIRVModuleImpl::addDebugInfo(SPIRVWord InstId, SPIRVType *TheType,
 
 SPIRVEntry *SPIRVModuleImpl::addAuxData(SPIRVWord InstId, SPIRVType *TheType,
                                         const std::vector<SPIRVWord> &Args) {
+  // Instruction-metadata aux records forward-reference their target
+  // instruction's result <id>.
+  if (InstId == NonSemanticAuxData::InstructionMetadata)
+    return addEntry(new SPIRVExtInstWithForwardRefsKHR(
+        this, getId(), TheType, SPIRVEIS_NonSemantic_AuxData,
+        getExtInstSetId(SPIRVEIS_NonSemantic_AuxData), InstId, Args));
   return addEntry(new SPIRVExtInst(
       this, getId(), TheType, SPIRVEIS_NonSemantic_AuxData,
       getExtInstSetId(SPIRVEIS_NonSemantic_AuxData), InstId, Args));
