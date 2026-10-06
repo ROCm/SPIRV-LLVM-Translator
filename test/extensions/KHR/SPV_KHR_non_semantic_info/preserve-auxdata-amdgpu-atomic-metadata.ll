@@ -78,19 +78,23 @@
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spirv64-amd-amdhsa"
 
-; CHECK-LLVM: call spir_func i32 @_Z10atomic_addPU3AS1Vii({{.*}}){{.*}}!amdgpu.no.fine.grained.memory ![[#]]{{.*}}!amdgpu.no.remote.memory ![[#]]
+; CHECK-LLVM: call i32 @_Z10atomic_addPU3AS1Vii({{.*}}){{.*}}!amdgpu.no.fine.grained.memory ![[#]]{{.*}}!amdgpu.no.remote.memory ![[#]]
 define amdgpu_kernel void @test_iadd(ptr addrspace(1) %ptr) {
   %add = atomicrmw add ptr addrspace(1) %ptr, i32 1 syncscope("agent") monotonic, !amdgpu.no.fine.grained.memory !0, !amdgpu.no.remote.memory !0
   ret void
 }
 
-; CHECK-LLVM: call spir_func float @_Z10atomic_addPU3AS1Vff({{.*}}){{.*}}!atomic.ignore.denormal.mode ![[#]]{{.*}}!amdgpu.no.fine.grained.memory ![[#]]{{.*}}!amdgpu.no.remote.memory ![[#]]
+; CHECK-LLVM: call float @_Z10atomic_addPU3AS1Vff({{.*}})
+; CHECK-LLVM-DAG: !atomic.ignore.denormal.mode ![[#]]
+; CHECK-LLVM-DAG: !amdgpu.no.fine.grained.memory ![[#]]
+; CHECK-LLVM-DAG: !amdgpu.no.remote.memory ![[#]]
+; CHECK-LLVM-NEXT: ret void
 define amdgpu_kernel void @test_fadd(ptr addrspace(1) %ptr) {
   %fadd = atomicrmw fadd ptr addrspace(1) %ptr, float 1.0 syncscope("agent") monotonic, !amdgpu.no.fine.grained.memory !0, !amdgpu.no.remote.memory !0, !atomic.ignore.denormal.mode !0
   ret void
 }
 
-; CHECK-LLVM: call spir_func i32 @_Z11atomic_xchgPU3AS1Vii({{.*}}){{.*}}!amdgpu.no.fine.grained.memory ![[#]]
+; CHECK-LLVM: call i32 @_Z11atomic_xchgPU3AS1Vii({{.*}}){{.*}}!amdgpu.no.fine.grained.memory ![[#]]
 ; CHECK-LLVM-NOT: !amdgpu.no.remote.memory
 ; CHECK-LLVM-NOT: !atomic.ignore.denormal.mode
 define amdgpu_kernel void @test_xchg(ptr addrspace(1) %ptr) {
