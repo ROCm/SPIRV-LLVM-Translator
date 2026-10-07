@@ -2730,10 +2730,6 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
       V = GEP;
     } else {
       auto *CT = cast<Constant>(Base);
-      if (auto CE = dyn_cast<ConstantExpr>(CT))
-        if (auto GV =
-              dyn_cast<GlobalValue>(CE->getOperand(0)->stripPointerCasts()))
-          BaseTy = GV->getValueType();
       V = ConstantExpr::getGetElementPtr(BaseTy, CT, Index, IsInbound);
     }
     return mapValue(BV, V);
