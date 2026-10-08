@@ -2909,8 +2909,8 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
   if (AtomicRMWInst *ARMW = dyn_cast<AtomicRMWInst>(V)) {
     AtomicRMWInst::BinOp Op = ARMW->getOperation();
     // Supported iff there is an opcode, except for fsub, which is lowered
-    // below. On AMD targets SPIRVRegularizeLLVM rewrites uinc_wrap/udec_wrap
-    // into a helper call so they never reach here.
+    // below. SPIRVRegularizeLLVM rewrites supported AMD uinc_wrap/udec_wrap
+    // operations into helper calls; remaining wrap operations are rejected here.
     bool SupportedAtomicInst =
         Op == AtomicRMWInst::FSub || LLVMSPIRVAtomicRmwOpCodeMap::find(Op);
     if (!BM->getErrorLog().checkError(
@@ -2938,15 +2938,6 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
       // Implement FSub through FNegate and AtomicFAddExt
       Ops[3] = BM->addUnaryInst(OpFNegate, Ty, OpVals[3], BB)->getId();
       OC = OpAtomicFAddEXT;
-    } else if (Op == AtomicRMWInst::UIncWrap || Op == AtomicRMWInst::UDecWrap) {
-      OC = LLVMSPIRVAtomicRmwOpCodeMap::map(Op);
-      auto WrapV = Ops.back();
-      Ops.pop_back();
-      auto IncDec = mapValue(V, BM->addInstTemplate(OC, Ops, BB, Ty));
-      IncDec->addDecorate(
-          new SPIRVDecorate(DecorationMaxByteOffsetId, IncDec, WrapV));
-      return IncDec;
-      // TODO: figure out handling of saturating val.
     } else
       OC = LLVMSPIRVAtomicRmwOpCodeMap::map(Op);
 

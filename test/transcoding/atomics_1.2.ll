@@ -4,6 +4,8 @@ target triple = "spir64-unknown-unknown"
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: llvm-spirv %t.bc -o %t.spv
 ; RUN: spirv-val %t.spv
+; RUN: llvm-spirv -r --spirv-target-triple=spirv64-amd-amdhsa %t.spv -o %t.amd.bc
+; RUN: llvm-dis %t.amd.bc -o - | FileCheck %s --check-prefix=AMD
 ; RUN: llvm-spirv -r %t.spv -o %t.bc
 ; RUN: llvm-dis < %t.bc | FileCheck %s
 
@@ -23,8 +25,10 @@ define spir_kernel void @test_atomic_global(ptr addrspace(1) %dst) #0 !kernel_ar
   ; atomic_inc
   %inc_ig = tail call spir_func i32 @_Z10atomic_incPU3AS1Vi(ptr addrspace(1) %dst) #0
   ; CHECK: _Z10atomic_incPU3AS1Vi(ptr addrspace(1) %dst) #0
+  ; AMD: call i32 @_Z10atomic_incPU3AS1Vi(ptr addrspace(1) %dst)
   %dec_jg = tail call spir_func i32 @_Z10atomic_decPU3AS1Vj(ptr addrspace(1) %dst) #0
   ; CHECK: _Z10atomic_decPU3AS1Vi(ptr addrspace(1) %dst) #0
+  ; AMD: call i32 @_Z10atomic_decPU3AS1Vi(ptr addrspace(1) %dst)
 
   ; atomic_max
   %max_ig = tail call spir_func i32 @_Z10atomic_maxPU3AS1Vii(ptr addrspace(1) %dst, i32 0) #0
@@ -87,10 +91,12 @@ define spir_kernel void @test_atomic_local(ptr addrspace(3) %dst) #0 !kernel_arg
   ; atomic_inc
   %inc_il = tail call spir_func i32 @_Z10atomic_incPU3AS3Vi(ptr addrspace(3) %dst) #0
   ; CHECK: _Z10atomic_incPU3AS3Vi(ptr addrspace(3) %dst) #0
+  ; AMD: call i32 @_Z10atomic_incPU3AS3Vi(ptr addrspace(3) %dst)
 
   ; atomic dec
   %dec_jl = tail call spir_func i32 @_Z10atomic_decPU3AS3Vj(ptr addrspace(3) %dst) #0
   ; CHECK: _Z10atomic_decPU3AS3Vi(ptr addrspace(3) %dst) #0
+  ; AMD: call i32 @_Z10atomic_decPU3AS3Vi(ptr addrspace(3) %dst)
 
   ; atomic_max
   %max_il = tail call spir_func i32 @_Z10atomic_maxPU3AS3Vii(ptr addrspace(3) %dst, i32 0) #0

@@ -4319,11 +4319,6 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
                                                BasicBlock *BB) {
   std::string MangledName;
   auto Ops = BI->getOperands();
-  if ((FuncName == "__spirv_AtomicIIncrement" ||
-       FuncName == "__spirv_AtomicIDecrement") &&
-       M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
-    Ops.insert(Ops.end(),
-               BM->getValue(*BI->getDecorate(DecorationMaxByteOffsetId).cbegin()));
   Op OC = BI->getOpCode();
   if (isUntypedAccessChainOpCode(OC)) {
     auto *AC = static_cast<SPIRVAccessChainBase *>(BI);
