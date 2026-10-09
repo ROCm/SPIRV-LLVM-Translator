@@ -179,7 +179,7 @@ static void translateSPIRVAtomicBuiltinToLLVMAtomicOp(CallInst *CI, Op OC) {
                                 CI->getOperand(1), {}, Order, S);
     for (auto &&MD : {"amdgpu.no.fine.grained.memory",
                       "amdgpu.no.remote.memory",
-                      "amdgpu.ignore.denormal.mode"})
+                      "atomic.ignore.denormal.mode"})
       RMW->setMetadata(MD, CI->getMetadata(MD));
     CI->replaceAllUsesWith(RMW);
   }
