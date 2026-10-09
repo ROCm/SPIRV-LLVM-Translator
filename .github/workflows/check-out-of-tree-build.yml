@@ -82,13 +82,13 @@ jobs:
         # The prebuild-spirv-tools workflow owns populating this cache.
         # The primary key never matches (no one saves it); restore-keys
         # pulls the most recent prebuild entry.
-        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.SPIRV_TOOLS_INSTALL }}
           key: spirv-tools-main-latest
           restore-keys: spirv-tools-main-
       - name:  Checkout the translator sources
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           path: SPIRV-LLVM-Translator
@@ -97,7 +97,7 @@ jobs:
         run: |
           echo "spirv_headers_tag=$(cat SPIRV-LLVM-Translator/spirv-headers-tag.conf)" >> $GITHUB_ENV
       - name:  Checkout SPIR-V Headers
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           repository: KhronosGroup/SPIRV-Headers
