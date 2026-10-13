@@ -54,7 +54,7 @@ jobs:
       # the amd/ subprojects (device-libs, comgr). The SPIRV translator PR
       # head is overlaid in-tree under llvm/projects/.
       - name: Checkout llvm-project (amd-staging)
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ROCm/llvm-project
           ref: amd-staging
@@ -74,7 +74,7 @@ jobs:
           echo "Pinned llvm-project SHA for test jobs: $SHA"
 
       - name: Checkout SPIRV-LLVM-Translator (PR head)
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -142,7 +142,7 @@ jobs:
           cmake --install "$DEVLIBS_BUILD" --prefix $PWD/$STAGING
 
       - name: Checkout rocm-systems
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ROCm/rocm-systems
           ref: develop
@@ -150,7 +150,7 @@ jobs:
           persist-credentials: false
 
       - name: Checkout rocm-cmake
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ROCm/rocm-cmake
           ref: develop
@@ -225,7 +225,7 @@ jobs:
 
       # Build rocPRIM.
       - name: Checkout rocPRIM
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ROCm/rocPRIM
           ref: develop
@@ -247,7 +247,7 @@ jobs:
 
       # Build hipCUB.
       - name: Checkout hipCUB
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ROCm/hipCUB
           ref: develop
@@ -268,7 +268,7 @@ jobs:
 
       # Build rocThrust (header-only; supplies thrust:: iterators to examples).
       - name: Checkout rocThrust
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ROCm/rocThrust
           ref: develop
@@ -289,7 +289,7 @@ jobs:
 
       # Build rocRAND.
       - name: Checkout rocRAND
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ROCm/rocRAND
           ref: develop
@@ -314,7 +314,7 @@ jobs:
 
       # Build hipRAND.
       - name: Checkout hipRAND
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ROCm/hipRAND
           ref: develop
@@ -363,7 +363,7 @@ jobs:
             "$ROCPRIM_BUILD" "$HIPCUB_BUILD" "$ROCTHRUST_BUILD" "$ROCRAND_BUILD" "$HIPRAND_BUILD" "$STAGING"
 
       - name: Upload build tree artifact
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: linux-build-tree
           path: linux-build-tree.tar
@@ -391,7 +391,7 @@ jobs:
             "$LLVM_BUILD/bin/amd-llvm-spirv"
 
       - name: Upload GPU compiler and runtime
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: linux-gpu-runtime
           path: linux-gpu-runtime.tar
@@ -418,7 +418,7 @@ jobs:
 
     steps:
       - name: Checkout llvm-project (pinned to Build job SHA)
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ROCm/llvm-project
           ref: ${{ needs.build.outputs.llvm_project_sha }}
@@ -427,7 +427,7 @@ jobs:
           persist-credentials: false
 
       - name: Checkout SPIRV-LLVM-Translator (PR head)
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -436,7 +436,7 @@ jobs:
           persist-credentials: false
 
       - name: Download build tree artifact
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: linux-build-tree
 
@@ -477,7 +477,7 @@ jobs:
 
     steps:
       - name: Checkout llvm-project (pinned to Build job SHA)
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ROCm/llvm-project
           ref: ${{ needs.build.outputs.llvm_project_sha }}
@@ -486,14 +486,14 @@ jobs:
           persist-credentials: false
 
       - name: Checkout SPIRV-LLVM-Translator (PR head)
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
           fetch-depth: 1
           persist-credentials: false
 
       - name: Download build tree artifact
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: linux-build-tree
 
@@ -517,7 +517,7 @@ jobs:
 
     steps:
       - name: Checkout llvm-project (pinned to Build job SHA)
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ROCm/llvm-project
           ref: ${{ needs.build.outputs.llvm_project_sha }}
@@ -526,14 +526,14 @@ jobs:
           persist-credentials: false
 
       - name: Checkout SPIRV-LLVM-Translator (PR head)
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
           fetch-depth: 1
           persist-credentials: false
 
       - name: Download build tree artifact
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: linux-build-tree
 
@@ -576,7 +576,7 @@ jobs:
       test_runs_on: ${{ steps.pick.outputs.label }}
     steps:
       - name: Checkout TheRock build_tools
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ROCm/TheRock
           ref: main
@@ -614,7 +614,7 @@ jobs:
 
     steps:
       - name: Checkout rocm-examples
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           repository: ROCm/rocm-examples
@@ -730,7 +730,7 @@ jobs:
       # Check out this repo (PR head) for the vendored .github/hecbench scripts,
       # into a subdir so it doesn't collide with the untarred build/ + staging/.
       - name: Checkout SPIRV-LLVM-Translator (PR head)
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -739,7 +739,7 @@ jobs:
           persist-credentials: false
 
       - name: Download GPU compiler and runtime
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: linux-gpu-runtime
 
@@ -853,7 +853,7 @@ jobs:
 
       - name: Upload HeCBench logs and binary sizes
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: hecbench-logs
           path: ${{ env.HECBENCH_LOG_DIR }}/
