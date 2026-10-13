@@ -176,3 +176,54 @@ shmembench-hip
 atomicPerf-hip
 hellinger-hip
 attentionMergeState-hip
+# Times out on amdgcnspirv-be without llvm/llvm-project#215510 (AMDGPU atomic
+# metadata dropped); ~72s on gfx90a with it, matching a native gfx90a build.
+atomicIntrinsics-hip
+# --- 2026-10-13 additions (cheapest-first), using the setup time freed by
+# #342; screened in the pinned CI container (local gfx90a proxy) ---
+streamcluster-hip
+rng-wallace-hip
+simplemoc-hip
+hmm-hip
+quantVLLM-hip
+softmax-hip
+chacha20-hip
+morphology-hip
+coordinates-hip
+contract-hip
+convolutionSeparable-hip
+ddbp-hip
+hwt1d-hip
+expdist-hip
+wlcpow-hip
+minimod-hip
+ntt-hip
+tpacf-hip
+vanGenuchten-hip
+kalman-hip
+atomicAggregate-hip
+bh-hip
+jacobi-hip
+bitpacking-hip
+cmembench-hip
+lci-hip
+bincount-hip
+eigenvalue-hip
+fdtd3d-hip
+tissue-hip
+cbsfil-hip
+entropy-hip
+memcpy-hip
+wsm5-hip
+keogh-hip
+rainflow-hip
+loopback-hip
+gaussian-hip
+vote-hip
+nbody-hip
+pns-hip
+segsort-hip
+gru2-hip
+score-hip
+streamCreateCopyDestroy-hip
+fma-hip
