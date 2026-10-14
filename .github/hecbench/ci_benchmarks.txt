@@ -1,17 +1,14 @@
 # HeCBench subset run by the test_hecbench CI job (amdgcnspirv-be backend).
-# One benchmark directory name (under HeCBench/src) per line; '#' comments and
-# blank lines are ignored by the workflow.
+# One benchmark directory name (under HeCBench/src) per line, sorted; '#'
+# comments and blank lines are ignored. bench.sh runs them in file order.
 #
-# Derivation: 2026-07-15 -be passing set (525), minus benchmarks needing
-# external data (download_datasets.sh / DVC / extract_archives.sh), plus the 23
-# regression-sensitive ones, filled cheapest-first under a ~900s budget.
-# Timings are a gfx90a proxy; recalibrate on gfx942 before making this blocking.
-#
-# 2026-08-18: replaced 39 entries that could not run under the hermetic CI setup
-# (DVC/tarball input data, or missing -lomp / hipblas / hipfft / hipsparse /
-# hipsolver / gsl / boost / numpy, or the f16atomic backend crash) with 39
-# hermetic benchmarks validated to build + self-verify on the amdgcnspirv-be
-# path in the pinned CI container (local gfx90a proxy).
+# Entries must be hermetic: no external data (DVC / tarballs /
+# download_datasets.sh) and no libraries missing from the CI staging (hipblas,
+# hipfft, hipsparse, hipsolver, -lomp, gsl, boost, numpy, ...), and must build
+# and self-verify on the amdgcnspirv-be path in the pinned CI container.
+# Per-benchmark run-arg overrides live in ci_run_args.txt. After editing, re-run
+# update_deps.sh to regenerate ci_benchmarks.deps.txt.
+
 accuracy-hip
 ace-hip
 adam-hip
@@ -23,30 +20,53 @@ amgmk-hip
 ans-hip
 aobench-hip
 asta-hip
+asyncAllocation-hip
 atan2-hip
+atomicAggregate-hip
+# Regression test for llvm/llvm-project#215510: without it the AMDGPU atomic
+# metadata is dropped and atomics lower to CAS loops (>4x slower on gfx90a).
+atomicIntrinsics-hip
+atomicPerf-hip
 atomicReduction-hip
+atomicSystemWide-hip
+attentionMergeState-hip
 babelstream-hip
 backprop-hip
 base64e-hip
+bh-hip
+bincount-hip
 binomial-hip
+bitpacking-hip
+black-scholes-hip
+blockAccess-hip
 blockexchange-hip
 bscan-hip
+bsearch-hip
+cbsfil-hip
 ccsd-trpdrv-hip
+chacha20-hip
 channelSum-hip
 che-hip
 chemv-hip
 clenergy-hip
 clock-hip
+cmembench-hip
 cobahh-hip
 collision-hip
 colorwheel-hip
 complex-hip
+compute-score-hip
 concurrentKernels-hip
+contract-hip
 conversion-hip
+convolutionSeparable-hip
 cooling-hip
+coordinates-hip
+crc64-hip
 cross-hip
 damage-hip
 dct8x8-hip
+ddbp-hip
 debayer-hip
 dispatch-hip
 distort-hip
@@ -56,174 +76,145 @@ dropout-hip
 dxtc2-hip
 easyWave-hip
 ecdh-hip
+eigenvalue-hip
+entropy-hip
+ert-hip
+expdist-hip
 extend2-hip
+extrema-hip
+f8cast-hip
+fdtd3d-hip
 fft-hip
 floydwarshall-hip
+fma-hip
 fpc-hip
 fpdc-hip
 fwt-hip
+ga-hip
+gabor-hip
+gaussian-hip
 gc-hip
 graphExecution-hip
 groupnorm-hip
+gru2-hip
+haccmk-hip
 heat-hip
+hellinger-hip
 histogram-hip
+hmm-hip
 hungarian-hip
+hwt1d-hip
+idivide-hip
 interleave-hip
 intrinsics-cast-hip
 inversek2j-hip
 is-hip
+iso2dfd-hip
+jacobi-hip
 jenkins-hash-hip
+keogh-hip
+kiss-hip
 langford-hip
 laplace3d-hip
 lavaMD-hip
 layout-hip
+lci-hip
 lda-hip
+ldpc-hip
 libor-hip
 log2-hip
 lombscargle-hip
+loopback-hip
 lud-hip
 mallocFree-hip
 mandelbrot-hip
 marchingCubes-hip
+matrix-rotate-hip
+maxpool3d-hip
 md5hash-hip
 medianfilter-hip
+memcpy-hip
+minimod-hip
 mis-hip
 mixbench-hip
+morphology-hip
 mr-hip
 mrc-hip
 mrg32k3a-hip
+multinomial-hip
 murmurhash3-hip
 myocyte-hip
+nbnxm-hip
+nbody-hip
 ne-hip
 nlll-hip
 nms-hip
+ntt-hip
 opticalFlow-hip
 overlap-hip
+overlay-hip
+p4-hip
 pad-hip
 particlefilter-hip
 particles-hip
 pathfinder-hip
 perplexity-hip
 phmm-hip
+pitch-hip
+pns-hip
+popcount-hip
+present-hip
 projectile-hip
 pso-hip
 qtclustering-hip
 quant3MatMul-hip
 quantAQLM-hip
+quantVLLM-hip
 radixsort-hip
+rainflow-hip
+reaction-hip
+recursiveGaussian-hip
 reverse-hip
 reverse2D-hip
 rmsnorm-hip
+rng-wallace-hip
 rodrigues-hip
 romberg-hip
+rowwiseMoments-hip
 rsc-hip
 sc-hip
 scan2-hip
+scatterThrust-hip
+score-hip
+segsort-hip
+sheath-hip
+shmembench-hip
+simplemoc-hip
+softmax-hip
+sph-hip
 split-hip
 spm-hip
 srad-hip
 stencil1d-hip
+streamCreateCopyDestroy-hip
+streamcluster-hip
 su3-hip
+tensorT-hip
 threadfence-hip
+tissue-hip
+tpacf-hip
 tqs-hip
 triad-hip
 tsa-hip
 unfold-hip
+vanGenuchten-hip
 vmc-hip
+vote-hip
 warpexchange-hip
 winograd-hip
+wlcpow-hip
+wsm5-hip
+wyllie-hip
 zeropoint-hip
 zmddft-hip
-# --- 2026-08-18 hermetic replacements (cheapest-first) ---
-asyncAllocation-hip
-tensorT-hip
-rowwiseMoments-hip
-iso2dfd-hip
-kiss-hip
 zoom-hip
-wyllie-hip
-blockAccess-hip
-haccmk-hip
-pitch-hip
-overlay-hip
-scatterThrust-hip
-ert-hip
-popcount-hip
-black-scholes-hip
-present-hip
-bsearch-hip
-multinomial-hip
-# QUARANTINED: times out on amdgcnspirv-be (hipMallocManaged). Un-quarantine
-# after ORNL/HeCBench#326 lands and HECBENCH_REF is bumped past it.
-#nbnxm-hip
-p4-hip
-ga-hip
-maxpool3d-hip
-idivide-hip
-sheath-hip
-crc64-hip
-matrix-rotate-hip
-f8cast-hip
-atomicSystemWide-hip
-reaction-hip
-sph-hip
-compute-score-hip
-gabor-hip
-ldpc-hip
-extrema-hip
-recursiveGaussian-hip
-shmembench-hip
-atomicPerf-hip
-hellinger-hip
-attentionMergeState-hip
-# Times out on amdgcnspirv-be without llvm/llvm-project#215510 (AMDGPU atomic
-# metadata dropped); ~72s on gfx90a with it, matching a native gfx90a build.
-atomicIntrinsics-hip
-# --- 2026-10-13 additions (cheapest-first), using the setup time freed by
-# #342; screened in the pinned CI container (local gfx90a proxy) ---
-streamcluster-hip
-rng-wallace-hip
-simplemoc-hip
-hmm-hip
-quantVLLM-hip
-softmax-hip
-chacha20-hip
-morphology-hip
-coordinates-hip
-contract-hip
-convolutionSeparable-hip
-ddbp-hip
-hwt1d-hip
-expdist-hip
-wlcpow-hip
-minimod-hip
-ntt-hip
-tpacf-hip
-vanGenuchten-hip
-kalman-hip
-atomicAggregate-hip
-bh-hip
-jacobi-hip
-bitpacking-hip
-cmembench-hip
-lci-hip
-bincount-hip
-eigenvalue-hip
-fdtd3d-hip
-tissue-hip
-cbsfil-hip
-entropy-hip
-memcpy-hip
-wsm5-hip
-keogh-hip
-rainflow-hip
-loopback-hip
-gaussian-hip
-vote-hip
-nbody-hip
-pns-hip
-segsort-hip
-gru2-hip
-score-hip
-streamCreateCopyDestroy-hip
-fma-hip
