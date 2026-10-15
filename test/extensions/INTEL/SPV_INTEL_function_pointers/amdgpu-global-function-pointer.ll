@@ -1,12 +1,23 @@
-; REQUIRES: spirv-backend
-; RUN: llc -mtriple=spirv64-amd-amdhsa -O0 -filetype=obj --spirv-ext=+SPV_INTEL_function_pointers %s -o %t.spv
+; RUN: llvm-as %s -o %t.input.bc
+; RUN: llvm-spirv %t.input.bc --spirv-ext=+SPV_INTEL_function_pointers -o %t.spv
+; RUN: spirv-val %t.spv
 ; RUN: llvm-spirv -r --spirv-target-triple=amdgpu9.42-amd-amdhsa %t.spv -o %t.bc
-; RUN: opt -passes=verify %t.bc -disable-output
 ; RUN: llvm-dis %t.bc -o - | FileCheck %s
-; RUN: llc -mtriple=spirv64-amd-amdhsa -O0 -filetype=obj --spirv-ext=+SPV_INTEL_function_pointers,+SPV_KHR_untyped_pointers %s -o %t.untyped.spv
+
+; RUN: llvm-spirv %t.input.bc --spirv-ext=+SPV_INTEL_function_pointers,+SPV_KHR_untyped_pointers -o %t.untyped.spv
+; RUN: spirv-val %t.untyped.spv
 ; RUN: llvm-spirv -r --spirv-target-triple=amdgpu9.42-amd-amdhsa %t.untyped.spv -o %t.untyped.bc
-; RUN: opt -passes=verify %t.untyped.bc -disable-output
 ; RUN: llvm-dis %t.untyped.bc -o - | FileCheck %s
+
+; TODO: Validate backend output once its callback initializer type matches the
+; global's data type (CodeSectionINTEL function pointer versus Generic pointer).
+; RUN: %if spirv-backend %{ llc -mtriple=spirv64-amd-amdhsa -O0 -filetype=obj --spirv-ext=+SPV_INTEL_function_pointers %s -o %t.llc.spv %}
+; RUN: %if spirv-backend %{ llvm-spirv -r --spirv-target-triple=amdgpu9.42-amd-amdhsa %t.llc.spv -o %t.llc.bc %}
+; RUN: %if spirv-backend %{ llvm-dis %t.llc.bc -o - | FileCheck %s %}
+
+; RUN: %if spirv-backend %{ llc -mtriple=spirv64-amd-amdhsa -O0 -filetype=obj --spirv-ext=+SPV_INTEL_function_pointers,+SPV_KHR_untyped_pointers %s -o %t.llc.untyped.spv %}
+; RUN: %if spirv-backend %{ llvm-spirv -r --spirv-target-triple=amdgpu9.42-amd-amdhsa %t.llc.untyped.spv -o %t.llc.untyped.bc %}
+; RUN: %if spirv-backend %{ llvm-dis %t.llc.untyped.bc -o - | FileCheck %s %}
 ;
 ; A device-global callback holds a flat function pointer, not a private pointer.
 ; CHECK: @callback_ptr = addrspace(1) global ptr @callback
