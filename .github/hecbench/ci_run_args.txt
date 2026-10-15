@@ -1,0 +1,8 @@
+# Per-benchmark replacement for the program arguments of `make run`, applied by
+# bench.sh so HeCBench Makefiles stay untouched. Use only for benchmarks whose
+# upstream problem size cannot finish within the CI timeout on the CI GPU.
+# Format: <benchmark> <args...>   ('#' comments and blank lines are ignored)
+
+# Upstream `27 100` takes ~1080s on gfx942 (MI300X), native and amdgcnspirv
+# alike: contended device-scope atomics on 9 addresses. `27 10` takes ~110s.
+atomicIntrinsics-hip 27 10
