@@ -651,6 +651,16 @@ SPIRVType *LLVMToSPIRVBase::transType(Type *T) {
   return 0;
 }
 
+// Lower global_device and global_host address spaces that were added in
+// SYCL as part of SYCL_INTEL_usm_address_spaces extension to just global
+// address space if device doesn't support SPV_INTEL_usm_storage_classes
+// extension
+bool LLVMToSPIRVBase::shouldLowerUSMAddrSpace(unsigned AddrSpc) const {
+  return !BM->isAllowedToUseExtension(
+             ExtensionID::SPV_INTEL_usm_storage_classes) &&
+         (AddrSpc == SPIRAS_GlobalDevice || AddrSpc == SPIRAS_GlobalHost);
+}
+
 SPIRVType *LLVMToSPIRVBase::transPointerType(Type *ET, unsigned AddrSpc) {
   Type *T = PointerType::get(ET->getContext(), AddrSpc);
   if (ET->isFunctionTy() &&
@@ -666,15 +676,8 @@ SPIRVType *LLVMToSPIRVBase::transPointerType(Type *ET, unsigned AddrSpc) {
   // A pointer to image or pipe type in LLVM is translated to a SPIRV
   // (non-pointer) image or pipe type.
   auto *ST = dyn_cast<StructType>(ET);
-  // Lower global_device and global_host address spaces that were added in
-  // SYCL as part of SYCL_INTEL_usm_address_spaces extension to just global
-  // address space if device doesn't support SPV_INTEL_usm_storage_classes
-  // extension
-  if (!BM->isAllowedToUseExtension(
-          ExtensionID::SPV_INTEL_usm_storage_classes) &&
-      ((AddrSpc == SPIRAS_GlobalDevice) || (AddrSpc == SPIRAS_GlobalHost))) {
+  if (shouldLowerUSMAddrSpace(AddrSpc))
     return transPointerType(ET, SPIRAS_Global);
-  }
   // Lower function pointer address space to private if
   // spirv-emit-function-ptr-addr-space is not passed
   if (AddrSpc == SPIRAS_CodeSectionINTEL &&
@@ -776,6 +779,8 @@ SPIRVType *LLVMToSPIRVBase::transPointerType(SPIRVType *ET, unsigned AddrSpc) {
     return Loc->second;
 
   SPIRVType *TranslatedTy = nullptr;
+  if (shouldLowerUSMAddrSpace(AddrSpc))
+    return transPointerType(ET, SPIRAS_Global);
   if (AddrSpc == SPIRAS_CodeSectionINTEL &&
       !BM->shouldEmitFunctionPtrAddrSpace())
     return transPointerType(ET, SPIRAS_Private);
@@ -2486,32 +2491,8 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
     return mapValue(V, BM->addUnreachableInst(BB));
 
   if (auto *RI = dyn_cast<ReturnInst>(V)) {
-    if (auto *RV = RI->getReturnValue()) {
-      if (auto *II = dyn_cast<IntrinsicInst>(RV)) {
-        if (II->getIntrinsicID() == Intrinsic::frexp) {
-          // create composite type from the return value and second operand
-          auto *FrexpResult = transValue(RV, BB);
-          SPIRVValue *IntFromFrexpResult =
-              static_cast<SPIRVExtInst *>(FrexpResult)->getArgValues()[1];
-          SPIRVType *LoadTy = nullptr;
-
-          if (IntFromFrexpResult->isUntypedVariable())
-            LoadTy = static_cast<SPIRVUntypedVariableKHR *>(IntFromFrexpResult)
-                         ->getDataType();
-
-          IntFromFrexpResult =
-              BM->addLoadInst(IntFromFrexpResult, {}, BB, LoadTy);
-
-          std::vector<SPIRVId> Operands = {FrexpResult->getId(),
-                                           IntFromFrexpResult->getId()};
-          auto *Compos = BM->addCompositeConstructInst(transType(RV->getType()),
-                                                       Operands, BB);
-
-          return mapValue(V, BM->addReturnValueInst(Compos, BB));
-        }
-      }
+    if (auto *RV = RI->getReturnValue())
       return mapValue(V, BM->addReturnValueInst(transValue(RV, BB), BB));
-    }
     return mapValue(V, BM->addReturnInst(BB));
   }
 
@@ -2764,26 +2745,6 @@ LLVMToSPIRVBase::transValueWithoutDecoration(Value *V, SPIRVBasicBlock *BB,
   }
 
   if (auto *Ext = dyn_cast<ExtractValueInst>(V)) {
-    if (auto *II = dyn_cast<IntrinsicInst>(Ext->getAggregateOperand())) {
-      if (II->getIntrinsicID() == Intrinsic::frexp) {
-        unsigned Idx = Ext->getIndices()[0];
-        auto *Val = transValue(II, BB);
-        if (Idx == 0)
-          return mapValue(V, Val);
-
-        // Idx = 1
-        SPIRVValue *IntFromFrexpResult =
-            static_cast<SPIRVExtInst *>(Val)->getArgValues()[1];
-        SPIRVType *LoadTy = nullptr;
-        if (IntFromFrexpResult->isUntypedVariable())
-          LoadTy = static_cast<SPIRVUntypedVariableKHR *>(IntFromFrexpResult)
-                       ->getDataType();
-
-        IntFromFrexpResult =
-            BM->addLoadInst(IntFromFrexpResult, {}, BB, LoadTy);
-        return mapValue(V, IntFromFrexpResult);
-      }
-    }
     return mapValue(V, BM->addCompositeExtractInst(
                            transScavengedType(Ext),
                            transValue(Ext->getAggregateOperand(), BB),
@@ -3163,19 +3124,22 @@ static void transMetadataDecorations(Metadata *MD, SPIRVValue *Target) {
       Target->addDecorate(new SPIRVDecorate(DecoKind, Target));
       break;
     }
-    case DecorationUniformId: {
+    case DecorationUniformId:
+    case DecorationAlignmentId:
+    case DecorationMaxByteOffsetId: {
       ErrLog.checkError(NumOperands == 2, SPIRVEC_InvalidLlvmModule,
-                        "UniformId requires exactly 1 extra operand");
-      auto *ScopeEO = mdconst::dyn_extract<ConstantInt>(DecoMD->getOperand(1));
+                        "Id decoration requires exactly 1 extra operand");
+      auto *ValEO = mdconst::dyn_extract<ConstantInt>(DecoMD->getOperand(1));
       if (!ErrLog.checkError(
-              ScopeEO, SPIRVEC_InvalidLlvmModule,
-              "UniformId requires extra operand to be an integer"))
+              ValEO, SPIRVEC_InvalidLlvmModule,
+              "Id decoration requires extra operand to be an integer"))
         return;
       SPIRVModule *BM = Target->getModule();
-      SPIRVValue *ScopeConst = BM->addIntegerConstant(BM->addIntegerType(32),
-                                                      ScopeEO->getZExtValue());
+      unsigned Width = ValEO->getBitWidth() > 32 ? 64 : 32;
+      SPIRVValue *ValConst = BM->addIntegerConstant(BM->addIntegerType(Width),
+                                                    ValEO->getZExtValue());
       Target->addDecorate(
-          new SPIRVDecorateId(DecoKind, Target, ScopeConst->getId()));
+          new SPIRVDecorateId(DecoKind, Target, ValConst->getId()));
       break;
     }
     case DecorationBufferLocationINTEL:
@@ -4666,27 +4630,32 @@ SPIRVValue *LLVMToSPIRVBase::transIntrinsicInst(IntrinsicInst *II,
       break;
     SPIRVWord ExtOp = getBuiltinIdForIntrinsic(IID);
 
+    // OpenCLLIB::frexp returns the mantissa and stores the exponent through a
+    // pointer, so rebuild the { mantissa, exponent } struct llvm.frexp returns.
     SPIRVType *FTy = transType(II->getType()->getStructElementType(0));
-    SPIRVTypePointer *ITy = static_cast<SPIRVTypePointer *>(transPointerType(
-        II->getType()->getStructElementType(1), SPIRAS_Private));
-    if (!ITy->isTypeUntypedPointerKHR()) {
-      unsigned BitWidth = ITy->getElementType()->getBitWidth();
-      BM->getErrorLog().checkError(BitWidth == 32, SPIRVEC_InvalidBitWidth,
-                                   std::to_string(BitWidth));
-    }
+    SPIRVType *ExpTy = transType(II->getType()->getStructElementType(1));
+    SPIRVType *ITy = transPointerType(II->getType()->getStructElementType(1),
+                                      SPIRAS_Private);
+    // OpenCLLIB::frexp only accepts a pointer to a 32-bit integer or a vector
+    // of them.
+    unsigned BitWidth = ExpTy->getBitWidth();
+    BM->getErrorLog().checkError(BitWidth == 32, SPIRVEC_InvalidBitWidth,
+                                 std::to_string(BitWidth));
+    // Function scope variables must come first in the entry block, not in BB.
     SPIRVBasicBlock *EntryBB = BB->getParent()->getBasicBlock(0);
     SPIRVValue *IntVal =
-        BM->addVariable(ITy,
-                        ITy->isTypeUntypedPointerKHR()
-                            ? transType(II->getType()->getStructElementType(1))
-                            : nullptr,
-                        false, spv::internal::LinkageTypeInternal, nullptr, "",
-                        ITy->getStorageClass(), EntryBB);
+        BM->addVariable(ITy, ExpTy, false, spv::internal::LinkageTypeInternal,
+                        nullptr, "", ITy->getPointerStorageClass(), EntryBB);
 
     std::vector<SPIRVValue *> Ops{transValue(II->getArgOperand(0), BB), IntVal};
+    SPIRVValue *Frexp = BM->addExtInst(
+        FTy, BM->getExtInstSetId(SPIRVEIS_OpenCL), ExtOp, Ops, BB);
 
-    return BM->addExtInst(FTy, BM->getExtInstSetId(SPIRVEIS_OpenCL), ExtOp, Ops,
-                          BB);
+    SPIRVValue *ExpVal = BM->addLoadInst(IntVal, {}, BB, ExpTy);
+
+    SPIRVType *STy = transType(II->getType());
+    std::vector<SPIRVId> StructVals{Frexp->getId(), ExpVal->getId()};
+    return BM->addCompositeConstructInst(STy, StructVals, BB);
   }
   case Intrinsic::modf: {
     // llvm.modf has a single arg --the number to be decomposed-- and returns a
@@ -5163,8 +5132,8 @@ SPIRVValue *LLVMToSPIRVBase::transIntrinsicInst(IntrinsicInst *II,
     }
     VectorType *VecTy = cast<VectorType>(II->getArgOperand(0)->getType());
     SPIRVValue *VecSVal = transValue(II->getArgOperand(0), BB);
-    SPIRVTypeInt *ResultSType =
-        BM->addIntegerType(VecTy->getElementType()->getIntegerBitWidth());
+    SPIRVType *ResultSType = transType(VecTy->getElementType());
+    Op = transBoolOpCode(VecSVal, Op);
     SPIRVTypeInt *I32STy = BM->addIntegerType(32);
     unsigned VecSize = VecTy->getElementCount().getFixedValue();
     if (VecSize > 0) {
@@ -5292,8 +5261,8 @@ SPIRVValue *LLVMToSPIRVBase::transIntrinsicInst(IntrinsicInst *II,
       return nullptr;
     }
     uint64_t NumElements = static_cast<ConstantInt *>(Len)->getZExtValue();
-    // A zero-sized memset is a no-op. Emitting OpCopyMemorySized with a Size
-    // operand of 0 is invalid SPIR-V, so drop the intrinsic entirely.
+    // A zero-sized memset is a no-op. Emitting OpTypeArray with zero length
+    // is invalid SPIR-V, so drop the intrinsic entirely.
     if (NumElements == 0)
       return nullptr;
     auto *AT = ArrayType::get(Val->getType(), NumElements);
@@ -5311,20 +5280,13 @@ SPIRVValue *LLVMToSPIRVBase::transIntrinsicInst(IntrinsicInst *II,
       std::vector<SPIRVValue *> Elts(TNumElts, transValue(Val, BB));
       Init = BM->addCompositeConstant(CompositeTy, Elts);
     }
-    SPIRVType *VarTy = transPointerType(AT, SPIRAS_Private);
-    SPIRVBasicBlock *EntryBB = BB->getParent()->getBasicBlock(0);
-    SPIRVValue *Var = BM->addVariable(VarTy, nullptr, /*isConstant*/ false,
-                                      spv::internal::LinkageTypeInternal, Init,
-                                      "", StorageClassFunction, EntryBB);
     std::vector<SPIRVWord> MemAccess = GetMemoryAccess(
         MSI, BM->isAllowedToUseVersion(VersionNumber::SPIRV_1_4));
-    if (!MemAccess.empty() && MemAccess[0] == MemoryAccessAlignedMask)
-      Var->setAlignment(MemAccess[1]);
-    SPIRVType *SourceTy = transPointerType(Val->getType(), SPIRAS_Private);
-    SPIRVValue *Source = BM->addUnaryInst(OpBitcast, SourceTy, Var, BB);
     SPIRVValue *Target = transValue(MSI->getRawDest(), BB);
-    return BM->addCopyMemorySizedInst(Target, Source, CompositeTy->getLength(),
-                                      MemAccess, BB);
+    SPIRVType *StorePtrTy = transPointerType(
+        CompositeTy, MSI->getRawDest()->getType()->getPointerAddressSpace());
+    SPIRVValue *StorePtr = BM->addUnaryInst(OpBitcast, StorePtrTy, Target, BB);
+    return BM->addStoreInst(StorePtr, Init, MemAccess, BB);
   } break;
   case Intrinsic::memcpy:
     // A zero-sized memcpy is a no-op. Emitting OpCopyMemorySized with a Size
