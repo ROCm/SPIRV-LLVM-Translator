@@ -1,13 +1,7 @@
-# HeCBench subset run by the test_hecbench CI job (amdgcnspirv-be backend).
-# One benchmark directory name (under HeCBench/src) per line, sorted; '#'
-# comments and blank lines are ignored. bench.sh runs them in file order.
-#
-# Entries must be hermetic: no external data (DVC / tarballs /
-# download_datasets.sh) and no libraries missing from the CI staging (hipblas,
-# hipfft, hipsparse, hipsolver, -lomp, gsl, boost, numpy, ...), and must build
-# and self-verify on the amdgcnspirv-be path in the pinned CI container.
-# Per-benchmark run-arg overrides live in ci_run_args.txt. After editing, re-run
-# update_deps.sh to regenerate ci_benchmarks.deps.txt.
+# HeCBench/src dirs run by the test_hecbench CI job, one per line, sorted.
+# Entries must be hermetic (no downloaded data, no libraries missing from CI,
+# e.g. hipblas, gsl, boost) and pass on amdgcnspirv-be in the CI container.
+# Run-arg overrides: ci_run_args.txt. After editing, re-run update_deps.sh.
 
 accuracy-hip
 ace-hip
@@ -23,8 +17,7 @@ asta-hip
 asyncAllocation-hip
 atan2-hip
 atomicAggregate-hip
-# Regression test for llvm/llvm-project#215510: without it the AMDGPU atomic
-# metadata is dropped and atomics lower to CAS loops (>4x slower on gfx90a).
+# Tests llvm/llvm-project#215510 (else atomics become CAS loops, >4x slower).
 atomicIntrinsics-hip
 atomicPerf-hip
 atomicReduction-hip

@@ -108,7 +108,6 @@ declare -a MAKE_ARGS=(
     "EXTRA_CFLAGS=-D_LIBCUDACXX_ALLOW_UNSUPPORTED_ARCHITECTURE -DNDEBUG"
 )
 
-# Per-benchmark program-argument overrides for `make run` (see ci_run_args.txt).
 declare -A RUN_ARGS=()
 RUN_ARGS_FILE="${SCRIPT_DIR}/ci_run_args.txt"
 if [[ -f "$RUN_ARGS_FILE" ]]; then
@@ -208,8 +207,7 @@ bench_one() {
         return
     fi
 
-    # Replace everything after the leading ./program token with the override
-    # args. Fail loudly rather than silently run upstream args if the shape changes.
+    # Replace args after ./program; fail rather than silently run upstream args.
     if [[ -n "${RUN_ARGS[$name]+set}" ]]; then
         if [[ ${#runcmds[@]} -ne 1 || ! "${runcmds[0]}" =~ ^([[:space:]]*\./[^[:space:]]+)([[:space:]]|$) ]]; then
             log_error "Failed: $name (cannot apply ci_run_args.txt override to: ${runcmds[*]})"
