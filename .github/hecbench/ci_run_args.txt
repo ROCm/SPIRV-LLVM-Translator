@@ -1,0 +1,5 @@
+# Replacement `make run` args for benchmarks too slow for the CI timeout.
+# Format: <benchmark> <args...>
+
+# Upstream `27 100`: ~1080s on gfx942, native too (contended atomics). `27 10`: ~110s.
+atomicIntrinsics-hip 27 10

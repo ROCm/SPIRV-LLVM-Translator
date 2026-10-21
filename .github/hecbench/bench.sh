@@ -108,6 +108,15 @@ declare -a MAKE_ARGS=(
     "EXTRA_CFLAGS=-D_LIBCUDACXX_ALLOW_UNSUPPORTED_ARCHITECTURE -DNDEBUG"
 )
 
+declare -A RUN_ARGS=()
+RUN_ARGS_FILE="${SCRIPT_DIR}/ci_run_args.txt"
+if [[ -f "$RUN_ARGS_FILE" ]]; then
+    while read -r bname bargs || [[ -n "$bname" ]]; do
+        [[ -z "$bname" || "$bname" == \#* ]] && continue
+        RUN_ARGS["$bname"]="$bargs"
+    done < "$RUN_ARGS_FILE"
+fi
+
 echo "benchmark,build_seconds,run_seconds" > "$LOG_DIR/timings.csv"
 touch "$LOG_DIR/success.log" \
       "$LOG_DIR/failed.log" \
@@ -196,6 +205,18 @@ bench_one() {
         echo "$name" >> "$LOG_DIR/failed.log"
         cd "$SCRIPT_DIR"
         return
+    fi
+
+    # Replace args after ./program; fail rather than silently run upstream args.
+    if [[ -n "${RUN_ARGS[$name]+set}" ]]; then
+        if [[ ${#runcmds[@]} -ne 1 || ! "${runcmds[0]}" =~ ^([[:space:]]*\./[^[:space:]]+)([[:space:]]|$) ]]; then
+            log_error "Failed: $name (cannot apply ci_run_args.txt override to: ${runcmds[*]})"
+            echo "$name" >> "$LOG_DIR/failed.log"
+            cd "$SCRIPT_DIR"
+            return
+        fi
+        runcmds=("${BASH_REMATCH[1]} ${RUN_ARGS[$name]}")
+        log_info "$name: run args overridden (ci_run_args.txt): ${RUN_ARGS[$name]}"
     fi
 
     run_start=$(date +%s.%N)
