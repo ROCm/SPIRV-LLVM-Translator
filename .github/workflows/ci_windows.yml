@@ -2,6 +2,11 @@ name: CI - Windows
 
 on:
   workflow_call:
+    secrets:
+      BENCHMARK_DB_FALLBACK_URL:
+        required: false
+      BENCHMARK_DB_URL:
+        required: false
     inputs:
       artifact_group:
         type: string
@@ -40,8 +45,7 @@ jobs:
   build_windows_artifacts:
     name: Build Artifacts
     if: ${{ inputs.use_prebuilt_artifacts == 'false' }}
-    uses: ./.github/workflows/build_windows_artifacts.yml
-    secrets: inherit
+    uses: $/.github/workflows/build_windows_artifacts.yml
     with:
       artifact_group: ${{ inputs.artifact_group }}
       amdgpu_families: ${{ inputs.amdgpu_families }}
@@ -72,8 +76,10 @@ jobs:
         inputs.expect_failure == false &&
         inputs.benchmark_runs_on != ''
       }}
-    uses: ./.github/workflows/test_benchmarks.yml
-    secrets: inherit
+    uses: $/.github/workflows/test_benchmarks.yml
+    secrets:
+      BENCHMARK_DB_FALLBACK_URL: ${{ secrets.BENCHMARK_DB_FALLBACK_URL }}
+      BENCHMARK_DB_URL: ${{ secrets.BENCHMARK_DB_URL }}
     with:
       artifact_group: ${{ inputs.artifact_group }}
       amdgpu_families: ${{ inputs.amdgpu_families }}
@@ -97,7 +103,7 @@ jobs:
         ) &&
         inputs.expect_failure == false
       }}
-    uses: ./.github/workflows/build_windows_python_packages.yml
+    uses: $/.github/workflows/build_windows_python_packages.yml
     with:
       artifact_run_id: "${{ inputs.artifact_run_id != '' && inputs.artifact_run_id || github.run_id }}"
       artifact_group: ${{ inputs.artifact_group }}

@@ -24,8 +24,7 @@ permissions:
 jobs:
   build_artifacts:
     name: Build Artifacts
-    uses: ./.github/workflows/multi_arch_build_portable_linux.yml
-    secrets: inherit
+    uses: $/.github/workflows/multi_arch_build_portable_linux.yml
     with:
       matrix_per_family_json: ${{ toJSON(fromJSON(inputs.build_config).per_family_info) }}
       dist_amdgpu_families: ${{ fromJSON(inputs.build_config).dist_amdgpu_families }}
@@ -45,7 +44,7 @@ jobs:
   build_tarballs:
     needs: [build_artifacts]
     name: Build Tarballs
-    uses: ./.github/workflows/multi_arch_build_tarballs.yml
+    uses: $/.github/workflows/multi_arch_build_tarballs.yml
     with:
       dist_amdgpu_families: ${{ fromJSON(inputs.build_config).dist_amdgpu_families }}
       platform: linux
@@ -63,7 +62,7 @@ jobs:
   #   needs: [build_artifacts]
   #   name: Build Python Packages
   #   if: ${{ !failure() && !cancelled() && fromJSON(inputs.build_config).expect_failure == false }}
-  #   uses: ./.github/workflows/build_portable_linux_python_packages.yml
+  #   uses: $/.github/workflows/build_portable_linux_python_packages.yml
   #   with:
   #     artifact_group: ${{ fromJSON(inputs.build_config).artifact_group }}
   #     amdgpu_families: ${{ fromJSON(inputs.build_config).dist_amdgpu_families }}

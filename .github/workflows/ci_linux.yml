@@ -40,8 +40,7 @@ jobs:
   build_portable_linux_artifacts:
     name: Build Artifacts
     if: ${{ inputs.use_prebuilt_artifacts == 'false' }}
-    uses: ./.github/workflows/build_portable_linux_artifacts.yml
-    secrets: inherit
+    uses: $/.github/workflows/build_portable_linux_artifacts.yml
     with:
       artifact_group: ${{ inputs.artifact_group }}
       package_version: ${{ inputs.rocm_package_version }}
@@ -78,7 +77,7 @@ jobs:
         ) &&
         inputs.expect_failure == false
       }}
-    uses: ./.github/workflows/test_artifacts.yml
+    uses: $/.github/workflows/test_artifacts.yml
     with:
       artifact_group: ${{ inputs.artifact_group }}
       amdgpu_families: ${{ inputs.amdgpu_families }}
@@ -105,7 +104,7 @@ jobs:
         ) &&
         inputs.expect_failure == false
       }}
-    uses: ./.github/workflows/build_portable_linux_python_packages.yml
+    uses: $/.github/workflows/build_portable_linux_python_packages.yml
     with:
       artifact_run_id: "${{ inputs.artifact_run_id != '' && inputs.artifact_run_id || github.run_id }}"
       artifact_group: ${{ inputs.artifact_group }}

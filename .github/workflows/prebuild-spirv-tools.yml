@@ -16,6 +16,9 @@ on:
 env:
   SPIRV_TOOLS_INSTALL: ${{ github.workspace }}/spirv-tools-install
 
+permissions:
+  contents: read
+
 jobs:
   prebuild:
     name: Build and cache SPIRV-Tools main
@@ -26,7 +29,7 @@ jobs:
         run: echo "date=$(date -u +%Y-%m-%d)" >> $GITHUB_OUTPUT
       - name: Check for existing cache entry
         id: spirv-tools-cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.SPIRV_TOOLS_INSTALL }}
           key: spirv-tools-main-${{ steps.date.outputs.date }}
@@ -35,16 +38,17 @@ jobs:
         if: steps.spirv-tools-cache.outputs.cache-hit != 'true'
         run: |
           git clone --depth=1 https://github.com/KhronosGroup/SPIRV-Tools SPIRV-Tools
+          git log -1
           python3 SPIRV-Tools/utils/git-sync-deps
           cmake -S SPIRV-Tools -B SPIRV-Tools/build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=${{ env.SPIRV_TOOLS_INSTALL }} \
+            -DCMAKE_INSTALL_PREFIX="${SPIRV_TOOLS_INSTALL}" \
             -DSPIRV_SKIP_TESTS=ON \
             -G "Unix Makefiles"
           make -C SPIRV-Tools/build install -j$(nproc)
       - name: Save SPIRV-Tools cache
         if: steps.spirv-tools-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.SPIRV_TOOLS_INSTALL }}
           key: spirv-tools-main-${{ steps.date.outputs.date }}

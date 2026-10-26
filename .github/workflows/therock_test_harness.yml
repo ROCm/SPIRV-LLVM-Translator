@@ -34,12 +34,13 @@ jobs:
       package_targets: ${{ steps.configure.outputs.package_targets }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           repository: "ROCm/TheRock"
 
       - name: Setup Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: 3.12
 
@@ -76,26 +77,28 @@ jobs:
         shell: bash
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           repository: "ROCm/TheRock"
 
       - name: Setup Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: 3.12
 
       - name: Install TheRock
         env:
+          MATRIX_TARGET_BUNDLE_AMDGPU_FAMILY: ${{ matrix.target_bundle.amdgpu_family }}
           release_version: ${{ inputs.release_version }}
         run: |
           pip install -r requirements-test.txt
-          python3 build_tools/install_rocm_from_artifacts.py --tests --amdgpu-family ${{ matrix.target_bundle.amdgpu_family }} --release ${{ env.release_version }}
-
+          python3 build_tools/install_rocm_from_artifacts.py --tests --amdgpu-family "${MATRIX_TARGET_BUNDLE_AMDGPU_FAMILY}" --release "${release_version}"
       # TODO: add parallelism
       - name: Running test harness
         # TESTING
+        env:
+          INPUTS_TESTS_TO_RUN: ${{ inputs.tests_to_run }}
         run: |
-          python3 -m pytest -s -v --tb=short --therock-path=./therock-build tests/harness/tests*.py -k ${{ inputs.tests_to_run }}
-
+          python3 -m pytest -s -v --tb=short --therock-path=./therock-build tests/harness/tests*.py -k "${INPUTS_TESTS_TO_RUN}"
 # TODO: Add windows tests
