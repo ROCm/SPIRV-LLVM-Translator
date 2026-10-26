@@ -174,8 +174,22 @@ jobs:
           ROCM_PATH: ${{ github.workspace }}/${{ env.STAGING }}
         run: ninja -C "$ROCR_BUILD" install
 
-      - name: Install CLR build dependencies
-        run: pip3 install cxxheaderparser
+      # CLR configure imports Python packages listed in TheRock requirements.txt
+      # (cxxheaderparser today). The manylinux image does not install that file,
+      # so take the list from TheRock main and install it here.
+      - name: Checkout TheRock Python requirements
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ROCm/TheRock
+          ref: main
+          path: TheRock
+          sparse-checkout: requirements.txt
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install TheRock Python requirements
+        run: python3 -m pip install -r TheRock/requirements.txt
 
       - name: Configure CLR (HIP runtime)
         run: |
