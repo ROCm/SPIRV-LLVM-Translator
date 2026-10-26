@@ -53,11 +53,14 @@ jobs:
       # llvm-project at amd-staging tip provides the host LLVM/Clang/LLD plus
       # the amd/ subprojects (device-libs, comgr). The SPIRV translator PR
       # head is overlaid in-tree under llvm/projects/.
-      - name: Checkout llvm-project (amd-staging)
+      - name: Checkout llvm-project (ROCm/llvm-project#5078)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ROCm/llvm-project
-          ref: amd-staging
+          # TEMP: pin to PR #5078 (reland of upstream #233150, PassBuilder takes
+          # LLVMContext) to verify this translator PR builds against the new API.
+          # Revert to `amd-staging` before merge.
+          ref: 2415f806a41f83d7b0efef44f653fe2135f12451
           path: llvm-project
           fetch-depth: 1
           persist-credentials: false
