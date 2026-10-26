@@ -709,8 +709,8 @@ jobs:
   # gates on each benchmark's self-verification. Scripts vendored in .github/hecbench.
   test_hecbench:
     name: Test HeCBench
-    needs: build
-    runs-on: linux-gfx942-1gpu-ccs-csp-ossci-rocm
+    needs: [build, pick_runner]
+    runs-on: ${{ needs.pick_runner.outputs.test_runs_on }}
     timeout-minutes: 240
     # This image defaults inline `run:` steps to `sh`; force bash so the steps
     # below can use arrays, process substitution, and [[ ]].
