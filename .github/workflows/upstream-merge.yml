@@ -128,16 +128,6 @@ jobs:
           )")
           echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
 
-      - name: Enable auto-merge (merge commit)
-        if: steps.merge.outputs.conflict == 'false'
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          PR_URL: ${{ steps.create-pr.outputs.pr_url }}
-        run: |
-          # Lock merge method to "Create a merge commit" to preserve upstream ancestry.
-          gh pr merge "$PR_URL" --auto --merge \
-            || echo "::warning::Could not enable auto-merge; reviewers must pick 'Create a merge commit' manually."
-
       - name: Notify Teams
         env:
           TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
