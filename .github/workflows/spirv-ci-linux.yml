@@ -174,13 +174,6 @@ jobs:
           ROCM_PATH: ${{ github.workspace }}/${{ env.STAGING }}
         run: ninja -C "$ROCR_BUILD" install
 
-      # TODO(ROCM-22685): drop once the pinned therock_build_manylinux_x86_64
-      # image ships cxxheaderparser. ROCm/rocm-systems@fd42f7f ("fix(clr): move
-      # to cxxheaderparser", 2026-10-26) switched clr's hip_prof_gen.py off the
-      # deprecated CppHeaderParser, but the image still only ships the old
-      # package, so CLR's configure step hard-fails. TheRock added it to its own
-      # requirements.txt in ROCm/TheRock#8887, so a future image rebuild should
-      # make this step redundant.
       - name: Install CLR build dependencies
         run: pip3 install cxxheaderparser
 
