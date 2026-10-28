@@ -13,10 +13,10 @@ env:
   # bump only after CI's Build + Test rocm-examples jobs pass on the candidate
   # SHA (gated by .github/workflows/automerge-rocm-examples.yml). Keep this on
   # its own line: the bumper rewrites exactly this line via sed.
-  ROCM_EXAMPLES_REF: a0b903928374c08bc418c4fb2d1167edb48bf15c
+  ROCM_EXAMPLES_REF: a817f653525399d252bd76ba4c2364b5e93bda79
   # Pinned ORNL/HeCBench revision; bumped daily by update-hecbench.yml (sed
   # rewrites this line; keep it standalone).
-  HECBENCH_REF: 1a94663ac0017effdb67acaf6e6461ad74bfe7c9
+  HECBENCH_REF: 4a0cd4a037d0aee9e5a3a6fb83c8bdd349089124
   LLVM_BUILD: build
   DEVLIBS_BUILD: build-device-libs
   COMGR_BUILD: build-comgr
@@ -173,6 +173,23 @@ jobs:
         env:
           ROCM_PATH: ${{ github.workspace }}/${{ env.STAGING }}
         run: ninja -C "$ROCR_BUILD" install
+
+      # CLR configure imports Python packages listed in TheRock requirements.txt
+      # (cxxheaderparser today). The manylinux image does not install that file,
+      # so take the list from TheRock main and install it here.
+      - name: Checkout TheRock Python requirements
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ROCm/TheRock
+          ref: main
+          path: TheRock
+          sparse-checkout: requirements.txt
+          sparse-checkout-cone-mode: false
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install TheRock Python requirements
+        run: python3 -m pip install -r TheRock/requirements.txt
 
       - name: Configure CLR (HIP runtime)
         run: |
@@ -709,8 +726,8 @@ jobs:
   # gates on each benchmark's self-verification. Scripts vendored in .github/hecbench.
   test_hecbench:
     name: Test HeCBench
-    needs: build
-    runs-on: linux-gfx942-1gpu-ccs-csp-ossci-rocm
+    needs: [build, pick_runner]
+    runs-on: ${{ needs.pick_runner.outputs.test_runs_on }}
     timeout-minutes: 240
     # This image defaults inline `run:` steps to `sh`; force bash so the steps
     # below can use arrays, process substitution, and [[ ]].

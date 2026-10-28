@@ -50,6 +50,7 @@
 #include "SPIRVModule.h"
 #include "SPIRVToLLVMDbgTran.h"
 #include "SPIRVToOCL.h"
+#include "SPIRVToolsUtil.h"
 #include "SPIRVType.h"
 #include "SPIRVUtil.h"
 #include "SPIRVValue.h"
@@ -88,19 +89,13 @@
 #include "llvm/TargetParser/AMDGPUTargetParser.h"
 #include "llvm/Transforms/Utils/Local.h"
 
-#ifdef LLVM_SPIRV_HAVE_SPIRV_TOOLS
-#include "spirv-tools/libspirv.hpp"
-#endif
-
 #include <algorithm>
 #include <cstdlib>
-#include <cstring>
 #include <fstream>
 #include <functional>
 #include <iostream>
 #include <iterator>
 #include <map>
-#include <optional>
 #include <set>
 #include <sstream>
 #include <string>
@@ -1381,7 +1376,7 @@ Value *SPIRVToLLVM::transShiftLogicalBitwiseInst(SPIRVValue *BV, BasicBlock *BB,
   Value *Op0 = transValue(BBN->getOperand(0), F, BB);
   Value *Op1 = transValue(BBN->getOperand(1), F, BB);
 
-  IRBuilder<> Builder(*Context);
+  IRBuilder<> Builder(*M);
   if (BB) {
     Builder.SetInsertPoint(BB);
   }
@@ -1405,7 +1400,7 @@ Value *SPIRVToLLVM::transCmpInst(SPIRVValue *BV, BasicBlock *BB, Function *F) {
   Value *Op0 = transValue(BC->getOperand(0), F, BB);
   Value *Op1 = transValue(BC->getOperand(1), F, BB);
 
-  IRBuilder<> Builder(*Context);
+  IRBuilder<> Builder(*M);
   if (BB) {
     Builder.SetInsertPoint(BB);
   }
@@ -2323,7 +2318,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
 
   case OpSelect: {
     SPIRVSelect *BS = static_cast<SPIRVSelect *>(BV);
-    IRBuilder<> Builder(*Context);
+    IRBuilder<> Builder(*M);
     if (BB) {
       Builder.SetInsertPoint(BB);
     }
@@ -2864,7 +2859,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
 
   case OpCompositeExtract: {
     SPIRVCompositeExtract *CE = static_cast<SPIRVCompositeExtract *>(BV);
-    IRBuilder<> Builder(*Context);
+    IRBuilder<> Builder(*M);
     if (BB) {
       Builder.SetInsertPoint(BB);
     }
@@ -2893,7 +2888,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
 
   case OpCompositeInsert: {
     auto *CI = static_cast<SPIRVCompositeInsert *>(BV);
-    IRBuilder<> Builder(*Context);
+    IRBuilder<> Builder(*M);
     if (BB) {
       Builder.SetInsertPoint(BB);
     }
@@ -2958,7 +2953,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
       else
         Components.push_back(ConstantInt::get(Int32Ty, I));
     }
-    IRBuilder<> Builder(*Context);
+    IRBuilder<> Builder(*M);
     if (BB) {
       Builder.SetInsertPoint(BB);
     }
@@ -3146,7 +3141,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
   }
 
   case OpSNegate: {
-    IRBuilder<> Builder(*Context);
+    IRBuilder<> Builder(*M);
     if (BB) {
       Builder.SetInsertPoint(BB);
     }
@@ -3186,7 +3181,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     //   r = srem(a, b)
     //   needs_fixing = ((a < 0) != (b < 0) && r != 0)
     //   result = needs_fixing ? r + b : r
-    IRBuilder<> Builder(*Context);
+    IRBuilder<> Builder(*M);
     if (BB) {
       Builder.SetInsertPoint(BB);
     }
@@ -3217,7 +3212,7 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
 
   case OpNot:
   case OpLogicalNot: {
-    IRBuilder<> Builder(*Context);
+    IRBuilder<> Builder(*M);
     if (BB) {
       Builder.SetInsertPoint(BB);
     }
@@ -4410,7 +4405,7 @@ Instruction *SPIRVToLLVM::transBuiltinFromInst(const std::string &FuncName,
       Func->addFnAttr(Attribute::NoUnwind);
     if (isGroupOpCode(OC) || isGroupNonUniformOpcode(OC) ||
         isIntelSubgroupOpCode(OC) || isSplitBarrierINTELOpCode(OC) ||
-        OC == OpControlBarrier)
+        OC == OpSubgroupBitcastShuffleINTEL || OC == OpControlBarrier)
       Func->addFnAttr(Attribute::Convergent);
   }
   CallInst *Call;
@@ -4601,6 +4596,7 @@ Instruction *SPIRVToLLVM::transSPIRVBuiltinFromInst(SPIRVInstruction *BI,
   case internal::OpClampConvertFToSINTEL:
   case internal::OpStochasticRoundFToFINTEL:
   case internal::OpClampStochasticRoundFToSINTEL:
+  case OpSubgroupBitcastShuffleINTEL:
   // Old opcodes, for backward compatibility.
   case internal::OpClampConvertFToFINTEL:
   case internal::OpClampStochasticRoundFToFINTEL:
@@ -4614,13 +4610,14 @@ Instruction *SPIRVToLLVM::transSPIRVBuiltinFromInst(SPIRVInstruction *BI,
   }
 
   bool IsRetSigned = true;
-  switch (OC) {
+  switch (static_cast<size_t>(OC)) {
   case OpConvertFToU:
   case OpSatConvertSToU:
   case OpUConvert:
   case OpUDotKHR:
   case OpUDotAccSatKHR:
   case OpReadClockKHR:
+  case OpSubgroupBitcastShuffleINTEL:
     IsRetSigned = false;
     break;
   case OpImageRead:
@@ -6886,71 +6883,6 @@ SPIRVModuleTextReport formatSpirvReport(const SPIRVModuleReport &Report) {
   return TextReport;
 }
 
-#ifdef LLVM_SPIRV_HAVE_SPIRV_TOOLS
-static std::optional<spv_target_env>
-getSPIRVToolsTargetEnv(VersionNumber Version) {
-  switch (Version) {
-  case VersionNumber::SPIRV_1_0:
-    return SPV_ENV_UNIVERSAL_1_0;
-  case VersionNumber::SPIRV_1_1:
-    return SPV_ENV_UNIVERSAL_1_1;
-  case VersionNumber::SPIRV_1_2:
-    return SPV_ENV_UNIVERSAL_1_2;
-  case VersionNumber::SPIRV_1_3:
-    return SPV_ENV_UNIVERSAL_1_3;
-  case VersionNumber::SPIRV_1_4:
-    return SPV_ENV_UNIVERSAL_1_4;
-  case VersionNumber::SPIRV_1_5:
-    return SPV_ENV_UNIVERSAL_1_5;
-  case VersionNumber::SPIRV_1_6:
-    return SPV_ENV_UNIVERSAL_1_6;
-  default:
-    return std::nullopt;
-  }
-}
-
-static bool validateSPIRVBinary(std::istream &IS, std::string &Binary,
-                                std::string &ErrMsg) {
-  Binary.assign(std::istreambuf_iterator<char>(IS),
-                std::istreambuf_iterator<char>());
-  if (Binary.size() % sizeof(uint32_t) != 0) {
-    ErrMsg = "SPIR-V validation failed: input size is not a multiple of 4 "
-             "bytes";
-    return false;
-  }
-
-  std::vector<uint32_t> Words(Binary.size() / sizeof(uint32_t));
-  if (!Binary.empty())
-    std::memcpy(Words.data(), Binary.data(), Binary.size());
-
-  if (Words.size() < 5) {
-    ErrMsg = "SPIR-V validation failed: incomplete SPIR-V header";
-    return false;
-  }
-
-  const auto TargetEnv =
-      getSPIRVToolsTargetEnv(static_cast<VersionNumber>(Words[1]));
-  if (!TargetEnv) {
-    ErrMsg = "SPIR-V validation failed: unsupported SPIR-V version";
-    return false;
-  }
-
-  std::string ValidationError;
-  spvtools::SpirvTools Validator(*TargetEnv);
-  Validator.SetMessageConsumer(
-      [&ValidationError](spv_message_level_t, const char *,
-                         const spv_position_t &,
-                         const char *Message) { ValidationError = Message; });
-  if (Validator.Validate(Words))
-    return true;
-
-  ErrMsg = "SPIR-V validation failed";
-  if (!ValidationError.empty())
-    ErrMsg += ": " + ValidationError;
-  return false;
-}
-#endif
-
 std::unique_ptr<SPIRVModule> readSpirvModule(std::istream &IS,
                                              const SPIRV::TranslatorOpts &Opts,
                                              std::string &ErrMsg) {
@@ -6969,10 +6901,15 @@ std::unique_ptr<SPIRVModule> readSpirvModule(std::istream &IS,
   std::unique_ptr<SPIRVModule> BM(
       SPIRVModule::createSPIRVModule(*EffectiveOpts));
 
-#ifdef LLVM_SPIRV_HAVE_SPIRV_TOOLS
-  if (EffectiveOpts->isSPIRVValidationEnabled() && !SPIRVUseTextFormat) {
+  const bool ValidateSPIRV = EffectiveOpts->isSPIRVValidationEnabled();
+  if (ValidateSPIRV && !isSPIRVValidationAvailable(ErrMsg))
+    return nullptr;
+
+  if (ValidateSPIRV && !SPIRVUseTextFormat) {
     std::string Binary;
-    if (!validateSPIRVBinary(IS, Binary, ErrMsg))
+    Binary.assign(std::istreambuf_iterator<char>(IS),
+                  std::istreambuf_iterator<char>());
+    if (!validateSPIRVBinary(Binary, ErrMsg))
       return nullptr;
 
     std::istringstream ValidatedInput(Binary, std::ios::in | std::ios::binary);
@@ -6980,14 +6917,6 @@ std::unique_ptr<SPIRVModule> readSpirvModule(std::istream &IS,
   } else {
     IS >> *BM;
   }
-#else
-  if (EffectiveOpts->isSPIRVValidationEnabled()) {
-    ErrMsg = "SPIR-V validation was requested, but this build lacks "
-             "SPIR-V Tools validation support";
-    return nullptr;
-  }
-  IS >> *BM;
-#endif
   if (!BM->isModuleValid()) {
     BM->getError(ErrMsg);
     return nullptr;
