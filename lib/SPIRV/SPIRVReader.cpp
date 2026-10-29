@@ -5021,19 +5021,6 @@ void generateIntelFPGAAnnotationForStructMember(
   }
 }
 
-void SPIRVToLLVM::transAMDGPUAtomicDecorations(SPIRVValue *BV, Value *V) {
-  if (!BV->isInst() || !BV->isAtomic())
-    return;
-
-  for (const auto *D : BV->getDecorations()) {
-    if (D->getDecorateKind() != DecorationUserSemantic)
-      continue;
-
-    cast<Instruction>(V)->setMetadata(getString(D->getVecLiteral()),
-                                      MDNode::get(V->getContext(), {}));
-  }
-}
-
 void SPIRVToLLVM::transIntelFPGADecorations(SPIRVValue *BV, Value *V) {
   if (!BV->isVariable() && !BV->isInst())
     return;
@@ -5431,9 +5418,7 @@ bool SPIRVToLLVM::transDecoration(SPIRVValue *BV, Value *V) {
   if (!transAlign(BV, V))
     return false;
 
-  if (M->getTargetTriple().isAMDGCN())
-    transAMDGPUAtomicDecorations(BV, V);
-  else
+  if (!M->getTargetTriple().isAMDGCN())
     transIntelFPGADecorations(BV, V);
   transMemAliasingINTELDecorations(BV, V);
 
