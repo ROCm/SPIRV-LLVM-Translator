@@ -130,9 +130,9 @@ static AtomicRMWInst::BinOp getAtomicRMWInstForOp(Op op) {
   case OpAtomicIAdd:
     return AtomicRMWInst::Add;
   case OpAtomicIDecrement:
-    return AtomicRMWInst::UDecWrap;
+    return AtomicRMWInst::Sub;
   case OpAtomicIIncrement:
-    return AtomicRMWInst::UIncWrap;
+    return AtomicRMWInst::Add;
   case OpAtomicISub:
     return AtomicRMWInst::Sub;
   case OpAtomicOr:
@@ -174,9 +174,12 @@ static void translateSPIRVAtomicBuiltinToLLVMAtomicOp(CallInst *CI, Op OC) {
     ST->setAtomic(Order, S);
     CI->replaceAllUsesWith(ST);
   } else {
-    auto RMW =
-        Builder.CreateAtomicRMW(getAtomicRMWInstForOp(OC), CI->getOperand(0),
-                                CI->getOperand(1), {}, Order, S);
+    // IIncrement/IDecrement have no value operand: add/sub 1.
+    Value *Val = OC == OpAtomicIIncrement || OC == OpAtomicIDecrement
+                     ? ConstantInt::get(CI->getType(), 1)
+                     : CI->getOperand(1);
+    auto RMW = Builder.CreateAtomicRMW(getAtomicRMWInstForOp(OC),
+                                       CI->getOperand(0), Val, {}, Order, S);
     for (auto &&MD : {"amdgpu.no.fine.grained.memory",
                       "amdgpu.no.remote.memory",
                       "atomic.ignore.denormal.mode"})
