@@ -29,6 +29,7 @@ coordinates-cuda
 damage-cuda
 data
 debayer-sycl
+divergence-cuda
 dpid-cuda
 dxtc2-sycl
 easyWave-omp
