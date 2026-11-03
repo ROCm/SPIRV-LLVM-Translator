@@ -16,6 +16,7 @@ import yaml
 WORKFLOWS = Path(__file__).resolve().parents[1] / "workflows"
 REPO = "ROCm/SPIRV-LLVM-Translator"
 SHA = "a" * 40
+BASE_SHA = "b" * 40
 BOT = "rocm-spirv-translator-merge[bot]"
 
 
@@ -39,6 +40,7 @@ class MergeFixture(TypedDict):
     prs: list[dict[str, int]]
     details: dict[str, JsonValue]
     jobs: list[dict[str, str]]
+    files: list[dict[str, JsonValue]]
 
 
 def workflow(name: str) -> WorkflowDefinition:
@@ -59,10 +61,13 @@ class WorkflowSecurityTest(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.log = self.root / "commands.jsonl"
+        self.token_log = self.root / "tokens.jsonl"
         self.env = os.environ | {
             "PATH": f"{self.root}:{os.environ['PATH']}",
             "COMMAND_LOG": str(self.log),
-            "GH_TOKEN": "test-token",
+            "TOKEN_LOG": str(self.token_log),
+            "GH_TOKEN": "test-app-token",
+            "ACTIONS_TOKEN": "test-actions-token",
             "REPO": REPO,
             "HEAD_SHA": SHA,
             "EXPECTED_AUTHOR": BOT,
@@ -77,11 +82,17 @@ class WorkflowSecurityTest(unittest.TestCase):
             "args = sys.argv[1:]\n"
             "with open(os.environ['COMMAND_LOG'], 'a') as log:\n"
             "    log.write(json.dumps(args) + '\\n')\n"
+            "with open(os.environ['TOKEN_LOG'], 'a') as log:\n"
+            "    log.write(json.dumps({'args': args, 'token': os.environ['GH_TOKEN']}) + '\\n')\n"
             "fixture = json.loads(os.environ['GH_FIXTURE'])\n"
+            "if args[0] == 'api' and args[1] == os.environ.get('GH_FAIL_ENDPOINT'):\n"
+            "    sys.exit(1)\n"
             "if args[:2] == ['pr', 'list']:\n"
             "    print(json.dumps(fixture['prs']))\n"
             "elif args[0] == 'api' and '/pulls/' in args[1]:\n"
             "    print(json.dumps(fixture['details']))\n"
+            "elif args[0] == 'api' and '/compare/' in args[1]:\n"
+            "    print(json.dumps(fixture['files']))\n"
             "elif args[0] == 'api' and args[1].endswith('/attempts/2/jobs'):\n"
             "    for job in fixture['jobs']: print(json.dumps(job))\n"
             "elif args[:2] != ['pr', 'merge']:\n"
@@ -100,26 +111,40 @@ class WorkflowSecurityTest(unittest.TestCase):
             "prs": [{"number": 123}],
             "details": {
                 "state": "open", "draft": False,
-                "base": {"ref": "amd-staging", "repo": {"full_name": REPO}},
+                "base": {"ref": "amd-staging", "sha": BASE_SHA, "repo": {"full_name": REPO}},
                 "head": {"ref": branch, "sha": SHA, "repo": {"full_name": REPO}},
                 "user": {"login": BOT},
             },
+            "files": [{
+                "filename": ".github/workflows/spirv-ci-linux.yml",
+                "status": "modified", "additions": 1, "deletions": 1, "changes": 2,
+                "patch": ("@@ -15,3 +15,3 @@ env:\n"
+                          "   # Keep this on its own line.\n"
+                          f"-  ROCM_EXAMPLES_REF: {'c' * 40}\n"
+                          f"+  ROCM_EXAMPLES_REF: {'d' * 40}\n"
+                          "   # Next pin"),
+            }],
             "jobs": [
                 {"name": "Linux::release / Build", "status": "completed", "conclusion": "success"},
                 {"name": "Linux::release / Test rocm-examples", "status": "completed", "conclusion": "success"},
             ],
         }
 
-    def run_watcher(self, filename: str, fixture: MergeFixture) -> list[list[str]]:
+    def run_watcher(
+        self, filename: str, fixture: MergeFixture, *,
+        fail_endpoint: str = "", expected_returncode: int = 0,
+    ) -> list[list[str]]:
         self.log.unlink(missing_ok=True)
+        self.token_log.unlink(missing_ok=True)
         branch = "deps/rocm-examples" if "rocm-examples" in filename else "upstream-merge-123"
         job = next(iter(workflow(filename)["jobs"].values()))
         result = subprocess.run(
             ["bash", "-e", "-o", "pipefail"], input=job["steps"][-1]["run"],
-            env=self.env | {"HEAD_BRANCH": branch, "GH_FIXTURE": json.dumps(fixture)},
+            env=self.env | {"HEAD_BRANCH": branch, "GH_FIXTURE": json.dumps(fixture),
+                            "GH_FAIL_ENDPOINT": fail_endpoint},
             cwd=self.root, text=True, capture_output=True,
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.returncode, expected_returncode, result.stderr)
         return [args for args in self.commands() if args[:2] == ["pr", "merge"]]
 
     def test_merge_only_matches_current_bot_head(self) -> None:
@@ -167,6 +192,59 @@ class WorkflowSecurityTest(unittest.TestCase):
             ["api", f"repos/{REPO}/actions/runs/123/attempts/2/jobs", "--paginate", "--jq", ".jobs[]"],
             self.commands(),
         )
+
+    def test_examples_gate_requires_only_a_pin_replacement(self) -> None:
+        filename = "automerge-rocm-examples.yml"
+        fixture = self.fixture("deps/rocm-examples")
+        pin_file = fixture["files"][0]
+        patch = pin_file["patch"]
+        self.assertIsInstance(patch, str)
+        for files in [
+            [], [pin_file, pin_file | {"filename": "other.yml"}],
+            [pin_file | {"filename": "other.yml"}],
+            [pin_file | {"status": "renamed"}],
+            [pin_file | {"status": "added"}],
+            [pin_file | {"status": "removed"}],
+            [pin_file | {"additions": 2, "deletions": 2, "changes": 4}],
+            [pin_file | {"patch": None}],
+            [{key: value for key, value in pin_file.items() if key != "patch"}],
+            [pin_file | {"patch": patch.replace("ROCM_EXAMPLES_REF", "HECBENCH_REF")}],
+            [pin_file | {"patch": patch.replace("d" * 40, "amd-staging")}],
+            [pin_file | {"patch": patch.replace("d" * 40, "d" * 39)}],
+            [pin_file | {"patch": patch.replace("d" * 40, "d" * 41)}],
+            [pin_file | {"patch": patch.replace("c" * 40, "c" * 39)}],
+            [pin_file | {"patch": patch.replace("d" * 40, "${{ secrets.TOKEN }}")}],
+            [pin_file | {"patch": patch.replace("\n+", "\n   # Moved the pin\n+")}],
+        ]:
+            with self.subTest(files=files):
+                self.assertEqual(self.run_watcher(filename, fixture | {"files": files}), [])
+        self.assertEqual(len(self.run_watcher(filename, fixture)), 1)
+        self.assertIn(
+            ["api", f"repos/{REPO}/compare/{BASE_SHA}...{SHA}", "--jq", ".files"],
+            self.commands(),
+        )
+
+    def test_examples_gate_uses_actions_token_only_for_jobs(self) -> None:
+        self.run_watcher("automerge-rocm-examples.yml", self.fixture("deps/rocm-examples"))
+        calls = [json.loads(line) for line in self.token_log.read_text().splitlines()]
+        for call in calls:
+            with self.subTest(args=call["args"]):
+                expected = ("test-actions-token" if "/actions/runs/" in call["args"][1]
+                            else "test-app-token")
+                self.assertEqual(call["token"], expected)
+
+    def test_examples_gate_stops_on_api_failure(self) -> None:
+        fixture = self.fixture("deps/rocm-examples")
+        for endpoint in [
+            f"repos/{REPO}/pulls/123",
+            f"repos/{REPO}/compare/{BASE_SHA}...{SHA}",
+            f"repos/{REPO}/actions/runs/123/attempts/2/jobs",
+        ]:
+            with self.subTest(endpoint=endpoint):
+                self.assertEqual(self.run_watcher(
+                    "automerge-rocm-examples.yml", fixture,
+                    fail_endpoint=endpoint, expected_returncode=1,
+                ), [])
 
     def test_container_requires_digest_before_job_start(self) -> None:
         script = step("test_component.yml", "Require a digest for Linux test images")["run"]
