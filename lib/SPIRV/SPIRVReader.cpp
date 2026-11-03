@@ -1269,43 +1269,42 @@ Value *SPIRVToLLVM::transConvertInst(SPIRVValue *BV, Function *F,
         else
           return Src; // Spuriously inserted pointer BC.
       }
-    } else if ((!Dst->isPointerTy() && Dst == Src->getType()) ||
-               (Src->getType() == Dst)) { // Spuriously inserted BC
+      break;
+    }
+    if (!Dst->isPointerTy() && Dst == Src->getType())
       return Src;
-    } else {
-      // OpBitcast need to be handled as a special-case when the source is a
-      // pointer and the destination is not a pointer, and where the source is not
-      // a pointer and the destination is a pointer. This is supported by the
-      // SPIR-V bitcast, but not by the LLVM bitcast.
-      CO = Instruction::BitCast;
-      if (Src->getType()->isPointerTy() && !Dst->isPointerTy()) {
-        if (auto *DstVecTy = dyn_cast<FixedVectorType>(Dst)) {
-          unsigned TotalBitWidth =
-              DstVecTy->getElementType()->getIntegerBitWidth() *
-              DstVecTy->getNumElements();
-          auto *IntTy = Type::getIntNTy(Src->getContext(), TotalBitWidth);
-          if (BB) {
-            Src = CastInst::CreatePointerCast(Src, IntTy, "", BB);
-          } else {
-            Src = ConstantExpr::getPointerCast(cast<Constant>(Src), IntTy);
-          }
+    // OpBitcast need to be handled as a special-case when the source is a
+    // pointer and the destination is not a pointer, and where the source is not
+    // a pointer and the destination is a pointer. This is supported by the
+    // SPIR-V bitcast, but not by the LLVM bitcast.
+    CO = Instruction::BitCast;
+    if (Src->getType()->isPointerTy() && !Dst->isPointerTy()) {
+      if (auto *DstVecTy = dyn_cast<FixedVectorType>(Dst)) {
+        unsigned TotalBitWidth =
+            DstVecTy->getElementType()->getIntegerBitWidth() *
+            DstVecTy->getNumElements();
+        auto *IntTy = Type::getIntNTy(Src->getContext(), TotalBitWidth);
+        if (BB) {
+          Src = CastInst::CreatePointerCast(Src, IntTy, "", BB);
         } else {
-          CO = Instruction::PtrToInt;
+          Src = ConstantExpr::getPointerCast(cast<Constant>(Src), IntTy);
         }
-      } else if (!Src->getType()->isPointerTy() && Dst->isPointerTy()) {
-        if (auto *SrcVecTy = dyn_cast<FixedVectorType>(Src->getType())) {
-          unsigned TotalBitWidth =
-              SrcVecTy->getElementType()->getIntegerBitWidth() *
-              SrcVecTy->getNumElements();
-          auto *IntTy = Type::getIntNTy(Src->getContext(), TotalBitWidth);
-          if (BB) {
-            Src = CastInst::Create(Instruction::BitCast, Src, IntTy, "", BB);
-          } else {
-            Src = ConstantExpr::getBitCast(dyn_cast<Constant>(Src), IntTy);
-          }
-        }
-        CO = Instruction::IntToPtr;
+      } else {
+        CO = Instruction::PtrToInt;
       }
+    } else if (!Src->getType()->isPointerTy() && Dst->isPointerTy()) {
+      if (auto *SrcVecTy = dyn_cast<FixedVectorType>(Src->getType())) {
+        unsigned TotalBitWidth =
+            SrcVecTy->getElementType()->getIntegerBitWidth() *
+            SrcVecTy->getNumElements();
+        auto *IntTy = Type::getIntNTy(Src->getContext(), TotalBitWidth);
+        if (BB) {
+          Src = CastInst::Create(Instruction::BitCast, Src, IntTy, "", BB);
+        } else {
+          Src = ConstantExpr::getBitCast(dyn_cast<Constant>(Src), IntTy);
+        }
+      }
+      CO = Instruction::IntToPtr;
     }
     break;
   // Workaround: OpConvertPtrToU on a target extension type (e.g. spirv.Image)
