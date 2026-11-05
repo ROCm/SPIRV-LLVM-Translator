@@ -647,6 +647,14 @@ SPIRVType *LLVMToSPIRVBase::transType(Type *T) {
     }
   }
 
+  if (isa<ScalableVectorType>(T)) {
+    BM->getErrorLog().checkError(
+        false, SPIRVEC_InvalidLlvmModule,
+        "LLVM module contains scalable vector type, which doesn't have a "
+        "counterpart in SPIR-V");
+    return nullptr;
+  }
+
   llvm_unreachable("Not implemented!");
   return 0;
 }
