@@ -13,7 +13,7 @@ env:
   # bump only after CI's Build + Test rocm-examples jobs pass on the candidate
   # SHA (gated by .github/workflows/automerge-rocm-examples.yml). Keep this on
   # its own line: the bumper rewrites exactly this line via sed.
-  ROCM_EXAMPLES_REF: 66134726ae9c06eddcc438ca4cb377d133ab5b85
+  ROCM_EXAMPLES_REF: a24c038eb242a37c99ae727f199802ce9584b473
   # Pinned ORNL/HeCBench revision; bumped daily by update-hecbench.yml (sed
   # rewrites this line; keep it standalone).
   HECBENCH_REF: 8f44ff3e69fa003f870963045988190a275534cb
