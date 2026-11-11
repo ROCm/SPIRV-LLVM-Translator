@@ -282,7 +282,6 @@ private:
   void transGlobalCtorDtors(SPIRVVariableBase *BV);
   void createCXXStructor(const char *ListName,
                          SmallVectorImpl<Function *> &Funcs);
-  void transAMDGPUAtomicDecorations(SPIRVValue *BV, Value *V);
   void transIntelFPGADecorations(SPIRVValue *BV, Value *V);
   void transMemAliasingINTELDecorations(SPIRVValue *BV, Value *V);
   void transDecorationsToMetadata(SPIRVValue *BV, Value *V);
