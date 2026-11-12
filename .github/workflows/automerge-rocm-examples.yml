@@ -16,8 +16,8 @@
 # Requires (same App as upstream-merge.yml):
 #   - Secret MERGE_APP_ID
 #   - Secret MERGE_APP_PRIVATE_KEY
-#   - The MERGE_APP App must be a bypass actor on the
-#     block-merge-commit-on-amd-*-branches ruleset.
+#   - The MERGE_APP App must be allowed to merge without review by all
+#     applicable rulesets and classic branch protection.
 
 name: Auto-merge rocm-examples pin PRs
 
@@ -28,9 +28,7 @@ on:
     types: [completed]
 
 permissions:
-  contents: read
-  pull-requests: read
-  checks: read
+  actions: read
 
 concurrency:
   group: automerge-rocm-examples-${{ github.event.workflow_run.head_sha }}
@@ -56,11 +54,11 @@ jobs:
           private-key: ${{ secrets.MERGE_APP_PRIVATE_KEY }}
           permission-contents: write
           permission-pull-requests: write
-          permission-actions: read # Inspect jobs from the triggering run.
 
       - name: Gate on Build + Test rocm-examples, then merge
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          ACTIONS_TOKEN: ${{ github.token }}
           EXPECTED_AUTHOR: ${{ steps.app-token.outputs.app-slug }}[bot]
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
@@ -88,8 +86,24 @@ jobs:
             exit 0
           fi
 
+          # Compare immutable commits so a rolling-branch update cannot change the diff.
+          BASE_SHA=$(jq -er '.base.sha' <<< "$DETAILS")
+          FILES=$(gh api "repos/$REPO/compare/$BASE_SHA...$HEAD_SHA" --jq '.files')
+          if ! jq -e '
+            length == 1 and
+            (.[0] |
+              .filename == ".github/workflows/spirv-ci-linux.yml" and
+              .status == "modified" and
+              .additions == 1 and .deletions == 1 and .changes == 2 and
+              ((.patch // "") | test(
+                "\n-  ROCM_EXAMPLES_REF: [0-9a-f]{40}\n\\+  ROCM_EXAMPLES_REF: [0-9a-f]{40}(\n|$)")))
+            ' <<< "$FILES" >/dev/null; then
+            echo "PR does not contain only a rocm-examples pin replacement; skipping."
+            exit 0
+          fi
+
           # Only accept jobs from this exact CI run attempt, not similarly named checks.
-          JOBS=$(gh api "repos/$REPO/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs" \
+          JOBS=$(GH_TOKEN="$ACTIONS_TOKEN" gh api "repos/$REPO/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs" \
             --paginate --jq '.jobs[]' | jq -s '.')
           if ! jq -e '
             . as $jobs |

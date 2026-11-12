@@ -5,8 +5,7 @@
 #   1. Resolve the latest ROCm/rocm-examples amd-staging tip.
 #   2. If it already matches the pin -> nothing to do.
 #   3. Otherwise rewrite the ROCM_EXAMPLES_REF line, force-push a rolling
-#      branch (deps/rocm-examples), open/refresh a single PR, and enable
-#      auto-merge.
+#      branch (deps/rocm-examples), and open/refresh a single PR.
 #
 # The bump only LANDS if the candidate SHA passes CI's Build + Test
 # rocm-examples jobs -- that gate is enforced by automerge-rocm-examples.yml,
@@ -18,7 +17,6 @@
 # Requires (same App as upstream-merge.yml):
 #   - Secret MERGE_APP_ID
 #   - Secret MERGE_APP_PRIVATE_KEY
-#   - Repository setting "Allow auto-merge" enabled.
 
 name: Update rocm-examples pin
 
@@ -145,7 +143,6 @@ jobs:
             push --force origin "${ROLLING_BRANCH}"
 
       - name: Create or refresh PR
-        id: pr
         if: steps.decide.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -178,24 +175,8 @@ jobs:
               --head "${ROLLING_BRANCH}" \
               --title "${PR_TITLE}" \
               --body "${BODY}"
-            PR=$(gh pr list --repo "${GITHUB_REPOSITORY}" \
-              --head "${ROLLING_BRANCH}" --base "${BASE_BRANCH}" --state open \
-              --json number -q '.[0].number // empty')
           else
             # Force-push already refreshed the branch; keep title/body current.
             gh pr edit "${PR}" --repo "${GITHUB_REPOSITORY}" \
               --title "${PR_TITLE}" --body "${BODY}"
           fi
-          echo "number=${PR}" >> "$GITHUB_OUTPUT"
-      - name: Enable auto-merge (merge commit)
-        if: steps.decide.outputs.changed == 'true' && steps.pr.outputs.number != ''
-        env:
-          STEPS_PR_OUTPUTS_NUMBER: ${{ steps.pr.outputs.number }}
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: |
-          # Best-effort: the real gate is automerge-rocm-examples.yml, which
-          # merges once Build + Test rocm-examples are green. A force-push
-          # clears auto-merge, so re-assert it each run.
-          gh pr merge "${STEPS_PR_OUTPUTS_NUMBER}" \
-            --repo "${GITHUB_REPOSITORY}" --auto --merge \
-            || echo "::warning::Could not enable auto-merge; watcher will merge on green gate."
