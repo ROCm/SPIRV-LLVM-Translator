@@ -1,10 +1,12 @@
 ; RUN: llvm-as < %s | llvm-spirv -spirv-ext=+SPV_INTEL_function_pointers -o %t.spv
 ; RUN: llvm-spirv %t.spv -spirv-ext=+SPV_INTEL_function_pointers -to-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-TYPED
 ; RUN: llvm-spirv -r %t.spv -o - | llvm-dis | FileCheck %s --check-prefix=CHECK-LLVM
+; RUN: llvm-spirv -r --spirv-function-program-addrspace=4 %t.spv -o - | llvm-dis | FileCheck %s --check-prefix=CHECK-LLVM-P4
 
 ; RUN: llvm-as < %s | llvm-spirv -spirv-ext=+SPV_INTEL_function_pointers,+SPV_KHR_untyped_pointers -o %t.u.spv
 ; RUN: llvm-spirv %t.u.spv -spirv-ext=+SPV_INTEL_function_pointers,+SPV_KHR_untyped_pointers -to-text -o - | FileCheck %s --check-prefixes=CHECK-SPIRV,CHECK-SPIRV-UNTYPED
 ; RUN: llvm-spirv -r %t.u.spv -o - | llvm-dis | FileCheck %s --check-prefix=CHECK-LLVM
+; RUN: llvm-spirv -r --spirv-function-program-addrspace=4 %t.u.spv -o - | llvm-dis | FileCheck %s --check-prefix=CHECK-LLVM-P4
 
 ; RUN: %if spirv-backend %{ llc -O0 -mtriple=spirv64-unknown-unknown --spirv-ext=+SPV_INTEL_function_pointers -filetype=obj %s -o %t.llc.spv %}
 ; RUN: %if spirv-backend %{ llvm-spirv -r %t.llc.spv -o %t.llc.rev.bc %}
@@ -33,6 +35,9 @@ target triple = "spir64"
 
 ; CHECK-LLVM: @two = internal addrspace(1) global ptr @_Z4barrii
 ; CHECK-LLVM: define spir_func i32 @_Z4barrii(i32 %[[#]], i32 %[[#]])
+
+; CHECK-LLVM-P4: @two = internal addrspace(1) global ptr addrspacecast (ptr addrspace(4) @_Z4barrii to ptr)
+; CHECK-LLVM-P4: define spir_func i32 @_Z4barrii(i32 %[[#]], i32 %[[#]]) addrspace(4)
 
 @two = internal addrspace(1) global ptr @_Z4barrii, align 8
 
