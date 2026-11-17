@@ -1917,16 +1917,13 @@ Value *SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
     SPIRVFunction *F = BC->getFunction();
     BV->setName(F->getName());
     unsigned AS;
-    if (BM->getAddrSpaceMap()) {
+    if (!BM->getAddrSpaceMap() &&
+        M->getTargetTriple().getVendor() == Triple::VendorType::AMD)
+      AS = M->getDataLayout().getProgramAddressSpace();
+    else
       AS = BM->shouldEmitFunctionPtrAddrSpace()
                ? BM->mapAddrSpace(SPIRAS_CodeSectionINTEL)
                : BM->getFunctionProgramAddrSpace();
-    } else {
-      AS = M->getTargetTriple().getVendor() == Triple::VendorType::AMD
-               ? M->getDataLayout().getProgramAddressSpace()
-               : (BM->shouldEmitFunctionPtrAddrSpace() ? SPIRAS_CodeSectionINTEL
-                                                       : SPIRAS_Private);
-    }
     Function *Func = transFunction(F, AS);
     Type *ResTy = transType(BV->getType());
     unsigned ResAS = isa<TypedPointerType>(ResTy)
