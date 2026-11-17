@@ -19,6 +19,10 @@ updates:
       default-days: 7
       exclude:
         - "ROCm/rocm-security-gh*"
+    
+    commit-message:
+      prefix: "chore"
+      include: "scope"
     groups:
       rocm-security-gh:
         patterns: ["ROCm/rocm-security-gh*"]
