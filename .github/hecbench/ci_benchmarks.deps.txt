@@ -26,6 +26,7 @@ cobahh-cuda
 complex-cuda
 contract-cuda
 coordinates-cuda
+cross-cuda
 damage-cuda
 data
 debayer-sycl
@@ -50,6 +51,7 @@ hellinger-cuda
 idivide-cuda
 inversek2j-sycl
 is-cuda
+jacobi-cuda
 keogh-cuda
 kiss-cuda
 laplace3d-cuda
