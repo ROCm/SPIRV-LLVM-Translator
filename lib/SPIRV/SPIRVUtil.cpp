@@ -2000,8 +2000,7 @@ bool checkTypeForSPIRVExtendedInstLowering(IntrinsicInst *II, SPIRVModule *BM) {
       NumElems = VecTy->getNumElements();
       Ty = VecTy->getElementType();
     }
-    if (Ty->isBFloatTy() &&
-        BM->hasCapability(internal::CapabilityBFloat16ArithmeticINTEL))
+    if (Ty->isBFloatTy() && BM->hasCapability(CapabilityBFloat16ArithmeticEXT))
       return true;
     if ((!Ty->isFloatTy() && !Ty->isDoubleTy() && !Ty->isHalfTy()) ||
         (!BM->hasCapability(CapabilityVectorAnyINTEL) &&
@@ -2020,8 +2019,7 @@ bool checkTypeForSPIRVExtendedInstLowering(IntrinsicInst *II, SPIRVModule *BM) {
       NumElems = VecTy->getNumElements();
       Ty = VecTy->getElementType();
     }
-    if (Ty->isBFloatTy() &&
-        BM->hasCapability(internal::CapabilityBFloat16ArithmeticINTEL))
+    if (Ty->isBFloatTy() && BM->hasCapability(CapabilityBFloat16ArithmeticEXT))
       return true;
     if ((!Ty->isIntegerTy()) ||
         (!BM->hasCapability(CapabilityVectorAnyINTEL) &&
