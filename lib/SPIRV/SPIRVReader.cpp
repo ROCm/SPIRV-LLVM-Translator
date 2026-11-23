@@ -3850,6 +3850,9 @@ static void maybeFoldFeaturePredicates(
     Instruction *I = *ToFold.begin();
     ToFold.erase(I);
 
+    if (!I->getParent()) // This has been erased by a previous terminator fold.
+      continue;
+
     I->dropDroppableUses();
 
     if (auto *C = ConstantFoldInstruction(I, F->getDataLayout())) {
