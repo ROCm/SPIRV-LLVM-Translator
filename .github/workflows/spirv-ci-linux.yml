@@ -17,6 +17,7 @@ env:
   # Pinned ORNL/HeCBench revision; bumped daily by update-hecbench.yml (sed
   # rewrites this line; keep it standalone).
   HECBENCH_REF: 678468cb4c63cf4eede2824022855797af0dbe38
+  ROCM_LIBRARIES_REF: develop
   LLVM_BUILD: build
   DEVLIBS_BUILD: build-device-libs
   COMGR_BUILD: build-comgr
@@ -240,19 +241,27 @@ jobs:
           EOF
           chmod +x "$STAGING/bin/hipconfig"
 
-      # Build rocPRIM.
-      - name: Checkout rocPRIM
+      - name: Checkout rocm-libraries
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: ROCm/rocPRIM
-          ref: develop
-          path: rocPRIM
+          repository: ROCm/rocm-libraries
+          ref: ${{ env.ROCM_LIBRARIES_REF }}
+          path: rocm-libraries
+          sparse-checkout: |
+            cmake
+            shared
+            projects/rocprim
+            projects/hipcub
+            projects/rocthrust
+            projects/rocrand
+            projects/hiprand
           persist-credentials: false
 
+      # Build rocPRIM.
       - name: Configure and install rocPRIM
         run: |
           export PATH=$PWD/$STAGING/bin:$PATH
-          cmake -G Ninja -S rocPRIM -B "$ROCPRIM_BUILD" \
+          cmake -G Ninja -S rocm-libraries/projects/rocprim -B "$ROCPRIM_BUILD" \
             -DCMAKE_CXX_COMPILER=$PWD/$LLVM_BUILD/bin/clang++ \
             -DCMAKE_HIP_COMPILER=$PWD/$LLVM_BUILD/bin/clang++ \
             -DCMAKE_PREFIX_PATH="$PWD/$STAGING;$PWD/$LLVM_BUILD" \
@@ -263,17 +272,9 @@ jobs:
           cmake --install "$ROCPRIM_BUILD" --prefix $PWD/$STAGING
 
       # Build hipCUB.
-      - name: Checkout hipCUB
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: ROCm/hipCUB
-          ref: develop
-          path: hipCUB
-          persist-credentials: false
-
       - name: Configure and install hipCUB
         run: |
-          cmake -G Ninja -S hipCUB -B "$HIPCUB_BUILD" \
+          cmake -G Ninja -S rocm-libraries/projects/hipcub -B "$HIPCUB_BUILD" \
             -DCMAKE_CXX_COMPILER=$PWD/$LLVM_BUILD/bin/clang++ \
             -DCMAKE_HIP_COMPILER=$PWD/$LLVM_BUILD/bin/clang++ \
             -DCMAKE_PREFIX_PATH="$PWD/$STAGING;$PWD/$LLVM_BUILD" \
@@ -284,17 +285,9 @@ jobs:
           cmake --install "$HIPCUB_BUILD" --prefix $PWD/$STAGING
 
       # Build rocThrust (header-only; supplies thrust:: iterators to examples).
-      - name: Checkout rocThrust
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: ROCm/rocThrust
-          ref: develop
-          path: rocThrust
-          persist-credentials: false
-
       - name: Configure and install rocThrust
         run: |
-          cmake -G Ninja -S rocThrust -B "$ROCTHRUST_BUILD" \
+          cmake -G Ninja -S rocm-libraries/projects/rocthrust -B "$ROCTHRUST_BUILD" \
             -DCMAKE_CXX_COMPILER=$PWD/$LLVM_BUILD/bin/clang++ \
             -DCMAKE_HIP_COMPILER=$PWD/$LLVM_BUILD/bin/clang++ \
             -DCMAKE_PREFIX_PATH="$PWD/$STAGING;$PWD/$LLVM_BUILD" \
@@ -305,19 +298,11 @@ jobs:
           cmake --install "$ROCTHRUST_BUILD" --prefix $PWD/$STAGING
 
       # Build rocRAND.
-      - name: Checkout rocRAND
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: ROCm/rocRAND
-          ref: develop
-          path: rocRAND
-          persist-credentials: false
-
       - name: Configure and build rocRAND
         env:
           ROCM_PATH: ${{ github.workspace }}/${{ env.STAGING }}
         run: |
-          cmake -G Ninja -S rocRAND -B "$ROCRAND_BUILD" \
+          cmake -G Ninja -S rocm-libraries/projects/rocrand -B "$ROCRAND_BUILD" \
             -DCMAKE_CXX_COMPILER=$PWD/$LLVM_BUILD/bin/clang++ \
             -DCMAKE_HIP_COMPILER=$PWD/$LLVM_BUILD/bin/clang++ \
             -DCMAKE_PREFIX_PATH="$PWD/$STAGING;$PWD/$LLVM_BUILD" \
@@ -330,19 +315,11 @@ jobs:
           cmake --install "$ROCRAND_BUILD" --prefix $PWD/$STAGING
 
       # Build hipRAND.
-      - name: Checkout hipRAND
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: ROCm/hipRAND
-          ref: develop
-          path: hipRAND
-          persist-credentials: false
-
       - name: Configure and build hipRAND
         env:
           ROCM_PATH: ${{ github.workspace }}/${{ env.STAGING }}
         run: |
-          cmake -G Ninja -S hipRAND -B "$HIPRAND_BUILD" \
+          cmake -G Ninja -S rocm-libraries/projects/hiprand -B "$HIPRAND_BUILD" \
             -DCMAKE_CXX_COMPILER=$PWD/$LLVM_BUILD/bin/clang++ \
             -DCMAKE_PREFIX_PATH="$PWD/$STAGING;$PWD/$LLVM_BUILD" \
             -DCMAKE_INSTALL_PREFIX=$PWD/$STAGING \
