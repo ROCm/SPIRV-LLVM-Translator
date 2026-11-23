@@ -3861,7 +3861,8 @@ static void maybeFoldFeaturePredicates(
       I->eraseFromParent();
       continue;
     } else if (I->isTerminator() &&
-               ConstantFoldTerminator(I->getParent(), true)) {
+               (isa<ReturnInst>(I) ||
+                ConstantFoldTerminator(I->getParent(), true))) {
       continue;
     }
 
