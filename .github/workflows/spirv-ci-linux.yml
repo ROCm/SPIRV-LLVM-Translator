@@ -240,6 +240,28 @@ jobs:
           EOF
           chmod +x "$STAGING/bin/hipconfig"
 
+      # hipCUB's installed CMake package requires libhipcxx. Stage its headers
+      # and package config so both runtime artifacts carry the dependency.
+      - name: Checkout libhipcxx
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ROCm/libhipcxx
+          ref: amd-develop
+          path: libhipcxx
+          persist-credentials: false
+
+      - name: Configure and install libhipcxx
+        run: |
+          cmake -G Ninja -S libhipcxx -B build-libhipcxx \
+            -DCMAKE_CXX_COMPILER=$PWD/$LLVM_BUILD/bin/clang++ \
+            -DCMAKE_PREFIX_PATH="$PWD/rocm-cmake/share/rocm" \
+            -DCMAKE_INSTALL_PREFIX=$PWD/$STAGING \
+            -DCMAKE_INSTALL_LIBDIR=lib \
+            -DLIBCUDACXX_ENABLE_HIP=OFF \
+            -DLIBCUDACXX_ENABLE_LIBCUDACXX_TESTS=OFF \
+            -Dlibhipcxx_ENABLE_CMAKE_TESTS=OFF
+          cmake --install build-libhipcxx --prefix $PWD/$STAGING
+
       # Build rocPRIM.
       - name: Checkout rocPRIM
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -505,6 +527,8 @@ jobs:
       - name: Checkout SPIRV-LLVM-Translator (PR head)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
           fetch-depth: 1
           persist-credentials: false
@@ -545,6 +569,8 @@ jobs:
       - name: Checkout SPIRV-LLVM-Translator (PR head)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: llvm-project/llvm/projects/SPIRV-LLVM-Translator
           fetch-depth: 1
           persist-credentials: false
@@ -583,7 +609,7 @@ jobs:
   # Test - rocm-examples
   # =====================================================================
 
-  # Select the gfx942 test runner the same way TheRock CI does.
+  # Select the gfx942 test runner using TheRock's current CI runner config.
   pick_runner:
     name: Select gfx942 test runner
     needs: [build]
@@ -600,8 +626,18 @@ jobs:
           sparse-checkout: build_tools
           persist-credentials: false
 
+      - name: Checkout CI config
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ROCm/therock-ci-config
+          ref: main
+          path: ci-config
+          persist-credentials: false
+
       - name: Weighted runner selection (gfx94X-dcgpu)
         id: pick
+        env:
+          CI_CONFIG_PATH: ci-config
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import sys
@@ -610,11 +646,17 @@ jobs:
           sys.path.insert(0, "build_tools/github_actions")
           with redirect_stdout(sys.stderr):
               from amdgpu_family_matrix import (
-                  amdgpu_family_info_matrix as M,
+                  get_all_families_for_trigger_types,
+                  load_external_runner_config,
                   select_weighted_label,
               )
-              info = M["gfx94x"]["linux"]
-              label = select_weighted_label(info["test-runs-on-labels"], "gfx94X-dcgpu")
+              if load_external_runner_config() is None:
+                  raise SystemExit("therock-ci-config did not load")
+              info = get_all_families_for_trigger_types(["presubmit"])["gfx94x"]["linux"]
+              labels = info.get("test-runs-on-labels") or [
+                  {"label": info["test-runs-on"]}
+              ]
+              label = select_weighted_label(labels, "gfx94X-dcgpu")
           print(f"label={label}")
           PY
 
