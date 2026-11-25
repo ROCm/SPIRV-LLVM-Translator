@@ -114,7 +114,7 @@ jobs:
             -p1 -clang-tidy-binary clang-tidy-"${LLVM_VERSION}" -quiet \
             -path "${GITHUB_WORKSPACE}"/build
     - name: Upload patch with clang-format fixes
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       if: ${{ failure() && steps.run-clang-format.outcome == 'failure' }}
       with:
         name: clang-format.patch
@@ -122,7 +122,7 @@ jobs:
         if-no-files-found: ignore
 
     - name: Upload clang-tidy log
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       if: ${{ failure() && steps.run-clang-tidy.outcome == 'failure' }}
       with:
         name: clang-tidy.log
