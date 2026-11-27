@@ -18,11 +18,18 @@
 ; are not supported in clang.  In this test, such vector cases have been added manually for completeness.
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: llvm-spirv -spirv-ext=+SPV_ALTERA_arbitrary_precision_integers -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV --implicit-check-not="BitReverse"
-; RUN: llvm-spirv -spirv-ext=+SPV_ALTERA_arbitrary_precision_integers %t.bc -o %t.spv
+; RUN: llvm-spirv -spirv-ext=+SPV_INTEL_arbitrary_precision_integers -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV --implicit-check-not="BitReverse"
+; RUN: llvm-spirv -spirv-ext=+SPV_INTEL_arbitrary_precision_integers %t.bc -o %t.spv
 ; RUN: llvm-spirv -r %t.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; RUN: spirv-val %t.spv
+
+; SPV_ALTERA_arbitrary_precision_integers is accepted in place of the INTEL one.
+; RUN: llvm-spirv -spirv-ext=+SPV_ALTERA_arbitrary_precision_integers -spirv-text %t.bc -o - | FileCheck %s --check-prefix=CHECK-SPIRV --implicit-check-not="BitReverse"
+; RUN: llvm-spirv -spirv-ext=+SPV_ALTERA_arbitrary_precision_integers %t.bc -o %t.altera.spv
+; RUN: llvm-spirv -r %t.altera.spv -o - | llvm-dis -o - | FileCheck %s --check-prefix=CHECK-LLVM
+
+; RUN: spirv-val %t.altera.spv
 
 ; CHECK-SPIRV: Name [[BR_2:[0-9]+]] "llvm_bitreverse_i2"
 ; CHECK-SPIRV: Name [[BR_4:[0-9]+]] "llvm_bitreverse_i4"
